@@ -157,6 +157,14 @@ export const meals = sqliteTable(
   (t) => [index("meals_user_day_idx").on(t.user_id, t.logical_day)],
 );
 
+export const coach_memory = sqliteTable("coach_memory", {
+  user_id: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+});
+
 export const workouts = sqliteTable(
   "workouts",
   {
@@ -212,6 +220,7 @@ export type Profile = typeof profiles.$inferSelect;
 export type CatalogItem = typeof catalog_items.$inferSelect;
 export type CatalogComponent = typeof catalog_components.$inferSelect;
 export type Meal = typeof meals.$inferSelect;
+export type CoachMemory = typeof coach_memory.$inferSelect;
 export type Workout = typeof workouts.$inferSelect;
 export type WorkoutExercise = typeof workout_exercises.$inferSelect;
 export type WorkoutSet = typeof workout_sets.$inferSelect;
