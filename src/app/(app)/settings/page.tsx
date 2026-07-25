@@ -1,4 +1,5 @@
 import { BackupCard } from "@/components/settings/BackupCard";
+import { MdImportCard } from "@/components/settings/MdImportCard";
 import { ProfileForm } from "@/components/settings/ProfileForm";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { TargetsForm } from "@/components/settings/TargetsForm";
@@ -17,6 +18,7 @@ export default async function SettingsPage() {
       </div>
       <TargetsForm profile={profile} />
       <ProfileForm profile={profile} />
+      <MdImportCard />
       <BackupCard />
       <SignOutButton />
     </div>
