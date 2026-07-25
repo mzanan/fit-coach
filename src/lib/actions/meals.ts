@@ -1,0 +1,174 @@
+"use server";
+
+import { and, eq, inArray } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+
+import { db, schema } from "@/lib/db";
+import { requireUser } from "@/lib/session";
+import { dayString, fatQuality, macroFields } from "@/lib/validation";
+import { newId } from "@/lib/utils";
+
+const { meals, catalog_items, catalog_components } = schema;
+
+function anyOily(qualities: (string | null)[]): "clean" | "oily" | null {
+  if (qualities.some((q) => q === "oily")) return "oily";
+  if (qualities.some((q) => q === "clean")) return "clean";
+  return null;
+}
+
+const fromCatalogSchema = z.object({
+  itemId: z.string().min(1),
+  category: z.string().min(1),
+  day: dayString,
+});
+
+export async function addMealFromCatalog(input: unknown) {
+  const user = await requireUser();
+  const { itemId, category, day } = fromCatalogSchema.parse(input);
+
+  const item = await db
+    .select()
+    .from(catalog_items)
+    .where(and(eq(catalog_items.id, itemId), eq(catalog_items.user_id, user.id)))
+    .limit(1);
+  if (!item[0]) throw new Error("Catalog item not found");
+
+  await db.insert(meals).values({
+    id: newId(),
+    user_id: user.id,
+    logical_day: day,
+    category,
+    name: item[0].name,
+    place: item[0].place,
+    protein_g: item[0].protein_g,
+    fat_g: item[0].fat_g,
+    carbs_g: item[0].carbs_g,
+    fat_quality: item[0].fat_quality,
+    catalog_item_id: item[0].id,
+    created_at: new Date(),
+  });
+  revalidatePath("/");
+}
+
+const composableSchema = z.object({
+  itemId: z.string().min(1),
+  componentIds: z.array(z.string().min(1)).min(1),
+  category: z.string().min(1),
+  day: dayString,
+  name: z.string().min(1).optional(),
+});
+
+export async function addComposableMeal(input: unknown) {
+  const user = await requireUser();
+  const { itemId, componentIds, category, day, name } =
+    composableSchema.parse(input);
+
+  const item = await db
+    .select()
+    .from(catalog_items)
+    .where(and(eq(catalog_items.id, itemId), eq(catalog_items.user_id, user.id)))
+    .limit(1);
+  if (!item[0]) throw new Error("Catalog item not found");
+
+  const comps = await db
+    .select()
+    .from(catalog_components)
+    .where(
+      and(
+        eq(catalog_components.user_id, user.id),
+        eq(catalog_components.item_id, itemId),
+        inArray(catalog_components.id, componentIds),
+      ),
+    );
+  if (!comps.length) throw new Error("No components selected");
+
+  const totals = comps.reduce(
+    (acc, c) => ({
+      protein_g: acc.protein_g + c.protein_g,
+      fat_g: acc.fat_g + c.fat_g,
+      carbs_g: acc.carbs_g + c.carbs_g,
+    }),
+    { protein_g: 0, fat_g: 0, carbs_g: 0 },
+  );
+
+  await db.insert(meals).values({
+    id: newId(),
+    user_id: user.id,
+    logical_day: day,
+    category,
+    name: name?.trim() || item[0].name,
+    place: item[0].place,
+    protein_g: totals.protein_g,
+    fat_g: totals.fat_g,
+    carbs_g: totals.carbs_g,
+    fat_quality: anyOily(comps.map((c) => c.fat_quality)),
+    catalog_item_id: item[0].id,
+    created_at: new Date(),
+  });
+  revalidatePath("/");
+}
+
+const manualSchema = z.object({
+  name: z.string().min(1),
+  place: z.string().optional(),
+  category: z.string().min(1),
+  day: dayString,
+  fat_quality: fatQuality.optional(),
+  ...macroFields,
+});
+
+export async function addManualMeal(input: unknown) {
+  const user = await requireUser();
+  const data = manualSchema.parse(input);
+
+  await db.insert(meals).values({
+    id: newId(),
+    user_id: user.id,
+    logical_day: data.day,
+    category: data.category,
+    name: data.name.trim(),
+    place: data.place?.trim() || null,
+    protein_g: data.protein_g,
+    fat_g: data.fat_g,
+    carbs_g: data.carbs_g,
+    fat_quality: data.fat_quality ?? null,
+    catalog_item_id: null,
+    created_at: new Date(),
+  });
+  revalidatePath("/");
+}
+
+const updateSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  category: z.string().min(1),
+  fat_quality: fatQuality.optional(),
+  ...macroFields,
+});
+
+export async function updateMeal(input: unknown) {
+  const user = await requireUser();
+  const data = updateSchema.parse(input);
+
+  await db
+    .update(meals)
+    .set({
+      name: data.name.trim(),
+      category: data.category,
+      protein_g: data.protein_g,
+      fat_g: data.fat_g,
+      carbs_g: data.carbs_g,
+      fat_quality: data.fat_quality ?? null,
+    })
+    .where(and(eq(meals.id, data.id), eq(meals.user_id, user.id)));
+  revalidatePath("/");
+}
+
+export async function deleteMeal(id: string) {
+  const user = await requireUser();
+  await db
+    .delete(meals)
+    .where(and(eq(meals.id, id), eq(meals.user_id, user.id)));
+  revalidatePath("/");
+}
