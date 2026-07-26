@@ -47,7 +47,9 @@ export function ResponsiveDialog({
             className,
           )}
         >
-          <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>
+          <Dialog.Title className="text-center text-lg font-semibold">
+            {title}
+          </Dialog.Title>
           {description ? (
             <Dialog.Description className="mt-0.5 text-sm text-muted-foreground">
               {description}
