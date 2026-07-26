@@ -14,6 +14,19 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [pending, setPending] = useState(false);
+  const [googlePending, setGooglePending] = useState(false);
+
+  async function signInWithGoogle() {
+    setGooglePending(true);
+    const { error } = await authClient.signIn.social({
+      provider: "google",
+      callbackURL: "/",
+    });
+    if (error) {
+      setGooglePending(false);
+      toast.error(error.message ?? "Could not sign in with Google");
+    }
+  }
 
   async function sendCode(e: React.FormEvent) {
     e.preventDefault();
@@ -50,9 +63,23 @@ export function LoginForm() {
   return (
     <div className="w-full max-w-sm">
       <h1 className="text-2xl font-semibold">Fit Coach</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Sign in with a one-time code.
-      </p>
+      <p className="mt-1 text-sm text-muted-foreground">Sign in to continue.</p>
+
+      <Button
+        type="button"
+        size="lg"
+        className="mt-6 w-full"
+        disabled={googlePending}
+        onClick={signInWithGoogle}
+      >
+        {googlePending ? "Redirecting..." : "Continue with Google"}
+      </Button>
+
+      <div className="mt-6 flex items-center gap-3 text-xs text-muted-foreground">
+        <span className="h-px flex-1 bg-border" />
+        or use a one-time email code
+        <span className="h-px flex-1 bg-border" />
+      </div>
 
       {step === "email" ? (
         <form onSubmit={sendCode} className="mt-6 space-y-3">
@@ -69,7 +96,13 @@ export function LoginForm() {
               placeholder="you@email.com"
             />
           </div>
-          <Button type="submit" size="lg" className="w-full" disabled={pending}>
+          <Button
+            type="submit"
+            variant="outline"
+            size="lg"
+            className="w-full"
+            disabled={pending}
+          >
             {pending ? "Sending..." : "Send code"}
           </Button>
         </form>
@@ -87,7 +120,13 @@ export function LoginForm() {
               placeholder="000000"
             />
           </div>
-          <Button type="submit" size="lg" className="w-full" disabled={pending}>
+          <Button
+            type="submit"
+            variant="outline"
+            size="lg"
+            className="w-full"
+            disabled={pending}
+          >
             {pending ? "Verifying..." : "Verify and sign in"}
           </Button>
           <button
