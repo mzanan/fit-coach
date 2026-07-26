@@ -5,7 +5,9 @@ import { MdImportCard } from "@/components/settings/MdImportCard";
 import { ProfileForm } from "@/components/settings/ProfileForm";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { TargetsForm } from "@/components/settings/TargetsForm";
+import { InbodyCard } from "@/components/settings/InbodyCard";
 import { WhoopCard } from "@/components/settings/WhoopCard";
+import { hasAi } from "@/lib/ai/groq";
 import { getWhoopConnection, hasWhoopEnv } from "@/lib/integrations/whoop";
 import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
@@ -36,6 +38,7 @@ export default async function SettingsPage() {
             : null
         }
       />
+      <InbodyCard aiReady={hasAi()} />
       <MdImportCard />
       <BackupCard />
       <SignOutButton />

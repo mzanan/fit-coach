@@ -304,6 +304,57 @@ export const whoop_workouts = sqliteTable(
   (t) => [index("whoop_workouts_user_start_idx").on(t.user_id, t.start)],
 );
 
+export const body_scans = sqliteTable(
+  "body_scans",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    taken_at: integer("taken_at", { mode: "timestamp_ms" }).notNull(),
+    weight_kg: real("weight_kg"),
+    skeletal_muscle_kg: real("skeletal_muscle_kg"),
+    body_fat_kg: real("body_fat_kg"),
+    body_fat_pct: real("body_fat_pct"),
+    bmi: real("bmi"),
+    visceral_fat_level: real("visceral_fat_level"),
+    total_body_water_l: real("total_body_water_l"),
+    bmr_kcal: real("bmr_kcal"),
+    inbody_score: real("inbody_score"),
+    device: text("device"),
+    location: text("location"),
+    member_id: text("member_id"),
+    height_cm: real("height_cm"),
+    age: real("age"),
+    gender: text("gender"),
+    body_balance_upper: text("body_balance_upper"),
+    body_balance_lower: text("body_balance_lower"),
+    body_balance_upper_lower: text("body_balance_upper_lower"),
+    protein_kg: real("protein_kg"),
+    minerals_kg: real("minerals_kg"),
+    bone_mineral_kg: real("bone_mineral_kg"),
+    soft_lean_mass_kg: real("soft_lean_mass_kg"),
+    fat_free_mass_kg: real("fat_free_mass_kg"),
+    body_cell_mass_kg: real("body_cell_mass_kg"),
+    ecw_ratio: real("ecw_ratio"),
+    phase_angle: real("phase_angle"),
+    smi: real("smi"),
+    visceral_fat_area_cm2: real("visceral_fat_area_cm2"),
+    waist_circumference_cm: real("waist_circumference_cm"),
+    waist_hip_ratio: real("waist_hip_ratio"),
+    obesity_degree_pct: real("obesity_degree_pct"),
+    recommended_kcal: real("recommended_kcal"),
+    target_weight_kg: real("target_weight_kg"),
+    weight_control_kg: real("weight_control_kg"),
+    fat_control_kg: real("fat_control_kg"),
+    muscle_control_kg: real("muscle_control_kg"),
+    segmental: text("segmental"),
+    notes: text("notes"),
+    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("body_scans_user_taken_idx").on(t.user_id, t.taken_at)],
+);
+
 export type Profile = typeof profiles.$inferSelect;
 export type CatalogItem = typeof catalog_items.$inferSelect;
 export type CatalogComponent = typeof catalog_components.$inferSelect;
@@ -312,6 +363,7 @@ export type CoachMemory = typeof coach_memory.$inferSelect;
 export type Workout = typeof workouts.$inferSelect;
 export type WorkoutExercise = typeof workout_exercises.$inferSelect;
 export type WorkoutSet = typeof workout_sets.$inferSelect;
+export type BodyScan = typeof body_scans.$inferSelect;
 export type WhoopConnection = typeof whoop_connections.$inferSelect;
 export type WhoopCycle = typeof whoop_cycles.$inferSelect;
 export type WhoopRecovery = typeof whoop_recovery.$inferSelect;

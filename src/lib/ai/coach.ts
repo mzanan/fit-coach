@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { getDayData } from "@/lib/data/today";
 import { getWhoopSnapshot } from "@/lib/data/whoop";
@@ -14,7 +14,7 @@ import { categoryLabel } from "@/lib/constants";
 import { kcalOf } from "@/lib/macros";
 import { round } from "@/lib/utils";
 
-const { meals } = schema;
+const { meals, body_scans } = schema;
 
 const SYSTEM = `You are a strength and nutrition coach inside a personal tracking app. The user is doing body recomposition (gain muscle, lose fat) and mostly eats out. Real progress = photo every 4 weeks + waist, not the scale.
 
@@ -81,6 +81,7 @@ async function buildContext(
   const weekLine = `Last 7 days: ${loggedDays} days logged, protein target hit on ${proteinHit}.`;
 
   const whoopLines = await buildWhoopLines(userId);
+  const scanLines = await buildScanLines(userId);
 
   return {
     profile,
@@ -92,8 +93,32 @@ async function buildContext(
       ...mealLines,
       weekLine,
       ...whoopLines,
+      ...scanLines,
     ],
   };
+}
+
+async function buildScanLines(userId: string): Promise<string[]> {
+  const [scan] = await db
+    .select()
+    .from(body_scans)
+    .where(eq(body_scans.user_id, userId))
+    .orderBy(desc(body_scans.taken_at))
+    .limit(1);
+  if (!scan) return [];
+  const parts = [
+    scan.weight_kg != null ? `weight ${scan.weight_kg}kg` : null,
+    scan.skeletal_muscle_kg != null
+      ? `skeletal muscle ${scan.skeletal_muscle_kg}kg`
+      : null,
+    scan.body_fat_pct != null ? `body fat ${scan.body_fat_pct}%` : null,
+    scan.visceral_fat_level != null
+      ? `visceral fat ${scan.visceral_fat_level}`
+      : null,
+  ].filter(Boolean);
+  if (!parts.length) return [];
+  const day = scan.taken_at.toISOString().slice(0, 10);
+  return [`Latest InBody scan (${day}): ${parts.join(", ")}.`];
 }
 
 const WHOOP_FRESH_MS = 48 * 60 * 60 * 1000;

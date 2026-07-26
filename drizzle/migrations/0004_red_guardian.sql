@@ -1,0 +1,21 @@
+ALTER TABLE `body_scans` ADD `device` text;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `location` text;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `protein_kg` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `minerals_kg` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `bone_mineral_kg` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `soft_lean_mass_kg` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `fat_free_mass_kg` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `body_cell_mass_kg` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `ecw_ratio` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `phase_angle` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `smi` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `visceral_fat_area_cm2` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `waist_circumference_cm` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `waist_hip_ratio` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `obesity_degree_pct` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `recommended_kcal` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `target_weight_kg` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `weight_control_kg` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `fat_control_kg` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `muscle_control_kg` real;--> statement-breakpoint
+ALTER TABLE `body_scans` ADD `segmental` text;
