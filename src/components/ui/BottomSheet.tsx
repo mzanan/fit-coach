@@ -33,7 +33,7 @@ export function BottomSheet({
           <div className="px-5 pb-2 pt-3">
             <Drawer.Title className="text-lg font-semibold">{title}</Drawer.Title>
             {description ? (
-              <Drawer.Description className="mt-0.5 text-sm text-muted-foreground">
+              <Drawer.Description className="mt-0.5 whitespace-pre-line text-sm text-muted-foreground">
                 {description}
               </Drawer.Description>
             ) : (

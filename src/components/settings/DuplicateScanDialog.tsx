@@ -38,7 +38,7 @@ export function DuplicateScanDialog({
         if (!open) onCancel();
       }}
       title="This scan is already saved"
-      description={`A scan from ${takenAt} already exists. Replace it with the one you just imported, or keep both.`}
+      description={`A scan from ${takenAt} already exists.\nReplace it with the one you just imported, or keep both.`}
     >
       {duplicate && (
         <div className="space-y-4">

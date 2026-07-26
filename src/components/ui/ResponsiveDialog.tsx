@@ -51,7 +51,7 @@ export function ResponsiveDialog({
             {title}
           </Dialog.Title>
           {description ? (
-            <Dialog.Description className="mt-0.5 text-sm text-muted-foreground">
+            <Dialog.Description className="mt-0.5 whitespace-pre-line text-sm text-muted-foreground">
               {description}
             </Dialog.Description>
           ) : (
