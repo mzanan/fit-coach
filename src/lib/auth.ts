@@ -33,6 +33,13 @@ export const auth = betterAuth({
       maxAge: 5 * 60,
     },
   },
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+      disableSignUp,
+    },
+  },
   plugins: [
     emailOTP({
       otpLength: 6,
