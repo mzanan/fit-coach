@@ -4,7 +4,7 @@ import { CheckCircle2, ScanLine } from "lucide-react";
 import Image from "next/image";
 import { useRef } from "react";
 
-import { DuplicateScanSheet } from "@/components/settings/DuplicateScanSheet";
+import { DuplicateScanDialog } from "@/components/settings/DuplicateScanDialog";
 import { SegmentalTable } from "@/components/settings/SegmentalTable";
 import { useInbodyImport } from "@/components/settings/useInbodyImport";
 import { Button } from "@/components/ui/Button";
@@ -96,7 +96,7 @@ export function InbodyCard({ aiReady }: { aiReady: boolean }) {
         </div>
       )}
 
-      <DuplicateScanSheet
+      <DuplicateScanDialog
         duplicate={duplicate}
         busy={busy}
         onResolve={(mode) => void resolveDuplicate(mode)}

@@ -1,8 +1,8 @@
 "use client";
 
-import { Button } from "@/components/ui/Button";
-import { BottomSheet } from "@/components/ui/BottomSheet";
 import type { DuplicateScan } from "@/components/settings/useInbodyImport";
+import { Button } from "@/components/ui/Button";
+import { ResponsiveDialog } from "@/components/ui/ResponsiveDialog";
 
 function line(
   label: string,
@@ -18,7 +18,7 @@ function line(
   return `${label}: ${parts.length ? parts.join(", ") : "no values"}`;
 }
 
-export function DuplicateScanSheet({
+export function DuplicateScanDialog({
   duplicate,
   busy,
   onResolve,
@@ -32,7 +32,7 @@ export function DuplicateScanSheet({
   const takenAt = duplicate?.pending.taken_at.replace("T", " ") ?? "";
 
   return (
-    <BottomSheet
+    <ResponsiveDialog
       open={duplicate !== null}
       onOpenChange={(open) => {
         if (!open) onCancel();
@@ -77,6 +77,6 @@ export function DuplicateScanSheet({
           </div>
         </div>
       )}
-    </BottomSheet>
+    </ResponsiveDialog>
   );
 }
