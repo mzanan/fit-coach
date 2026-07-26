@@ -38,3 +38,108 @@ export const DEFAULT_SPLIT = [
 
 export const TIMEZONE_DEFAULT = "Asia/Ho_Chi_Minh";
 export const DAY_CUTOFF_DEFAULT = 4;
+
+export const BODY_SEGMENTS = [
+  { key: "right_arm", label: "Right arm" },
+  { key: "left_arm", label: "Left arm" },
+  { key: "trunk", label: "Trunk" },
+  { key: "right_leg", label: "Right leg" },
+  { key: "left_leg", label: "Left leg" },
+] as const;
+
+export const SEGMENT_METRICS = [
+  { key: "lean_kg", label: "Lean kg" },
+  { key: "lean_pct", label: "Lean %" },
+  { key: "fat_kg", label: "Fat kg" },
+  { key: "fat_pct", label: "Fat %" },
+  { key: "ecw_ratio", label: "ECW" },
+  { key: "phase_angle", label: "Phase" },
+] as const;
+
+export const IMAGE_MAX_DIMENSION = 1600;
+
+export const INBODY_FIELD_GROUPS = [
+  {
+    title: "Muscle and fat",
+    fields: [
+      { key: "weight_kg", label: "Weight (kg)", step: 0.1 },
+      { key: "skeletal_muscle_kg", label: "Skeletal muscle (kg)", step: 0.1 },
+      { key: "body_fat_kg", label: "Body fat (kg)", step: 0.1 },
+      { key: "body_fat_pct", label: "Body fat (%)", step: 0.1 },
+      { key: "bmi", label: "BMI", step: 0.1 },
+      { key: "inbody_score", label: "InBody score", step: 1 },
+    ],
+  },
+  {
+    title: "Body composition",
+    fields: [
+      { key: "total_body_water_l", label: "Body water (L)", step: 0.1 },
+      { key: "protein_kg", label: "Protein (kg)", step: 0.1 },
+      { key: "minerals_kg", label: "Minerals (kg)", step: 0.01 },
+      { key: "bone_mineral_kg", label: "Bone mineral (kg)", step: 0.01 },
+      { key: "soft_lean_mass_kg", label: "Soft lean mass (kg)", step: 0.1 },
+      { key: "fat_free_mass_kg", label: "Fat free mass (kg)", step: 0.1 },
+      { key: "body_cell_mass_kg", label: "Body cell mass (kg)", step: 0.1 },
+      { key: "ecw_ratio", label: "ECW ratio", step: 0.001 },
+      { key: "phase_angle", label: "Phase angle", step: 0.1 },
+    ],
+  },
+  {
+    title: "Research parameters",
+    fields: [
+      { key: "smi", label: "SMI (kg/m2)", step: 0.1 },
+      { key: "bmr_kcal", label: "BMR (kcal)", step: 1 },
+      { key: "visceral_fat_level", label: "Visceral fat level", step: 1 },
+      {
+        key: "visceral_fat_area_cm2",
+        label: "Visceral fat area (cm2)",
+        step: 0.1,
+      },
+      { key: "waist_circumference_cm", label: "Waist (cm)", step: 0.1 },
+      { key: "waist_hip_ratio", label: "Waist-hip ratio", step: 0.01 },
+      { key: "obesity_degree_pct", label: "Obesity degree (%)", step: 1 },
+      { key: "recommended_kcal", label: "Recommended kcal", step: 1 },
+    ],
+  },
+  {
+    title: "Weight control",
+    fields: [
+      { key: "target_weight_kg", label: "Target weight (kg)", step: 0.1 },
+      { key: "weight_control_kg", label: "Weight control (kg)", step: 0.1 },
+      { key: "fat_control_kg", label: "Fat control (kg)", step: 0.1 },
+      { key: "muscle_control_kg", label: "Muscle control (kg)", step: 0.1 },
+    ],
+  },
+  {
+    title: "From the header",
+    fields: [
+      { key: "height_cm", label: "Height (cm)", step: 0.1 },
+      { key: "age", label: "Age", step: 1 },
+    ],
+  },
+] as const;
+
+export const INBODY_TEXT_FIELDS = [
+  { key: "device", label: "Device", placeholder: "InBody 580" },
+  { key: "location", label: "Place", placeholder: "Gym" },
+  { key: "member_id", label: "InBody ID", placeholder: "From the sheet" },
+  { key: "gender", label: "Gender", placeholder: "male" },
+  { key: "body_balance_upper", label: "Balance upper", placeholder: "balanced" },
+  { key: "body_balance_lower", label: "Balance lower", placeholder: "balanced" },
+  {
+    key: "body_balance_upper_lower",
+    label: "Balance upper-lower",
+    placeholder: "balanced",
+  },
+] as const;
+
+export const INBODY_NUMERIC_KEYS = INBODY_FIELD_GROUPS.flatMap((g) =>
+  g.fields.map((f) => f.key),
+);
+
+export const INBODY_TEXT_KEYS = INBODY_TEXT_FIELDS.map((f) => f.key);
+
+export type BodySegment = (typeof BODY_SEGMENTS)[number]["key"];
+export type SegmentMetric = (typeof SEGMENT_METRICS)[number]["key"];
+export type SegmentValues = Partial<Record<SegmentMetric, number | null>>;
+export type Segmental = Partial<Record<BodySegment, SegmentValues | null>>;
