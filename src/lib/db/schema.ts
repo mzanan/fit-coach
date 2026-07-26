@@ -216,6 +216,94 @@ export const workout_sets = sqliteTable(
   (t) => [index("workout_sets_exercise_idx").on(t.exercise_id)],
 );
 
+export const whoop_connections = sqliteTable("whoop_connections", {
+  user_id: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  whoop_user_id: text("whoop_user_id"),
+  access_token: text("access_token").notNull(),
+  refresh_token: text("refresh_token").notNull(),
+  expires_at: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  scope: text("scope"),
+  last_synced_at: integer("last_synced_at", { mode: "timestamp_ms" }),
+  created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+export const whoop_cycles = sqliteTable(
+  "whoop_cycles",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    start: integer("start", { mode: "timestamp_ms" }).notNull(),
+    end: integer("end", { mode: "timestamp_ms" }),
+    score_state: text("score_state").notNull(),
+    strain: real("strain"),
+    kilojoule: real("kilojoule"),
+    average_heart_rate: real("average_heart_rate"),
+    max_heart_rate: real("max_heart_rate"),
+  },
+  (t) => [index("whoop_cycles_user_start_idx").on(t.user_id, t.start)],
+);
+
+export const whoop_recovery = sqliteTable(
+  "whoop_recovery",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    sleep_id: text("sleep_id"),
+    recorded_at: integer("recorded_at", { mode: "timestamp_ms" }).notNull(),
+    score_state: text("score_state").notNull(),
+    recovery_score: real("recovery_score"),
+    resting_heart_rate: real("resting_heart_rate"),
+    hrv_rmssd_milli: real("hrv_rmssd_milli"),
+    spo2_percentage: real("spo2_percentage"),
+    skin_temp_celsius: real("skin_temp_celsius"),
+  },
+  (t) => [index("whoop_recovery_user_recorded_idx").on(t.user_id, t.recorded_at)],
+);
+
+export const whoop_sleep = sqliteTable(
+  "whoop_sleep",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    start: integer("start", { mode: "timestamp_ms" }).notNull(),
+    end: integer("end", { mode: "timestamp_ms" }).notNull(),
+    nap: integer("nap", { mode: "boolean" }).notNull().default(false),
+    score_state: text("score_state").notNull(),
+    sleep_performance_percentage: real("sleep_performance_percentage"),
+    respiratory_rate: real("respiratory_rate"),
+    time_in_bed_ms: integer("time_in_bed_ms"),
+    time_asleep_ms: integer("time_asleep_ms"),
+  },
+  (t) => [index("whoop_sleep_user_start_idx").on(t.user_id, t.start)],
+);
+
+export const whoop_workouts = sqliteTable(
+  "whoop_workouts",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    start: integer("start", { mode: "timestamp_ms" }).notNull(),
+    end: integer("end", { mode: "timestamp_ms" }).notNull(),
+    sport_name: text("sport_name"),
+    score_state: text("score_state").notNull(),
+    strain: real("strain"),
+    average_heart_rate: real("average_heart_rate"),
+    distance_meter: real("distance_meter"),
+  },
+  (t) => [index("whoop_workouts_user_start_idx").on(t.user_id, t.start)],
+);
+
 export type Profile = typeof profiles.$inferSelect;
 export type CatalogItem = typeof catalog_items.$inferSelect;
 export type CatalogComponent = typeof catalog_components.$inferSelect;
@@ -224,3 +312,8 @@ export type CoachMemory = typeof coach_memory.$inferSelect;
 export type Workout = typeof workouts.$inferSelect;
 export type WorkoutExercise = typeof workout_exercises.$inferSelect;
 export type WorkoutSet = typeof workout_sets.$inferSelect;
+export type WhoopConnection = typeof whoop_connections.$inferSelect;
+export type WhoopCycle = typeof whoop_cycles.$inferSelect;
+export type WhoopRecovery = typeof whoop_recovery.$inferSelect;
+export type WhoopSleep = typeof whoop_sleep.$inferSelect;
+export type WhoopWorkout = typeof whoop_workouts.$inferSelect;

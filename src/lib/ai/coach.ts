@@ -3,8 +3,10 @@ import "server-only";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { getDayData } from "@/lib/data/today";
+import { getWhoopSnapshot } from "@/lib/data/whoop";
 import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
+import { getWhoopConnection } from "@/lib/integrations/whoop";
 import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
 import { chat, hasAi } from "@/lib/ai/groq";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
@@ -78,11 +80,73 @@ async function buildContext(
 
   const weekLine = `Last 7 days: ${loggedDays} days logged, protein target hit on ${proteinHit}.`;
 
+  const whoopLines = await buildWhoopLines(userId);
+
   return {
     profile,
     today,
-    lines: [targetsLine, totalsLine, "Meals logged today:", ...mealLines, weekLine],
+    lines: [
+      targetsLine,
+      totalsLine,
+      "Meals logged today:",
+      ...mealLines,
+      weekLine,
+      ...whoopLines,
+    ],
   };
+}
+
+const WHOOP_FRESH_MS = 48 * 60 * 60 * 1000;
+
+async function buildWhoopLines(userId: string): Promise<string[]> {
+  const conn = await getWhoopConnection(userId);
+  if (!conn) return [];
+  const snap = await getWhoopSnapshot(userId);
+  const now = Date.now();
+  const parts: string[] = [];
+
+  const r = snap.recovery;
+  if (r?.recovery_score != null && now - r.recorded_at.getTime() < WHOOP_FRESH_MS) {
+    const extras = [
+      r.hrv_rmssd_milli != null ? `HRV ${round(r.hrv_rmssd_milli)}ms` : null,
+      r.resting_heart_rate != null ? `RHR ${round(r.resting_heart_rate)}bpm` : null,
+    ].filter(Boolean);
+    parts.push(
+      `recovery ${round(r.recovery_score)}%${extras.length ? ` (${extras.join(", ")})` : ""}`,
+    );
+  }
+
+  const s = snap.sleep;
+  if (s && now - s.end.getTime() < WHOOP_FRESH_MS) {
+    const asleep =
+      s.time_asleep_ms != null
+        ? `${Math.floor(s.time_asleep_ms / 3_600_000)}h${Math.round((s.time_asleep_ms % 3_600_000) / 60_000)}m asleep`
+        : null;
+    const perf =
+      s.sleep_performance_percentage != null
+        ? `${round(s.sleep_performance_percentage)}% sleep performance`
+        : null;
+    const bits = [asleep, perf].filter(Boolean);
+    if (bits.length) parts.push(`last night ${bits.join(", ")}`);
+  }
+
+  const c = snap.cycle;
+  if (c?.strain != null && now - c.start.getTime() < WHOOP_FRESH_MS) {
+    parts.push(`current day strain ${round(c.strain, 1)}`);
+  }
+
+  if (snap.recentWorkouts.length) {
+    const strains = snap.recentWorkouts
+      .map((w) => w.strain)
+      .filter((v): v is number => v != null);
+    const avg = strains.length
+      ? `, avg strain ${round(strains.reduce((a, b) => a + b, 0) / strains.length, 1)}`
+      : "";
+    parts.push(`${snap.recentWorkouts.length} Whoop workouts last 7 days${avg}`);
+  }
+
+  if (!parts.length) return [];
+  return [`Whoop band data: ${parts.join("; ")}.`];
 }
 
 function deterministicReply(ctx: CoachContext): string {

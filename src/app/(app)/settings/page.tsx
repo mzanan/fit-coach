@@ -1,14 +1,19 @@
+import { formatInTimeZone } from "date-fns-tz";
+
 import { BackupCard } from "@/components/settings/BackupCard";
 import { MdImportCard } from "@/components/settings/MdImportCard";
 import { ProfileForm } from "@/components/settings/ProfileForm";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { TargetsForm } from "@/components/settings/TargetsForm";
+import { WhoopCard } from "@/components/settings/WhoopCard";
+import { getWhoopConnection, hasWhoopEnv } from "@/lib/integrations/whoop";
 import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
 
 export default async function SettingsPage() {
   const user = await requireUser();
   const profile = await ensureProfile(user.id);
+  const whoop = await getWhoopConnection(user.id);
 
   return (
     <div className="space-y-4">
@@ -18,6 +23,19 @@ export default async function SettingsPage() {
       </div>
       <TargetsForm profile={profile} />
       <ProfileForm profile={profile} />
+      <WhoopCard
+        configured={hasWhoopEnv()}
+        connected={Boolean(whoop)}
+        lastSyncedAt={
+          whoop?.last_synced_at
+            ? formatInTimeZone(
+                whoop.last_synced_at,
+                profile.timezone,
+                "yyyy-MM-dd HH:mm",
+              )
+            : null
+        }
+      />
       <MdImportCard />
       <BackupCard />
       <SignOutButton />
