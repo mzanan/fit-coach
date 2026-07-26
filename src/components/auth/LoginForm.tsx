@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/authClient";
+import { GoogleIcon } from "@/components/auth/GoogleIcon";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 
@@ -67,11 +68,13 @@ export function LoginForm() {
 
       <Button
         type="button"
+        variant="outline"
         size="lg"
-        className="mt-6 w-full"
+        className="mt-6 w-full bg-white text-neutral-800 hover:bg-neutral-50 dark:border-transparent"
         disabled={googlePending}
         onClick={signInWithGoogle}
       >
+        <GoogleIcon />
         {googlePending ? "Redirecting..." : "Continue with Google"}
       </Button>
 
