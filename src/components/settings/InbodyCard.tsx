@@ -4,6 +4,7 @@ import { CheckCircle2, ScanLine } from "lucide-react";
 import Image from "next/image";
 import { useRef } from "react";
 
+import { DuplicateScanSheet } from "@/components/settings/DuplicateScanSheet";
 import { SegmentalTable } from "@/components/settings/SegmentalTable";
 import { useInbodyImport } from "@/components/settings/useInbodyImport";
 import { Button } from "@/components/ui/Button";
@@ -17,6 +18,7 @@ export function InbodyCard({ aiReady }: { aiReady: boolean }) {
   const {
     busy,
     saved,
+    duplicate,
     draft,
     segmental,
     warnings,
@@ -28,6 +30,7 @@ export function InbodyCard({ aiReady }: { aiReady: boolean }) {
     setText,
     setMeta,
     save,
+    resolveDuplicate,
     discard,
   } = useInbodyImport();
 
@@ -93,7 +96,14 @@ export function InbodyCard({ aiReady }: { aiReady: boolean }) {
         </div>
       )}
 
-      {!saved && draft === null && (
+      <DuplicateScanSheet
+        duplicate={duplicate}
+        busy={busy}
+        onResolve={(mode) => void resolveDuplicate(mode)}
+        onCancel={discard}
+      />
+
+      {!saved && !duplicate && draft === null && (
         <div className="mt-3">
           <Button variant="outline" disabled={!aiReady || busy} onClick={pick}>
             <ScanLine className="size-4" />

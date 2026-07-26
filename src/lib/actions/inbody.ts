@@ -2,6 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -69,7 +70,7 @@ const scanInput = z.object({
   notes: z.string().max(500).nullable(),
 });
 
-type ScanInput = z.infer<typeof scanInput>;
+export type ScanInput = z.infer<typeof scanInput>;
 
 export interface SavedScan {
   taken_at: string;
@@ -81,8 +82,23 @@ export interface SavedScan {
   inbody_score: number | null;
 }
 
+export interface ExistingScan {
+  id: string;
+  taken_at: string;
+  imported_at: string;
+  weight_kg: number | null;
+  body_fat_pct: number | null;
+  skeletal_muscle_kg: number | null;
+}
+
 export type InbodyImportResult =
   | { status: "saved"; saved: SavedScan }
+  | {
+      status: "duplicate";
+      pending: ScanInput;
+      existing: ExistingScan;
+      checksPassed: number;
+    }
   | {
       status: "review";
       extraction: InbodyExtraction;
@@ -91,18 +107,58 @@ export type InbodyImportResult =
       reason: string;
     };
 
+function scanDate(value: string): Date {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error("Invalid scan date");
+  return date;
+}
+
+async function findExistingScan(
+  userId: string,
+  takenAt: Date,
+): Promise<ExistingScan | null> {
+  const rows = await db
+    .select()
+    .from(body_scans)
+    .where(and(eq(body_scans.user_id, userId), eq(body_scans.taken_at, takenAt)))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    taken_at: row.taken_at.toISOString(),
+    imported_at: row.created_at.toISOString(),
+    weight_kg: row.weight_kg,
+    body_fat_pct: row.body_fat_pct,
+    skeletal_muscle_kg: row.skeletal_muscle_kg,
+  };
+}
+
 async function insertScan(userId: string, data: ScanInput): Promise<void> {
   const { taken_at, ...rest } = data;
-  const takenAt = new Date(taken_at);
-  if (Number.isNaN(takenAt.getTime())) throw new Error("Invalid scan date");
 
   await db.insert(body_scans).values({
     id: randomUUID(),
     user_id: userId,
-    taken_at: takenAt,
+    taken_at: scanDate(taken_at),
     created_at: new Date(),
     ...rest,
   });
+  revalidatePath("/settings");
+  revalidatePath("/");
+}
+
+async function replaceScan(
+  userId: string,
+  scanId: string,
+  data: ScanInput,
+): Promise<void> {
+  const { taken_at, ...rest } = data;
+
+  await db
+    .update(body_scans)
+    .set({ taken_at: scanDate(taken_at), ...rest })
+    .where(and(eq(body_scans.id, scanId), eq(body_scans.user_id, userId)));
   revalidatePath("/settings");
   revalidatePath("/");
 }
@@ -179,23 +235,60 @@ export async function importInbodyScan(
   }
 
   const data = toScanInput(extraction, takenAt);
-  await insertScan(user.id, data);
-
-  return {
-    status: "saved",
-    saved: {
-      taken_at: takenAt,
-      fieldCount: countFields(data),
+  const existing = await findExistingScan(user.id, scanDate(takenAt));
+  if (existing) {
+    return {
+      status: "duplicate",
+      pending: data,
+      existing,
       checksPassed: verification.passed.length,
-      weight_kg: data.weight_kg,
-      body_fat_pct: data.body_fat_pct,
-      skeletal_muscle_kg: data.skeletal_muscle_kg,
-      inbody_score: data.inbody_score,
-    },
+    };
+  }
+
+  await insertScan(user.id, data);
+  return { status: "saved", saved: toSavedScan(data, verification.passed.length) };
+}
+
+function toSavedScan(data: ScanInput, checksPassed: number): SavedScan {
+  return {
+    taken_at: data.taken_at,
+    fieldCount: countFields(data),
+    checksPassed,
+    weight_kg: data.weight_kg,
+    body_fat_pct: data.body_fat_pct,
+    skeletal_muscle_kg: data.skeletal_muscle_kg,
+    inbody_score: data.inbody_score,
   };
 }
 
-export async function commitInbodyScan(input: unknown): Promise<void> {
+export async function resolveInbodyDuplicate(
+  input: unknown,
+  mode: "replace" | "new",
+  scanId?: string,
+): Promise<SavedScan> {
   const user = await requireUser();
-  await insertScan(user.id, scanInput.parse(input));
+  const data = scanInput.parse(input);
+
+  if (mode === "replace") {
+    if (!scanId) throw new Error("Missing the scan to replace");
+    await replaceScan(user.id, scanId, data);
+  } else {
+    await insertScan(user.id, data);
+  }
+  return toSavedScan(data, 0);
+}
+
+export type CommitResult =
+  | { status: "saved"; saved: SavedScan }
+  | { status: "duplicate"; pending: ScanInput; existing: ExistingScan };
+
+export async function commitInbodyScan(input: unknown): Promise<CommitResult> {
+  const user = await requireUser();
+  const data = scanInput.parse(input);
+
+  const existing = await findExistingScan(user.id, scanDate(data.taken_at));
+  if (existing) return { status: "duplicate", pending: data, existing };
+
+  await insertScan(user.id, data);
+  return { status: "saved", saved: toSavedScan(data, 0) };
 }

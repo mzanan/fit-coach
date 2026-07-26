@@ -7,7 +7,10 @@ import { toast } from "sonner";
 import {
   commitInbodyScan,
   importInbodyScan,
+  resolveInbodyDuplicate,
+  type ExistingScan,
   type SavedScan,
+  type ScanInput,
 } from "@/lib/actions/inbody";
 import type { InbodyExtraction } from "@/lib/ai/inbody";
 import {
@@ -47,10 +50,16 @@ function toDraft(x: InbodyExtraction): ScanDraft {
   };
 }
 
+export interface DuplicateScan {
+  pending: ScanInput;
+  existing: ExistingScan;
+}
+
 export function useInbodyImport() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState<SavedScan | null>(null);
+  const [duplicate, setDuplicate] = useState<DuplicateScan | null>(null);
   const [draft, setDraft] = useState<ScanDraft | null>(null);
   const [segmental, setSegmental] = useState<Segmental | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -60,6 +69,7 @@ export function useInbodyImport() {
 
   function reset() {
     setSaved(null);
+    setDuplicate(null);
     setDraft(null);
     setSegmental(null);
     setWarnings([]);
@@ -80,6 +90,11 @@ export function useInbodyImport() {
       if (result.status === "saved") {
         setSaved(result.saved);
         router.refresh();
+        return;
+      }
+
+      if (result.status === "duplicate") {
+        setDuplicate({ pending: result.pending, existing: result.existing });
         return;
       }
 
@@ -141,7 +156,7 @@ export function useInbodyImport() {
         return raw ? Number(raw) : null;
       };
       const str = (value: string) => (value.trim() === "" ? null : value.trim());
-      await commitInbodyScan({
+      const result = await commitInbodyScan({
         taken_at: draft.taken_at,
         notes: str(draft.notes),
         segmental: hasSegmental() ? JSON.stringify(segmental) : null,
@@ -150,8 +165,36 @@ export function useInbodyImport() {
           INBODY_TEXT_KEYS.map((key) => [key, str(draft.texts[key] ?? "")]),
         ),
       });
-      toast.success("Body scan saved");
-      reset();
+
+      if (result.status === "duplicate") {
+        setDuplicate({ pending: result.pending, existing: result.existing });
+        setDraft(null);
+        return;
+      }
+
+      setSaved(result.saved);
+      setDraft(null);
+      setPreview(null);
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save the scan");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resolveDuplicate(mode: "replace" | "new") {
+    if (!duplicate) return;
+    setBusy(true);
+    try {
+      const result = await resolveInbodyDuplicate(
+        duplicate.pending,
+        mode,
+        duplicate.existing.id,
+      );
+      setDuplicate(null);
+      setSaved(result);
+      toast.success(mode === "replace" ? "Scan replaced" : "Saved as a new scan");
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save the scan");
@@ -163,6 +206,7 @@ export function useInbodyImport() {
   return {
     busy,
     saved,
+    duplicate,
     draft,
     segmental,
     warnings,
@@ -174,6 +218,7 @@ export function useInbodyImport() {
     setText,
     setMeta,
     save,
+    resolveDuplicate,
     discard: reset,
   };
 }
