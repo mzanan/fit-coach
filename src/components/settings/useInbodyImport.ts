@@ -4,7 +4,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { commitInbodyScan, extractInbodyScan } from "@/lib/actions/inbody";
+import {
+  commitInbodyScan,
+  importInbodyScan,
+  type SavedScan,
+} from "@/lib/actions/inbody";
 import type { InbodyExtraction } from "@/lib/ai/inbody";
 import {
   BODY_SEGMENTS,
@@ -21,7 +25,7 @@ export interface ScanDraft {
   texts: Record<string, string>;
 }
 
-export type FieldStatus = Record<string, "absent" | "illegible">;
+export type FieldStatus = Record<string, "absent" | "illegible" | "suspect">;
 
 function toDraft(x: InbodyExtraction): ScanDraft {
   const record = x as unknown as Record<string, unknown>;
@@ -46,39 +50,58 @@ function toDraft(x: InbodyExtraction): ScanDraft {
 export function useInbodyImport() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState<SavedScan | null>(null);
   const [draft, setDraft] = useState<ScanDraft | null>(null);
   const [segmental, setSegmental] = useState<Segmental | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [reason, setReason] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [status, setStatus] = useState<FieldStatus>({});
 
   function reset() {
+    setSaved(null);
     setDraft(null);
     setSegmental(null);
     setWarnings([]);
+    setReason(null);
     setStatus({});
     setPreview(null);
   }
 
   async function onFile(file: File) {
     setBusy(true);
+    reset();
     try {
       const image = await compressImage(file);
       const form = new FormData();
       form.append("image", image, file.name || "inbody.jpg");
-      const { extraction, image: shown } = await extractInbodyScan(form);
-      setDraft(toDraft(extraction));
-      setSegmental(extraction.segmental ?? null);
-      setWarnings(extraction.warnings ?? []);
+      const result = await importInbodyScan(form);
+
+      if (result.status === "saved") {
+        setSaved(result.saved);
+        router.refresh();
+        return;
+      }
+
+      setDraft(toDraft(result.extraction));
+      setSegmental(result.extraction.segmental ?? null);
+      setWarnings(result.extraction.warnings ?? []);
+      setReason(result.reason);
+      setPreview(result.image);
       setStatus({
         ...Object.fromEntries(
-          (extraction.absent ?? []).map((k) => [k, "absent" as const]),
+          (result.extraction.absent ?? []).map((k) => [k, "absent" as const]),
         ),
         ...Object.fromEntries(
-          (extraction.illegible ?? []).map((k) => [k, "illegible" as const]),
+          (result.extraction.illegible ?? []).map((k) => [
+            k,
+            "illegible" as const,
+          ]),
+        ),
+        ...Object.fromEntries(
+          result.verification.suspectFields.map((k) => [k, "suspect" as const]),
         ),
       });
-      setPreview(shown);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not read the sheet");
     } finally {
@@ -139,9 +162,11 @@ export function useInbodyImport() {
 
   return {
     busy,
+    saved,
     draft,
     segmental,
     warnings,
+    reason,
     preview,
     status,
     onFile,

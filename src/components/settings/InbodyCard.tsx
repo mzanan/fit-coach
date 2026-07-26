@@ -1,6 +1,6 @@
 "use client";
 
-import { ScanLine } from "lucide-react";
+import { CheckCircle2, ScanLine } from "lucide-react";
 import Image from "next/image";
 import { useRef } from "react";
 
@@ -16,9 +16,11 @@ export function InbodyCard({ aiReady }: { aiReady: boolean }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const {
     busy,
+    saved,
     draft,
     segmental,
     warnings,
+    reason,
     preview,
     status,
     onFile,
@@ -34,42 +36,76 @@ export function InbodyCard({ aiReady }: { aiReady: boolean }) {
       ? "not in sheet"
       : status[key] === "illegible"
         ? "unreadable"
-        : undefined;
+        : status[key] === "suspect"
+          ? "check this"
+          : undefined;
+
+  function pick() {
+    fileRef.current?.click();
+  }
 
   return (
     <Surface className="p-4">
       <h2 className="text-sm font-semibold">InBody scan</h2>
       <p className="mt-1 text-xs text-muted-foreground">
         {aiReady
-          ? "Import the result image (app screenshot, email or a photo of the sheet); check it against the values before saving."
+          ? "Import the result image (app screenshot, email or a photo of the sheet). It is saved automatically once the values cross-check."
           : "Set AI_API_KEY to enable sheet reading."}
       </p>
 
-      {draft === null ? (
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) void onFile(file);
+        }}
+      />
+
+      {saved && (
+        <div className="mt-3 space-y-2">
+          <p className="flex items-center gap-2 text-sm">
+            <CheckCircle2 className="size-4 text-primary" />
+            Scan saved and verified
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {saved.taken_at.replace("T", " ")}: {saved.fieldCount} values stored,{" "}
+            {saved.checksPassed} consistency checks passed.
+          </p>
+          <ul className="text-xs text-muted-foreground">
+            {saved.weight_kg != null && <li>Weight {saved.weight_kg} kg</li>}
+            {saved.skeletal_muscle_kg != null && (
+              <li>Skeletal muscle {saved.skeletal_muscle_kg} kg</li>
+            )}
+            {saved.body_fat_pct != null && <li>Body fat {saved.body_fat_pct} %</li>}
+            {saved.inbody_score != null && (
+              <li>InBody score {saved.inbody_score}</li>
+            )}
+          </ul>
+          <Button variant="outline" size="sm" disabled={busy} onClick={pick}>
+            <ScanLine className="size-4" />
+            Import another
+          </Button>
+        </div>
+      )}
+
+      {!saved && draft === null && (
         <div className="mt-3">
-          <Button
-            variant="outline"
-            disabled={!aiReady || busy}
-            onClick={() => fileRef.current?.click()}
-          >
+          <Button variant="outline" disabled={!aiReady || busy} onClick={pick}>
             <ScanLine className="size-4" />
             {busy ? "Reading sheet..." : "Import scan photo"}
           </Button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (file) void onFile(file);
-            }}
-          />
         </div>
-      ) : (
+      )}
+
+      {draft !== null && (
         <div className="mt-3 space-y-4">
+          {reason && <p className="text-xs text-muted-foreground">{reason}</p>}
+
           {preview && (
             <a
               href={preview}

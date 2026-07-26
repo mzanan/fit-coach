@@ -164,6 +164,7 @@ export async function extractInbody(
     await chatJsonVision<unknown>(SYSTEM, PROMPT, imageDataUrl, 3000),
   );
   const missing = missingKeys(first);
+  console.log("[inbody] first pass missing", missing.length ? missing : "none");
   if (!missing.length) return first;
 
   try {
