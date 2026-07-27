@@ -9,7 +9,7 @@ export const Input = forwardRef<
   <input
     ref={ref}
     className={cn(
-      "h-11 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring",
+      "h-12 w-full rounded-md border border-input bg-black/20 px-3.5 text-body outline-none transition-[border-color,box-shadow] duration-[--dur-fast] ease-[--ease-out-soft] placeholder:text-faint focus-visible:border-brand-line focus-visible:ring-2 focus-visible:ring-ring/40",
       className,
     )}
     {...props}
@@ -21,13 +21,5 @@ export function Label({
   className,
   ...props
 }: React.LabelHTMLAttributes<HTMLLabelElement>) {
-  return (
-    <label
-      className={cn(
-        "mb-1 block text-xs font-medium text-muted-foreground",
-        className,
-      )}
-      {...props}
-    />
-  );
+  return <label className={cn("eyebrow mb-1.5 block", className)} {...props} />;
 }

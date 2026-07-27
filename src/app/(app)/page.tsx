@@ -29,7 +29,7 @@ export default async function TodayPage({
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-7">
       <DayNav day={day} today={today} isGymDay={dayData.isGymDay} />
       <MacroOverview summary={dayData.summary} profile={profile} />
       <MealList meals={dayData.meals} />
