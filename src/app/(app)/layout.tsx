@@ -1,7 +1,6 @@
 import { AppHeader } from "@/components/shell/AppHeader";
 import { NavBar } from "@/components/shell/NavBar";
 import { SideNav } from "@/components/shell/SideNav";
-import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
 
 export default async function AppLayout({
@@ -9,8 +8,7 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await requireUser();
-  await ensureProfile(user.id);
+  await requireUser();
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-5xl">
