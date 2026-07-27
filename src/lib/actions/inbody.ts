@@ -194,6 +194,23 @@ function countFields(data: ScanInput): number {
   ).length;
 }
 
+function friendlyExtractionError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : "";
+  if (raw.startsWith("ai 429")) {
+    return "The AI provider rate limit was hit. Wait a minute and try again.";
+  }
+  if (raw.startsWith("ai 401") || raw.startsWith("ai 403")) {
+    return "The AI provider rejected the vision key. Check AI_VISION_API_KEY matches AI_VISION_BASE_URL.";
+  }
+  if (raw.startsWith("ai 4")) {
+    return "The AI provider rejected the request. Check AI_VISION_MODEL matches the provider behind AI_VISION_BASE_URL.";
+  }
+  if (raw.startsWith("ai 5")) {
+    return "The AI provider is having trouble. Try again in a moment.";
+  }
+  return "The sheet could not be read. Try a clearer, closer photo.";
+}
+
 export async function importInbodyScan(
   formData: FormData,
 ): Promise<InbodyImportResult> {
@@ -205,7 +222,12 @@ export async function importInbodyScan(
   if (file.size > MAX_IMAGE_BYTES) throw new Error("Image too large (max 8 MB)");
 
   const image = await toModelDataUrl(file);
-  const extraction = await extractInbody(image);
+  let extraction: InbodyExtraction;
+  try {
+    extraction = await extractInbody(image);
+  } catch (error) {
+    throw new Error(friendlyExtractionError(error));
+  }
   const verification = verifyScan(
     extraction as unknown as Record<string, number | null | undefined>,
     (extraction.segmental as Segmental | null) ?? null,

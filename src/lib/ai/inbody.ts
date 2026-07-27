@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import { chatJsonVision, hasAi } from "@/lib/ai/groq";
+import { chatJsonVision, hasVisionAi } from "@/lib/ai/groq";
 import { INBODY_NUMERIC_KEYS } from "@/lib/constants";
 
 const SYSTEM = `You read InBody body-composition result sheets (printed paper or on-screen). Extract ONLY values that are clearly legible in the image. Never guess, never compute derived values yourself: if a field is not readable or not present, return null for it. Numbers use the units printed on the sheet; convert lb to kg only when the sheet is in pounds. Return strict JSON.`;
@@ -139,7 +139,7 @@ const extraction = z.object({
 export type InbodyExtraction = z.infer<typeof extraction>;
 
 export function canExtractInbody(): boolean {
-  return hasAi();
+  return hasVisionAi();
 }
 
 const RETRY_KEYS = INBODY_NUMERIC_KEYS;
