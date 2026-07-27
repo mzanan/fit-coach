@@ -4,7 +4,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db, schema } from "@/lib/db";
 import type { BodyScan, Profile } from "@/lib/db/schema";
-import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
+import { dayConfig, logicalDayOf, shiftDay, todayLogicalDay } from "@/lib/dates";
 
 import { kcalOf } from "@/lib/macros";
 
@@ -48,9 +48,7 @@ function diff(a: number | null, b: number | null): number | null {
   return Math.round((a - b) * 100) / 100;
 }
 
-function dayKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
+
 
 async function periodAdherence(
   userId: string,
@@ -121,7 +119,7 @@ export async function getBodyScanOverview(
     .select()
     .from(body_scans)
     .where(eq(body_scans.user_id, userId))
-    .orderBy(desc(body_scans.taken_at))
+    .orderBy(desc(body_scans.taken_at), desc(body_scans.created_at), desc(body_scans.id))
     .limit(24);
 
   const cfg = dayConfig(profile);
@@ -164,7 +162,10 @@ export async function getBodyScanOverview(
       }
     : null;
 
-  const fromDay = previous ? dayKey(previous.taken_at) : dayKey(latest.taken_at);
+  const fromDay = logicalDayOf(
+    (previous ?? latest).taken_at,
+    cfg,
+  );
   const window = await periodAdherence(userId, profile, fromDay, toDay);
 
   return {

@@ -24,7 +24,7 @@ export function IntakeSinceScan({
   return (
     <Surface className="p-5">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-title font-medium tracking-[--tracking-snug]">
+        <h2 className="text-title font-medium tracking-(--tracking-snug)">
           {title}
         </h2>
         <span className="text-meta text-faint">

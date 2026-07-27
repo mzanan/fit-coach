@@ -7,7 +7,7 @@ export async function AppHeader() {
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 bg-background/80 px-5 backdrop-blur-xl md:px-8">
-      <span className="text-title font-medium tracking-[--tracking-snug] md:hidden">
+      <span className="text-title font-medium tracking-(--tracking-snug) md:hidden">
         Fit Coach
       </span>
       <span className="hidden md:block" />

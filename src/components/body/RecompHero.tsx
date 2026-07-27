@@ -3,10 +3,10 @@ import { Surface } from "@/components/ui/Surface";
 import type { ScanDelta } from "@/lib/data/bodyScans";
 import type { BodyScan } from "@/lib/db/schema";
 
-function verdict(delta: ScanDelta): string {
+function verdict(delta: ScanDelta): string | null {
   const muscle = delta.skeletal_muscle_kg;
   const fat = delta.body_fat_kg;
-  if (muscle == null || fat == null) return "Not enough values to compare.";
+  if (muscle == null || fat == null) return null;
   const flat = (n: number) => Math.abs(n) <= 0.3;
   if (flat(muscle) && flat(fat)) return `Little movement in ${delta.days} days.`;
   if (muscle > 0 && fat < 0) return "Recomposition. Muscle up, fat down.";
@@ -28,14 +28,14 @@ export function RecompHero({
   latest: BodyScan;
   delta: ScanDelta | null;
 }) {
-  if (!delta || delta.skeletal_muscle_kg == null) {
+  if (!delta) {
     return (
       <Surface level="raised" className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="eyebrow">Body fat</p>
             <p className="mt-2 flex items-baseline gap-2">
-              <span className="num text-hero font-semibold tracking-[--tracking-hero]">
+              <span className="num text-hero font-semibold tracking-(--tracking-hero)">
                 {latest.body_fat_pct ?? "--"}
               </span>
               <span className="text-meta text-faint">%</span>
@@ -59,14 +59,38 @@ export function RecompHero({
     );
   }
 
+  const lead =
+    delta.skeletal_muscle_kg != null
+      ? { label: "Skeletal muscle", value: delta.skeletal_muscle_kg, unit: "kg" }
+      : delta.body_fat_pct != null
+        ? { label: "Body fat", value: delta.body_fat_pct, unit: "%" }
+        : delta.weight_kg != null
+          ? { label: "Weight", value: delta.weight_kg, unit: "kg" }
+          : null;
+
+  if (!lead) {
+    return (
+      <Surface level="raised" className="p-5">
+        <p className="eyebrow">Last scan</p>
+        <p className="mt-3 text-body text-muted-foreground">
+          This scan and the previous one share no comparable values.
+        </p>
+      </Surface>
+    );
+  }
+
+  const note = verdict(delta);
+
   return (
     <Surface level="raised" className="p-5">
-      <p className="eyebrow">Skeletal muscle, {delta.days} days</p>
+      <p className="eyebrow">
+        {lead.label}, {delta.days} days
+      </p>
       <p className="mt-2 flex items-baseline gap-2">
-        <span className="num text-hero font-semibold tracking-[--tracking-hero]">
-          {signed(delta.skeletal_muscle_kg)}
+        <span className="num text-hero font-semibold tracking-(--tracking-hero)">
+          {signed(lead.value)}
         </span>
-        <span className="text-meta text-faint">kg</span>
+        <span className="text-meta text-faint">{lead.unit}</span>
       </p>
       <p className="mt-3 text-meta text-muted-foreground">
         Body fat{" "}
@@ -81,7 +105,7 @@ export function RecompHero({
         </span>{" "}
         kg
       </p>
-      <p className="mt-4 text-body">{verdict(delta)}</p>
+      {note ? <p className="mt-4 text-body">{note}</p> : null}
     </Surface>
   );
 }

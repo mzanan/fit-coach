@@ -8,11 +8,12 @@ export function CompositionCard({ scan }: { scan: BodyScan }) {
   const lean = scan.fat_free_mass_kg;
 
   const usable = fat != null && lean != null && muscle != null;
+  const other = usable ? Math.max(0, Math.round((lean - muscle) * 10) / 10) : 0;
 
   return (
     <Surface className="p-5">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-title font-medium tracking-[--tracking-snug]">
+        <h2 className="text-title font-medium tracking-(--tracking-snug)">
           Composition
         </h2>
         {scan.weight_kg != null ? (
@@ -26,7 +27,7 @@ export function CompositionCard({ scan }: { scan: BodyScan }) {
         {usable ? (
           <StackedBar
             unit="kg"
-            ariaLabel={`Body composition: ${fat} kilograms of fat, ${muscle} of skeletal muscle and ${Math.round((lean - muscle) * 10) / 10} of other lean mass`}
+            ariaLabel={`Body composition: ${fat} kilograms of fat, ${muscle} of skeletal muscle and ${other} of other lean mass`}
             segments={[
               { label: "Fat mass", value: fat, className: "bg-macro-fat" },
               {
@@ -36,7 +37,7 @@ export function CompositionCard({ scan }: { scan: BodyScan }) {
               },
               {
                 label: "Other lean",
-                value: Math.round((lean - muscle) * 10) / 10,
+                value: other,
                 className: "bg-macro-carbs",
               },
             ]}

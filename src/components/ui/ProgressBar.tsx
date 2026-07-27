@@ -28,7 +28,7 @@ export function ProgressBar({
     >
       <div
         className={cn(
-          "h-full rounded-full transition-[width] duration-[--dur-data] ease-[--ease-out-soft]",
+          "h-full rounded-full transition-[width] duration-(--dur-data) ease-(--ease-out-soft)",
           barClassName,
         )}
         style={{ width: `${clamp(value, 0, 100)}%` }}

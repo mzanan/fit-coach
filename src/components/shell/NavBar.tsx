@@ -24,7 +24,7 @@ export function NavBar({ className }: { className?: string }) {
               key={tab.href}
               href={tab.href}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1 py-3 text-eyebrow font-medium transition-colors duration-[--dur-fast] ease-[--ease-out-soft]",
+                "flex flex-1 flex-col items-center gap-1 py-3 text-eyebrow font-medium transition-colors duration-(--dur-fast) ease-(--ease-out-soft)",
                 active ? "text-brand" : "text-muted-foreground",
               )}
             >

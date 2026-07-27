@@ -5,7 +5,7 @@ import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 const button = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 font-medium transition-[background-color,color,transform,box-shadow] duration-[--dur-fast] ease-[--ease-out-soft] select-none active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40",
+  "inline-flex shrink-0 items-center justify-center gap-2 font-medium transition-[background-color,color,transform,box-shadow] duration-(--dur-fast) ease-(--ease-out-soft) select-none active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40",
   {
     variants: {
       variant: {

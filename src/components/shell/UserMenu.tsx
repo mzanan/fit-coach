@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, UtensilsCrossed } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,7 +11,7 @@ import { authClient } from "@/lib/authClient";
 import { cn } from "@/lib/utils";
 
 const ITEM =
-  "flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-md px-3 text-body outline-none transition-colors duration-[--dur-fast] focus-visible:bg-accent data-[highlighted]:bg-accent";
+  "flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-md px-3 text-body outline-none transition-colors duration-(--dur-fast) focus-visible:bg-accent data-[highlighted]:bg-accent";
 
 export function UserMenu({
   email,
@@ -24,6 +24,7 @@ export function UserMenu({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
   const initial = (name?.trim() || email).charAt(0).toUpperCase();
 
@@ -38,10 +39,17 @@ export function UserMenu({
     <DropdownMenu.Root>
       <DropdownMenu.Trigger
         aria-label="Account menu"
-        className="flex size-9 items-center justify-center overflow-hidden rounded-full border border-hairline-strong bg-surface-2 text-meta font-medium transition-colors duration-[--dur-fast] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex size-9 items-center justify-center overflow-hidden rounded-full border border-hairline-strong bg-surface-2 text-meta font-medium transition-colors duration-(--dur-fast) outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        {image ? (
-          <Image src={image} alt="" width={36} height={36} unoptimized />
+        {image && !avatarFailed ? (
+          <Image
+            src={image}
+            alt=""
+            width={36}
+            height={36}
+            unoptimized
+            onError={() => setAvatarFailed(true)}
+          />
         ) : (
           initial
         )}
@@ -58,6 +66,12 @@ export function UserMenu({
             <p className="truncate text-meta text-muted-foreground">{email}</p>
           </div>
           <div className="my-1 h-px bg-border" />
+          <DropdownMenu.Item asChild>
+            <Link href="/catalog" className={ITEM}>
+              <UtensilsCrossed className="size-[18px]" strokeWidth={1.5} />
+              Catalog
+            </Link>
+          </DropdownMenu.Item>
           <DropdownMenu.Item asChild>
             <Link href="/settings" className={ITEM}>
               <Settings className="size-[18px]" strokeWidth={1.5} />

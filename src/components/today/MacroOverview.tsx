@@ -39,7 +39,7 @@ export function MacroOverview({
 
       <div className="mt-2 flex items-baseline gap-2">
         <span
-          className={`num text-hero font-semibold tracking-[--tracking-hero] ${
+          className={`num text-hero font-semibold tracking-(--tracking-hero) ${
             over ? "text-brand" : "text-foreground"
           }`}
         >
