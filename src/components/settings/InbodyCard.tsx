@@ -53,7 +53,7 @@ export function InbodyCard({ aiReady }: { aiReady: boolean }) {
       <p className="mt-1 text-xs text-muted-foreground">
         {aiReady
           ? "Import the result image (app screenshot, email or a photo of the sheet). It is saved automatically once the values cross-check."
-          : "Set AI_API_KEY to enable sheet reading."}
+          : "Set AI_VISION_API_KEY to enable sheet reading."}
       </p>
 
       <input

@@ -2,7 +2,10 @@ import "server-only";
 
 const BASE_URL = process.env.AI_BASE_URL ?? "https://api.groq.com/openai/v1";
 const MODEL = process.env.AI_MODEL ?? "llama-3.3-70b-versatile";
-const VISION_MODEL = process.env.AI_VISION_MODEL ?? "qwen/qwen3.6-27b";
+const VISION_BASE_URL =
+  process.env.AI_VISION_BASE_URL ??
+  "https://generativelanguage.googleapis.com/v1beta/openai";
+const VISION_MODEL = process.env.AI_VISION_MODEL ?? "gemini-2.5-flash";
 const EM_DASH = new RegExp("\\s*" + String.fromCharCode(0x2014) + "\\s*", "g");
 
 type ContentPart =
@@ -18,25 +21,49 @@ function apiKey(): string | undefined {
   return process.env.AI_API_KEY ?? process.env.GROQ_API_KEY;
 }
 
+function visionApiKey(): string | undefined {
+  if (process.env.AI_VISION_API_KEY) return process.env.AI_VISION_API_KEY;
+  if (process.env.AI_VISION_BASE_URL === process.env.AI_BASE_URL) return apiKey();
+  return undefined;
+}
+
 export function hasAi(): boolean {
   return Boolean(apiKey());
+}
+
+export function hasVisionAi(): boolean {
+  return Boolean(visionApiKey());
 }
 
 function clean(text: string): string {
   return text.replace(EM_DASH, ", ").trim();
 }
 
+interface CompleteTarget {
+  baseUrl: string;
+  key: string | undefined;
+  model: string;
+}
+
+function textTarget(): CompleteTarget {
+  return { baseUrl: BASE_URL, key: apiKey(), model: MODEL };
+}
+
+function visionTarget(): CompleteTarget {
+  return { baseUrl: VISION_BASE_URL, key: visionApiKey(), model: VISION_MODEL };
+}
+
 async function complete(
   messages: ChatMessage[],
   maxTokens: number,
   json: boolean,
-  model: string = MODEL,
+  target: CompleteTarget = textTarget(),
   noReasoning = false,
 ): Promise<string> {
-  const key = apiKey();
+  const { baseUrl, key, model } = target;
   if (!key) throw new Error("AI_API_KEY not set");
 
-  const res = await fetch(`${BASE_URL}/chat/completions`, {
+  const res = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -82,7 +109,7 @@ export async function chatJsonVision<T>(
     },
   ];
   return parseJson<T>(
-    await complete(messages, maxTokens, true, VISION_MODEL, true),
+    await complete(messages, maxTokens, true, visionTarget(), true),
   );
 }
 
