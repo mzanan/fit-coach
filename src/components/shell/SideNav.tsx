@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { NAV_TABS, isNavActive } from "@/components/shell/navItems";
+import { SIDE_NAV_ITEMS, isNavActive } from "@/components/shell/navItems";
 import { cn } from "@/lib/utils";
 
 export function SideNav() {
@@ -14,7 +14,7 @@ export function SideNav() {
         <span className="text-title font-medium tracking-[--tracking-snug]">Fit Coach</span>
       </div>
       <nav className="flex flex-col gap-1">
-        {NAV_TABS.map((tab) => {
+        {SIDE_NAV_ITEMS.map((tab) => {
           const active = isNavActive(pathname, tab.href);
           const Icon = tab.icon;
           return (

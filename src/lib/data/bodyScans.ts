@@ -29,12 +29,18 @@ export interface PeriodAdherence {
   workouts: number;
 }
 
+export interface DailyIntake {
+  day: string;
+  kcal: number | null;
+}
+
 export interface BodyScanOverview {
   latest: BodyScan | null;
   previous: BodyScan | null;
   delta: ScanDelta | null;
   history: BodyScan[];
   adherence: PeriodAdherence | null;
+  daily: DailyIntake[];
 }
 
 function diff(a: number | null, b: number | null): number | null {
@@ -51,7 +57,7 @@ async function periodAdherence(
   profile: Profile,
   fromDay: string,
   toDay: string,
-): Promise<PeriodAdherence> {
+): Promise<{ adherence: PeriodAdherence; daily: DailyIntake[] }> {
   const days: string[] = [];
   let cursor = toDay;
   while (cursor >= fromDay && days.length < 120) {
@@ -87,15 +93,23 @@ async function periodAdherence(
       ? Math.round(logged.reduce((total, d) => total + pick(d), 0) / logged.length)
       : null;
 
+  const daily = [...days]
+    .reverse()
+    .slice(-14)
+    .map((day) => ({ day, kcal: byDay.get(day) ? Math.round(byDay.get(day)!.kcal) : null }));
+
   return {
-    days: days.length,
-    daysLogged: byDay.size,
-    proteinHitDays,
-    avgProtein: avg((d) => d.protein),
-    avgKcal: avg((d) => d.kcal),
-    kcalTarget: profile.calories_target,
-    proteinTarget: profile.protein_target,
-    workouts: new Set(workoutRows.map((w) => w.logical_day)).size,
+    adherence: {
+      days: days.length,
+      daysLogged: byDay.size,
+      proteinHitDays,
+      avgProtein: avg((d) => d.protein),
+      avgKcal: avg((d) => d.kcal),
+      kcalTarget: profile.calories_target,
+      proteinTarget: profile.protein_target,
+      workouts: new Set(workoutRows.map((w) => w.logical_day)).size,
+    },
+    daily,
   };
 }
 
@@ -110,10 +124,26 @@ export async function getBodyScanOverview(
     .orderBy(desc(body_scans.taken_at))
     .limit(24);
 
+  const cfg = dayConfig(profile);
+  const toDay = todayLogicalDay(cfg);
+
   const latest = history[0] ?? null;
   const previous = history[1] ?? null;
   if (!latest) {
-    return { latest: null, previous: null, delta: null, history: [], adherence: null };
+    const recent = await periodAdherence(
+      userId,
+      profile,
+      shiftDay(toDay, -13),
+      toDay,
+    );
+    return {
+      latest: null,
+      previous: null,
+      delta: null,
+      history: [],
+      adherence: recent.adherence,
+      daily: recent.daily,
+    };
   }
 
   const delta = previous
@@ -134,20 +164,16 @@ export async function getBodyScanOverview(
       }
     : null;
 
-  const cfg = dayConfig(profile);
-  const toDay = todayLogicalDay(cfg);
-  const fromDay = previous
-    ? dayKey(previous.taken_at)
-    : shiftDay(toDay, -Math.min(28, 28));
-
-  const adherence = await periodAdherence(userId, profile, fromDay, toDay);
+  const fromDay = previous ? dayKey(previous.taken_at) : dayKey(latest.taken_at);
+  const window = await periodAdherence(userId, profile, fromDay, toDay);
 
   return {
     latest,
     previous,
     delta,
     history: [...history].reverse(),
-    adherence,
+    adherence: window.adherence,
+    daily: window.daily,
   };
 }
 
