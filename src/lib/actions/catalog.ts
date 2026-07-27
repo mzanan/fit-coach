@@ -1,7 +1,7 @@
 "use server";
 
 import { and, eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 
 import { db, schema } from "@/lib/db";
@@ -38,6 +38,7 @@ export async function createCatalogItem(input: unknown) {
     created_at: now,
     updated_at: now,
   });
+  updateTag("catalog");
   revalidatePath("/catalog");
   revalidatePath("/");
 }
@@ -63,6 +64,7 @@ export async function updateCatalogItem(input: unknown) {
     .where(
       and(eq(catalog_items.id, data.id), eq(catalog_items.user_id, user.id)),
     );
+  updateTag("catalog");
   revalidatePath("/catalog");
   revalidatePath("/");
 }
@@ -73,5 +75,6 @@ export async function archiveCatalogItem(id: string) {
     .update(catalog_items)
     .set({ archived: true, updated_at: new Date() })
     .where(and(eq(catalog_items.id, id), eq(catalog_items.user_id, user.id)));
+  updateTag("catalog");
   revalidatePath("/catalog");
 }

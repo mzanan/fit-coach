@@ -1,7 +1,7 @@
 "use server";
 
 import { eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { parseISO } from "date-fns";
 
 import { hasAi } from "@/lib/ai/groq";
@@ -127,6 +127,9 @@ export async function commitMdImport(payload: unknown) {
     );
   }
 
+  if (newItems.length) {
+    updateTag("catalog");
+  }
   revalidatePath("/");
   revalidatePath("/catalog");
   revalidatePath("/workout");
