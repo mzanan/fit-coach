@@ -3,7 +3,7 @@
 import { Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 
-import { BottomSheet } from "@/components/ui/BottomSheet";
+import { ResponsiveDialog } from "@/components/ui/ResponsiveDialog";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { MacroChips } from "@/components/ui/MacroChips";
@@ -67,7 +67,7 @@ export function MealRow({ meal }: { meal: Meal }) {
         onConfirm={() => run(() => deleteMeal(meal.id))}
       />
 
-      <BottomSheet open={editing} onOpenChange={setEditing} title="Edit meal">
+      <ResponsiveDialog open={editing} onOpenChange={setEditing} title="Edit meal">
         <MealForm
           submitLabel="Save changes"
           pending={pending}
@@ -96,7 +96,7 @@ export function MealRow({ meal }: { meal: Meal }) {
             )
           }
         />
-      </BottomSheet>
+      </ResponsiveDialog>
     </div>
   );
 }

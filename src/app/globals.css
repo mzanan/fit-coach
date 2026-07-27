@@ -32,6 +32,8 @@
   --color-ring: var(--ring);
   --color-surface-1: var(--surface-1);
   --color-surface-2: var(--surface-2);
+  --color-field: var(--field);
+  --color-well: var(--well);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-soft: var(--brand-soft);
@@ -106,6 +108,8 @@
   --radius: 1rem;
   --surface-1: oklch(1 0 0);
   --surface-2: oklch(0.94 0 0);
+  --field: oklch(0.975 0 0);
+  --well: oklch(0.965 0 0);
   --brand: oklch(0.58 0.095 72);
   --brand-foreground: oklch(0.99 0 0);
   --brand-soft: oklch(0.58 0.095 72 / 12%);
@@ -159,6 +163,8 @@
   --ring: oklch(0.8 0.105 82);
   --surface-1: oklch(0.165 0 0);
   --surface-2: oklch(0.22 0 0);
+  --field: oklch(0 0 0 / 20%);
+  --well: oklch(0 0 0 / 25%);
   --brand: oklch(0.8 0.105 82);
   --brand-foreground: oklch(0.18 0.02 82);
   --brand-soft: oklch(0.8 0.105 82 / 14%);

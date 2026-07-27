@@ -35,8 +35,8 @@ export function Stat({
     : null;
 
   return (
-    <div className={className}>
-      <p className="eyebrow">{label}</p>
+    <div className={cn("flex h-full flex-col", className)}>
+      <p className="eyebrow min-h-[2.1em] leading-[1.05]">{label}</p>
       <p className={cn("mt-1.5 font-medium", SIZE[size])}>
         {missing ? (
           <span className="text-faint">--</span>
@@ -54,7 +54,7 @@ export function Stat({
       {delta && delta.value !== 0 ? (
         <p
           className={cn(
-            "mt-1 flex items-center gap-0.5 text-meta",
+            "mt-auto flex items-center gap-0.5 pt-1 text-meta",
             good === true ? "text-foreground" : "text-brand",
           )}
         >
@@ -69,9 +69,11 @@ export function Stat({
           ) : null}
         </p>
       ) : hint ? (
-        <p className="mt-1 text-meta text-faint">{missing ? "Not on the sheet" : hint}</p>
+        <p className="mt-auto pt-1 text-meta text-faint">
+          {missing ? "Not on the sheet" : hint}
+        </p>
       ) : missing ? (
-        <p className="mt-1 text-meta text-faint">Not on the sheet</p>
+        <p className="mt-auto pt-1 text-meta text-faint">Not on the sheet</p>
       ) : null}
     </div>
   );

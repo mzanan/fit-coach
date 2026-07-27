@@ -10,6 +10,7 @@ export interface SessionUser {
   id: string;
   email: string;
   name: string | null;
+  image: string | null;
 }
 
 export const getUser = cache(async (): Promise<SessionUser | null> => {
@@ -19,6 +20,7 @@ export const getUser = cache(async (): Promise<SessionUser | null> => {
     id: session.user.id,
     email: session.user.email,
     name: session.user.name ?? null,
+    image: session.user.image ?? null,
   };
 });
 
