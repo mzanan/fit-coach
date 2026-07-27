@@ -3,14 +3,14 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const pill = cva(
-  "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap",
+  "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-eyebrow font-medium whitespace-nowrap",
   {
     variants: {
       tone: {
-        brand: "bg-primary/12 text-primary",
-        ok: "bg-ok/15 text-ok",
-        warn: "bg-warn/15 text-warn",
-        muted: "bg-muted text-muted-foreground",
+        brand: "bg-brand-soft text-brand",
+        ok: "bg-overlay text-ok",
+        warn: "bg-brand-soft text-brand",
+        muted: "bg-overlay text-muted-foreground",
       },
       variant: {
         soft: "",
@@ -18,9 +18,9 @@ const pill = cva(
       },
     },
     compoundVariants: [
-      { variant: "solid", tone: "brand", className: "bg-primary text-primary-foreground" },
-      { variant: "solid", tone: "ok", className: "bg-ok text-white" },
-      { variant: "solid", tone: "warn", className: "bg-warn text-white" },
+      { variant: "solid", tone: "brand", className: "bg-brand text-brand-foreground" },
+      { variant: "solid", tone: "ok", className: "bg-foreground/80 text-background" },
+      { variant: "solid", tone: "warn", className: "bg-brand text-brand-foreground" },
     ],
     defaultVariants: { tone: "muted", variant: "soft" },
   },

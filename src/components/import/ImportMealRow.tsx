@@ -3,7 +3,7 @@
 import { Pencil } from "lucide-react";
 import { useState } from "react";
 
-import { BottomSheet } from "@/components/ui/BottomSheet";
+import { ResponsiveDialog } from "@/components/ui/ResponsiveDialog";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { MacroChips } from "@/components/ui/MacroChips";
 import { Pill } from "@/components/ui/Pill";
@@ -55,7 +55,7 @@ export function ImportMealRow({
         <Pencil className="size-4" />
       </button>
 
-      <BottomSheet open={editing} onOpenChange={setEditing} title="Edit meal">
+      <ResponsiveDialog open={editing} onOpenChange={setEditing} title="Edit meal">
         <MealForm
           submitLabel="Save changes"
           pending={false}
@@ -81,7 +81,7 @@ export function ImportMealRow({
             setEditing(false);
           }}
         />
-      </BottomSheet>
+      </ResponsiveDialog>
     </div>
   );
 }

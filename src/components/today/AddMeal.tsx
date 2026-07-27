@@ -3,7 +3,7 @@
 import { Plus } from "lucide-react";
 import { useState } from "react";
 
-import { BottomSheet } from "@/components/ui/BottomSheet";
+import { ResponsiveDialog } from "@/components/ui/ResponsiveDialog";
 import { Button } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
 import { BowlBuilder } from "@/components/today/BowlBuilder";
@@ -51,7 +51,7 @@ export function AddMeal({
         <Plus className="size-6" />
       </Button>
 
-      <BottomSheet open={open} onOpenChange={setOpen} title="Add meal">
+      <ResponsiveDialog open={open} onOpenChange={setOpen} title="Add meal">
         <Segmented
           options={MODES}
           value={mode}
@@ -119,7 +119,7 @@ export function AddMeal({
             }
           />
         ) : null}
-      </BottomSheet>
+      </ResponsiveDialog>
     </>
   );
 }

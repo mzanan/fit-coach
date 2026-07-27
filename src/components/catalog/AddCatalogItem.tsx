@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 
 import { CatalogForm } from "@/components/catalog/CatalogForm";
-import { BottomSheet } from "@/components/ui/BottomSheet";
+import { ResponsiveDialog } from "@/components/ui/ResponsiveDialog";
 import { Button } from "@/components/ui/Button";
 import { createCatalogItem } from "@/lib/actions/catalog";
 import { useAction } from "@/hooks/useAction";
@@ -24,7 +24,7 @@ export function AddCatalogItem() {
         <Plus className="size-6" />
       </Button>
 
-      <BottomSheet open={open} onOpenChange={setOpen} title="New saved meal">
+      <ResponsiveDialog open={open} onOpenChange={setOpen} title="New saved meal">
         <CatalogForm
           submitLabel="Save to catalog"
           pending={pending}
@@ -44,7 +44,7 @@ export function AddCatalogItem() {
             )
           }
         />
-      </BottomSheet>
+      </ResponsiveDialog>
     </>
   );
 }

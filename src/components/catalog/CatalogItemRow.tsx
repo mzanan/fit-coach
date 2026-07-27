@@ -4,7 +4,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { CatalogForm } from "@/components/catalog/CatalogForm";
-import { BottomSheet } from "@/components/ui/BottomSheet";
+import { ResponsiveDialog } from "@/components/ui/ResponsiveDialog";
 import { MacroChips } from "@/components/ui/MacroChips";
 import { Pill } from "@/components/ui/Pill";
 import { archiveCatalogItem, updateCatalogItem } from "@/lib/actions/catalog";
@@ -67,7 +67,7 @@ export function CatalogItemRow({ item }: { item: CatalogItemFull }) {
         </button>
       </div>
 
-      <BottomSheet open={editing} onOpenChange={setEditing} title="Edit item">
+      <ResponsiveDialog open={editing} onOpenChange={setEditing} title="Edit item">
         <CatalogForm
           submitLabel="Save changes"
           pending={pending}
@@ -97,7 +97,7 @@ export function CatalogItemRow({ item }: { item: CatalogItemFull }) {
             )
           }
         />
-      </BottomSheet>
+      </ResponsiveDialog>
     </div>
   );
 }

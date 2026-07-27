@@ -11,7 +11,7 @@ export function NavBar({ className }: { className?: string }) {
   return (
     <nav
       className={cn(
-        "sticky bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur",
+        "hairline-t sticky bottom-0 z-40 bg-background/80 backdrop-blur-xl",
         className,
       )}
     >
@@ -24,11 +24,11 @@ export function NavBar({ className }: { className?: string }) {
               key={tab.href}
               href={tab.href}
               className={cn(
-                "flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition",
-                active ? "text-primary" : "text-muted-foreground",
+                "flex flex-1 flex-col items-center gap-1 py-3 text-eyebrow font-medium transition-colors duration-(--dur-fast) ease-(--ease-out-soft)",
+                active ? "text-brand" : "text-muted-foreground",
               )}
             >
-              <Icon className="size-5" strokeWidth={active ? 2.4 : 1.8} />
+              <Icon className="size-5" strokeWidth={active ? 1.75 : 1.5} />
               {tab.label}
             </Link>
           );
