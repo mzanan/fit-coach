@@ -44,15 +44,17 @@ export function CoachPanel() {
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         {QUICK.map((q) => (
-          <button
+          <Button
             key={q}
             type="button"
+            variant="outline"
+            size="sm"
             disabled={loading}
             onClick={() => ask(q)}
-            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
+            className="text-muted-foreground hover:text-foreground"
           >
             {q}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -68,23 +70,25 @@ export function CoachPanel() {
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="Ask the coach"
         />
-        <Button type="submit" disabled={loading}>
-          <Sparkles className="size-4" />
+        <Button
+          type="submit"
+          disabled={loading}
+          className="bg-foreground text-background hover:bg-foreground/90"
+        >
+          <Sparkles className="size-4" strokeWidth={1.5} />
           Ask
         </Button>
       </form>
 
       {loading ? (
-        <Surface className="p-4 text-sm text-muted-foreground">
-          Thinking...
-        </Surface>
+        <Surface className="p-5 text-body text-muted-foreground">Thinking...</Surface>
       ) : reply ? (
-        <Surface className="space-y-2 p-4">
+        <Surface className="space-y-2.5 p-5">
           {!generated ? <Pill tone="muted">Rule-based</Pill> : null}
-          <p className="whitespace-pre-wrap text-sm leading-relaxed">{reply}</p>
+          <p className="whitespace-pre-wrap text-body leading-relaxed">{reply}</p>
         </Surface>
       ) : (
-        <Surface className="p-4 text-sm text-muted-foreground">
+        <Surface level="sunken" className="p-5 text-body text-muted-foreground">
           Ask anything about today, your week, or what to eat next. The coach
           reads your logged data.
         </Surface>
