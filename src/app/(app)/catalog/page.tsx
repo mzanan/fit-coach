@@ -2,10 +2,12 @@ import { AddCatalogItem } from "@/components/catalog/AddCatalogItem";
 import { CatalogItemRow } from "@/components/catalog/CatalogItemRow";
 import { Surface } from "@/components/ui/Surface";
 import { getCatalog } from "@/lib/data/catalog";
+import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
 
 export default async function CatalogPage() {
   const user = await requireUser();
+  await ensureProfile(user.id);
   const catalog = await getCatalog(user.id);
 
   return (

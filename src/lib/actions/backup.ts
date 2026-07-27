@@ -1,7 +1,7 @@
 "use server";
 
 import { eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 
 import { db, schema } from "@/lib/db";
 import { requireUser } from "@/lib/session";
@@ -131,6 +131,7 @@ export async function importData(payload: BackupPayload) {
       .values(payload.workout_sets.map((r) => own(r as Row) as typeof workout_sets.$inferInsert));
   }
 
+  updateTag("catalog");
   revalidatePath("/");
   revalidatePath("/catalog");
   revalidatePath("/workout");

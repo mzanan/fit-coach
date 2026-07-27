@@ -14,8 +14,10 @@ import { requireUser } from "@/lib/session";
 
 export default async function SettingsPage() {
   const user = await requireUser();
-  const profile = await ensureProfile(user.id);
-  const whoop = await getWhoopConnection(user.id);
+  const [profile, whoop] = await Promise.all([
+    ensureProfile(user.id),
+    getWhoopConnection(user.id),
+  ]);
 
   return (
     <div className="space-y-4">
