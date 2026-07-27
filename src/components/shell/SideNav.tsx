@@ -24,8 +24,8 @@ export function SideNav() {
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2.5 text-body font-medium transition-colors duration-[--dur-fast]",
                 active
-                  ? "bg-white/[0.05] text-brand"
-                  : "text-muted-foreground hover:bg-white/[0.03]",
+                  ? "bg-overlay text-brand"
+                  : "text-muted-foreground hover:bg-overlay",
               )}
             >
               <Icon className="size-5" strokeWidth={active ? 1.75 : 1.5} />

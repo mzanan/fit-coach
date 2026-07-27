@@ -12,8 +12,8 @@ const button = cva(
         solid:
           "rounded-full bg-primary text-primary-foreground hover:bg-primary-hover active:bg-primary-active",
         outline:
-          "rounded-full border border-hairline-strong bg-transparent hover:bg-white/[0.04]",
-        ghost: "rounded-md hover:bg-white/[0.05]",
+          "rounded-full border border-hairline-strong bg-transparent hover:bg-overlay",
+        ghost: "rounded-md hover:bg-overlay",
         destructive:
           "rounded-full bg-destructive text-white hover:brightness-110",
       },

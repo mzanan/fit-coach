@@ -8,9 +8,9 @@ const pill = cva(
     variants: {
       tone: {
         brand: "bg-brand-soft text-brand",
-        ok: "bg-white/[0.06] text-ok",
+        ok: "bg-overlay text-ok",
         warn: "bg-brand-soft text-brand",
-        muted: "bg-white/[0.05] text-muted-foreground",
+        muted: "bg-overlay text-muted-foreground",
       },
       variant: {
         soft: "",

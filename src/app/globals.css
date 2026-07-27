@@ -34,6 +34,9 @@
   --color-surface-2: var(--surface-2);
   --color-field: var(--field);
   --color-well: var(--well);
+  --color-chart-track: var(--chart-track);
+  --color-chart-ref: var(--chart-ref);
+  --color-overlay: var(--overlay);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-soft: var(--brand-soft);
@@ -53,6 +56,8 @@
 
   --text-hero: 2.75rem;
   --text-hero--line-height: 1;
+  --text-h1: 1.75rem;
+  --text-h1--line-height: 1.15;
   --text-metric: 1.375rem;
   --text-metric--line-height: 1.15;
   --text-title: 1.0625rem;
@@ -75,6 +80,7 @@
   --shadow-card: var(--elevation-card);
   --shadow-raised: var(--elevation-raised);
   --shadow-sheet: var(--elevation-sheet);
+  --shadow-inset: var(--elevation-inset);
 
   --ease-out-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
@@ -110,6 +116,9 @@
   --surface-2: oklch(0.94 0 0);
   --field: oklch(0.975 0 0);
   --well: oklch(0.965 0 0);
+  --chart-track: oklch(0.9 0 0);
+  --chart-ref: oklch(0.62 0 0);
+  --overlay: oklch(0 0 0 / 5%);
   --brand: oklch(0.58 0.095 72);
   --brand-foreground: oklch(0.99 0 0);
   --brand-soft: oklch(0.58 0.095 72 / 12%);
@@ -130,6 +139,7 @@
   --elevation-raised:
     0 2px 4px oklch(0 0 0 / 0.06), 0 20px 48px -16px oklch(0 0 0 / 0.16);
   --elevation-sheet: 0 -8px 40px -12px oklch(0 0 0 / 0.18);
+  --elevation-inset: inset 0 1px 2px oklch(0 0 0 / 0.18);
   --dur-fast: 180ms;
   --dur-base: 320ms;
   --dur-slow: 480ms;
@@ -165,6 +175,9 @@
   --surface-2: oklch(0.22 0 0);
   --field: oklch(0 0 0 / 20%);
   --well: oklch(0 0 0 / 25%);
+  --chart-track: oklch(1 0 0 / 12%);
+  --chart-ref: oklch(1 0 0 / 30%);
+  --overlay: oklch(1 0 0 / 5%);
   --brand: oklch(0.8 0.105 82);
   --brand-foreground: oklch(0.18 0.02 82);
   --brand-soft: oklch(0.8 0.105 82 / 14%);
@@ -185,6 +198,7 @@
   --elevation-raised:
     0 2px 4px oklch(0 0 0 / 0.55), 0 20px 48px -16px oklch(0 0 0 / 0.85);
   --elevation-sheet: 0 -8px 40px -12px oklch(0 0 0 / 0.9);
+  --elevation-inset: inset 0 1px 2px oklch(0 0 0 / 0.45);
 }
 
 @layer base {

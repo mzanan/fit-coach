@@ -7,7 +7,7 @@ const surface = cva("border border-border", {
     level: {
       flat: "bg-card surface-edge",
       raised: "bg-card surface-edge-raised",
-      sunken: "bg-well shadow-[inset_0_1px_2px_oklch(0_0_0_/_0.25)]",
+      sunken: "bg-well shadow-inset",
     },
     radius: {
       md: "rounded-md",

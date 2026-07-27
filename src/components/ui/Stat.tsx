@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 const SIZE = {
   sm: "text-metric",
-  md: "text-[1.75rem] leading-none",
+  md: "text-h1",
   hero: "text-hero tracking-[--tracking-hero]",
 } as const;
 

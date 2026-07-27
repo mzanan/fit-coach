@@ -23,7 +23,7 @@ export default async function BodyPage() {
     return (
       <div className="space-y-7">
         <div>
-          <h1 className="text-[1.75rem] font-medium tracking-[--tracking-snug]">
+          <h1 className="text-h1 font-medium tracking-[--tracking-snug]">
             Body
           </h1>
           <p className="mt-1 text-meta text-muted-foreground">
@@ -66,7 +66,7 @@ export default async function BodyPage() {
     <div className="space-y-7">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-[1.75rem] font-medium tracking-[--tracking-snug]">
+          <h1 className="text-h1 font-medium tracking-[--tracking-snug]">
             Body
           </h1>
           <p className="mt-1 text-meta text-muted-foreground">

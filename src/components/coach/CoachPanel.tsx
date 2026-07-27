@@ -70,11 +70,7 @@ export function CoachPanel() {
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="Ask the coach"
         />
-        <Button
-          type="submit"
-          disabled={loading}
-          className="bg-foreground text-background hover:bg-foreground/90"
-        >
+        <Button type="submit" disabled={loading}>
           <Sparkles className="size-4" strokeWidth={1.5} />
           Ask
         </Button>
