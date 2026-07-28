@@ -1,74 +1,70 @@
 "use client";
 
-import { useState } from "react";
-
+import { BigNumberField } from "@/components/ui/BigNumberField";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { addSet } from "@/lib/actions/workouts";
-import { cn } from "@/lib/utils";
-import { useAction } from "@/hooks/useAction";
+import { ToggleChip } from "@/components/ui/ToggleChip";
+import { Surface } from "@/components/ui/Surface";
+import type { WorkoutSet } from "@/lib/db/schema";
+import type { HistorySet } from "@/lib/workoutHistory";
+import { useAddSet } from "@/components/workout/useAddSet";
 
-export function AddSetForm({ exerciseId }: { exerciseId: string }) {
-  const [reps, setReps] = useState("");
-  const [weight, setWeight] = useState("");
-  const [perSide, setPerSide] = useState(false);
-  const { pending, run } = useAction();
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    run(
-      () =>
-        addSet({
-          exerciseId,
-          reps: reps === "" ? null : Number(reps),
-          weight: weight === "" ? null : Number(weight),
-          per_side: perSide,
-        }),
-      {
-        onDone: () => {
-          setReps("");
-          setWeight("");
-        },
-      },
-    );
-  }
+export function AddSetForm({
+  exerciseId,
+  setCount,
+  lastCurrentSet,
+  lastSessionTop,
+}: {
+  exerciseId: string;
+  setCount: number;
+  lastCurrentSet: WorkoutSet | null;
+  lastSessionTop: HistorySet | null;
+}) {
+  const { reps, setReps, weight, setWeight, perSide, setPerSide, pending, submit } =
+    useAddSet({ exerciseId, lastCurrentSet, lastSessionTop });
 
   return (
-    <form onSubmit={submit} className="flex items-center gap-2">
-      <Input
-        type="number"
-        inputMode="numeric"
-        min={0}
-        value={reps}
-        onChange={(e) => setReps(e.target.value)}
-        placeholder="reps"
-        className="h-9 w-16 text-center"
-      />
-      <span className="text-muted-foreground">x</span>
-      <Input
-        type="number"
-        inputMode="decimal"
-        min={0}
-        value={weight}
-        onChange={(e) => setWeight(e.target.value)}
-        placeholder="kg"
-        className="h-9 w-20 text-center"
-      />
-      <button
-        type="button"
-        onClick={() => setPerSide((v) => !v)}
-        className={cn(
-          "h-9 shrink-0 rounded-lg border px-2 text-xs font-medium transition",
-          perSide
-            ? "border-primary bg-primary/10 text-primary"
-            : "border-border text-muted-foreground",
-        )}
-      >
-        per side
-      </button>
-      <Button type="submit" size="sm" disabled={pending}>
-        Add
-      </Button>
-    </form>
+    <Surface level="sunken" radius="lg" className="p-3">
+      <span className="eyebrow">SET {setCount + 1}</span>
+      <form onSubmit={submit}>
+        <div className="mt-2 flex gap-2">
+          <BigNumberField
+            id={`${exerciseId}-reps`}
+            label="REPS"
+            inputMode="numeric"
+            value={reps}
+            onChange={setReps}
+            placeholder="0"
+          />
+          <BigNumberField
+            id={`${exerciseId}-kg`}
+            label="KG"
+            inputMode="decimal"
+            step={0.5}
+            value={weight}
+            onChange={setWeight}
+            placeholder="BW"
+          />
+        </div>
+        <div className="mt-2 flex gap-2">
+          <ToggleChip
+            tone="neutral"
+            pressedState={perSide}
+            onPressedChange={setPerSide}
+            className="shrink-0"
+          >
+            Per side
+          </ToggleChip>
+          <Button
+            type="submit"
+            variant="solid"
+            size="lg"
+            className="flex-1"
+            disabled={pending || (reps.trim() === "" && weight.trim() === "")}
+          >
+            Add set
+          </Button>
+        </div>
+      </form>
+    </Surface>
   );
 }
