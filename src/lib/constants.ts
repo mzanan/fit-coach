@@ -185,3 +185,17 @@ export const EXERCISE_EQUIPMENT_FACETS = [
 export const EXERCISE_EQUIPMENT_KNOWN = EXERCISE_EQUIPMENT_FACETS.filter(
   (f) => f.value !== EXERCISE_EQUIPMENT_OTHER,
 ).map((f) => f.value);
+
+export const EMBEDDING_DIM = 768;
+
+export const COACH_FACT_CATEGORIES = [
+  { key: "preference", label: "Preference" },
+  { key: "constraint", label: "Constraint" },
+  { key: "correction", label: "Correction" },
+  { key: "routine", label: "Routine" },
+  { key: "context", label: "Context" },
+] as const;
+
+export type CoachFactCategory = (typeof COACH_FACT_CATEGORIES)[number]["key"];
+
+export const COACH_FACT_CATEGORY_KEYS = COACH_FACT_CATEGORIES.map((c) => c.key);
