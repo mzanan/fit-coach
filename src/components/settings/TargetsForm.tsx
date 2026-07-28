@@ -41,55 +41,63 @@ export function TargetsForm({ profile }: { profile: Profile }) {
   }
 
   return (
-    <Surface className="p-4">
-      <h2 className="text-sm font-semibold">Macro targets</h2>
-      <form onSubmit={submit} className="mt-3 space-y-3">
-        <NumberField
-          id="protein_target"
-          label="Protein (g)"
-          value={v.protein_target}
-          onChange={set("protein_target")}
-        />
-        <div className="grid grid-cols-3 gap-2">
-          <NumberField
-            id="fat_floor"
-            label="Fat floor (g)"
-            value={v.fat_floor}
-            onChange={set("fat_floor")}
-          />
-          <NumberField
-            id="fat_min"
-            label="Fat min (g)"
-            value={v.fat_min}
-            onChange={set("fat_min")}
-          />
-          <NumberField
-            id="fat_max"
-            label="Fat max (g)"
-            value={v.fat_max}
-            onChange={set("fat_max")}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <NumberField
-            id="carbs_gym"
-            label="Carbs, gym (g)"
-            value={v.carbs_gym}
-            onChange={set("carbs_gym")}
-          />
-          <NumberField
-            id="carbs_rest"
-            label="Carbs, rest (g)"
-            value={v.carbs_rest}
-            onChange={set("carbs_rest")}
-          />
-        </div>
+    <Surface className="p-card">
+      <form onSubmit={submit} className="space-y-card">
         <NumberField
           id="calories_target"
           label="Calories"
           value={v.calories_target}
           onChange={set("calories_target")}
         />
+        <NumberField
+          id="protein_target"
+          label="Protein (g)"
+          value={v.protein_target}
+          onChange={set("protein_target")}
+        />
+        <div>
+          <p className="eyebrow mb-1.5">Carbs (g)</p>
+          <div className="grid grid-cols-2 gap-2">
+            <NumberField
+              id="carbs_gym"
+              label="Gym day"
+              value={v.carbs_gym}
+              onChange={set("carbs_gym")}
+            />
+            <NumberField
+              id="carbs_rest"
+              label="Rest day"
+              value={v.carbs_rest}
+              onChange={set("carbs_rest")}
+            />
+          </div>
+        </div>
+        <div>
+          <p className="eyebrow mb-1.5">Fat (g)</p>
+          <div className="grid grid-cols-3 gap-2">
+            <NumberField
+              id="fat_floor"
+              label="Floor"
+              value={v.fat_floor}
+              onChange={set("fat_floor")}
+            />
+            <NumberField
+              id="fat_min"
+              label="Min"
+              value={v.fat_min}
+              onChange={set("fat_min")}
+            />
+            <NumberField
+              id="fat_max"
+              label="Max"
+              value={v.fat_max}
+              onChange={set("fat_max")}
+            />
+          </div>
+          <p className="mt-2 text-meta text-muted-foreground">
+            Min and max are the target band. Floor is the hard minimum.
+          </p>
+        </div>
         <Button type="submit" className="w-full" disabled={pending}>
           {pending ? "Saving..." : "Save targets"}
         </Button>

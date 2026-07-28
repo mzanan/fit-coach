@@ -4,7 +4,7 @@ import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/Button";
+import { ListRow } from "@/components/ui/ListRow";
 import { authClient } from "@/lib/authClient";
 
 export function SignOutButton() {
@@ -12,19 +12,19 @@ export function SignOutButton() {
   const [busy, setBusy] = useState(false);
 
   return (
-    <Button
-      variant="ghost"
-      className="w-full text-muted-foreground"
+    <ListRow
+      icon={LogOut}
+      label="Sign out"
+      tone="danger"
+      chevron={false}
       disabled={busy}
+      pending={busy}
       onClick={async () => {
         setBusy(true);
         await authClient.signOut();
         router.replace("/login");
         router.refresh();
       }}
-    >
-      <LogOut className="size-4" />
-      Sign out
-    </Button>
+    />
   );
 }

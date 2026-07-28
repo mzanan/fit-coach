@@ -39,9 +39,8 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   }
 
   return (
-    <Surface className="p-4">
-      <h2 className="text-sm font-semibold">Profile</h2>
-      <form onSubmit={submit} className="mt-3 space-y-3">
+    <Surface className="p-card">
+      <form onSubmit={submit} className="space-y-card">
         <div>
           <Label>Sex</Label>
           <Segmented
@@ -78,15 +77,24 @@ export function ProfileForm({ profile }: { profile: Profile }) {
             onChange={(e) => setTimezone(e.target.value)}
             placeholder="Asia/Ho_Chi_Minh"
           />
+          <p className="mt-2 text-meta text-muted-foreground">
+            IANA name, for example Asia/Ho_Chi_Minh.
+          </p>
         </div>
-        <NumberField
-          id="day_cutoff_hour"
-          label="Day cutoff hour (0-12)"
-          value={cutoff}
-          onChange={setCutoff}
-          min={0}
-          step={1}
-        />
+        <div>
+          <NumberField
+            id="day_cutoff_hour"
+            label="Day cutoff hour"
+            value={cutoff}
+            onChange={setCutoff}
+            min={0}
+            step={1}
+          />
+          <p className="mt-2 text-meta text-muted-foreground">
+            Hours after midnight before a new day starts. At 4, a 3am meal
+            still counts as yesterday.
+          </p>
+        </div>
         <Button type="submit" className="w-full" disabled={pending}>
           {pending ? "Saving..." : "Save profile"}
         </Button>

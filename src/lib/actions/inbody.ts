@@ -145,6 +145,7 @@ async function insertScan(userId: string, data: ScanInput): Promise<void> {
     ...rest,
   });
   revalidatePath("/settings");
+  revalidatePath("/settings/scan");
   revalidatePath("/");
 }
 
@@ -160,6 +161,7 @@ async function replaceScan(
     .set({ taken_at: scanDate(taken_at), ...rest })
     .where(and(eq(body_scans.id, scanId), eq(body_scans.user_id, userId)));
   revalidatePath("/settings");
+  revalidatePath("/settings/scan");
   revalidatePath("/");
 }
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/Button";
 import { Surface } from "@/components/ui/Surface";
 import { exportData, importData, type BackupPayload } from "@/lib/actions/backup";
@@ -13,6 +14,7 @@ export function BackupCard() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<BackupPayload | null>(null);
 
   async function onExport() {
     setBusy(true);
@@ -38,47 +40,82 @@ export function BackupCard() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (!confirm("Importing replaces all current data. Continue?")) return;
-    setBusy(true);
     try {
       const payload = JSON.parse(await file.text()) as BackupPayload;
-      await importData(payload);
+      setPendingPayload(payload);
+    } catch {
+      toast.error("That file is not a valid backup");
+    }
+  }
+
+  async function confirmRestore() {
+    if (!pendingPayload) return;
+    setBusy(true);
+    try {
+      await importData(pendingPayload);
       toast.success("Data imported");
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Import failed");
     } finally {
       setBusy(false);
+      setPendingPayload(null);
     }
   }
 
   return (
-    <Surface className="p-4">
-      <h2 className="text-sm font-semibold">Backup</h2>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Export a JSON copy of all your data, or restore from one.
-      </p>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <Button variant="outline" disabled={busy} onClick={onExport}>
-          <Download className="size-4" />
-          Export
-        </Button>
+    <>
+      <Surface className="p-card">
+        <p className="text-title font-medium tracking-(--tracking-snug)">Export</p>
+        <p className="mt-1 text-meta text-muted-foreground">
+          Downloads meals, workouts, scans and catalog as one file.
+        </p>
         <Button
           variant="outline"
+          className="mt-card w-full"
+          disabled={busy}
+          onClick={onExport}
+        >
+          <Download className="size-4" />
+          {busy ? "Exporting..." : "Export JSON"}
+        </Button>
+      </Surface>
+
+      <Surface className="mt-card p-card">
+        <p className="text-title font-medium tracking-(--tracking-snug)">Restore</p>
+        <p className="mt-1 text-meta text-muted-foreground">
+          Replaces everything currently in this account.
+        </p>
+        <Button
+          variant="outline"
+          className="mt-card w-full text-destructive"
           disabled={busy}
           onClick={() => fileRef.current?.click()}
         >
           <Upload className="size-4" />
-          Import
+          Choose backup file
         </Button>
-      </div>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="application/json,.json"
-        className="hidden"
-        onChange={onFile}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={onFile}
+        />
+      </Surface>
+
+      <ConfirmDialog
+        open={pendingPayload !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingPayload(null);
+        }}
+        title="Replace all data?"
+        body="Restoring overwrites every meal, workout, scan and catalog item in this account. This cannot be undone."
+        confirmLabel="Replace everything"
+        tone="danger"
+        pending={busy}
+        onConfirm={confirmRestore}
       />
-    </Surface>
+    </>
   );
 }
