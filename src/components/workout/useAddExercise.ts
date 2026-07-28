@@ -10,6 +10,7 @@ import { useAction } from "@/hooks/useAction";
 export interface ExerciseSuggestion {
   name: string;
   catalogId?: string;
+  gifPath?: string;
 }
 
 const MAX_SUGGESTIONS = 10;
@@ -52,7 +53,7 @@ export function useAddExercise({
       )
       .filter((o) => normalizeSearch(o.name).includes(q))
       .slice(0, MAX_SUGGESTIONS - recent.length)
-      .map((o) => ({ name: o.name, catalogId: o.id }));
+      .map((o) => ({ name: o.name, catalogId: o.id, gifPath: o.gif_path }));
 
     return [...recent, ...catalogMatches];
   }, [name, names, existingNames, catalogOptions]);

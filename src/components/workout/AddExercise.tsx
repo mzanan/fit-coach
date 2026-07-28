@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -8,6 +9,7 @@ import { Surface } from "@/components/ui/Surface";
 import { ToggleChip } from "@/components/ui/ToggleChip";
 import type { ExerciseCatalogOption } from "@/lib/data/exerciseCatalog";
 import { useAddExercise } from "@/components/workout/useAddExercise";
+import { exerciseGifUrl } from "@/lib/exercises";
 
 export function AddExercise({
   workoutId,
@@ -59,7 +61,19 @@ export function AddExercise({
               disabled={pending}
               className={i >= 6 ? "hidden md:inline-flex" : ""}
             >
-              {s.name}
+              <span className="flex items-center gap-2">
+                {s.gifPath ? (
+                  <Image
+                    src={exerciseGifUrl(s.gifPath)}
+                    alt=""
+                    width={180}
+                    height={180}
+                    unoptimized
+                    className="size-7 shrink-0 rounded-full object-cover"
+                  />
+                ) : null}
+                {s.name}
+              </span>
             </ToggleChip>
           ))}
         </div>

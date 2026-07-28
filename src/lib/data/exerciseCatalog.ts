@@ -9,6 +9,7 @@ const { exercise_catalog } = schema;
 export interface ExerciseCatalogOption {
   id: string;
   name: string;
+  gif_path: string;
 }
 
 export async function getExerciseCatalogOptions(): Promise<ExerciseCatalogOption[]> {
@@ -16,6 +17,7 @@ export async function getExerciseCatalogOptions(): Promise<ExerciseCatalogOption
     .select({
       id: exercise_catalog.id,
       name: exercise_catalog.name,
+      gif_path: exercise_catalog.gif_path,
     })
     .from(exercise_catalog)
     .orderBy(asc(exercise_catalog.name));
