@@ -5,8 +5,8 @@ import Image from "next/image";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { MediaTile } from "@/components/ui/MediaTile";
 import { Surface } from "@/components/ui/Surface";
-import { ToggleChip } from "@/components/ui/ToggleChip";
 import type { ExerciseCatalogOption } from "@/lib/data/exerciseCatalog";
 import { useAddExercise } from "@/components/workout/useAddExercise";
 import { exerciseGifUrl } from "@/lib/exercises";
@@ -51,30 +51,28 @@ export function AddExercise({
       </form>
 
       {suggestions.length > 0 ? (
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-3 grid max-h-[62svh] grid-cols-2 gap-2 overflow-y-auto overscroll-contain sm:grid-cols-3 lg:grid-cols-4">
           {suggestions.map((s, i) => (
-            <ToggleChip
+            <MediaTile
               key={s.catalogId ?? s.name}
-              tone="neutral"
-              pressedState={false}
-              onPressedChange={() => add(s)}
+              index={i}
+              title={s.name}
+              meta={s.meta}
               disabled={pending}
-              className={i >= 6 ? "hidden md:inline-flex" : ""}
-            >
-              <span className="flex items-center gap-2">
-                {s.gifPath ? (
+              onSelect={() => add(s)}
+              media={
+                s.gifPath ? (
                   <Image
                     src={exerciseGifUrl(s.gifPath)}
                     alt=""
-                    width={180}
+                    width={240}
                     height={180}
                     unoptimized
-                    className="size-7 shrink-0 rounded-full object-cover"
+                    className="size-full object-cover"
                   />
-                ) : null}
-                {s.name}
-              </span>
-            </ToggleChip>
+                ) : undefined
+              }
+            />
           ))}
         </div>
       ) : null}

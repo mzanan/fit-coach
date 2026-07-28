@@ -11,9 +11,15 @@ export interface ExerciseSuggestion {
   name: string;
   catalogId?: string;
   gifPath?: string;
+  meta?: string;
 }
 
-const MAX_SUGGESTIONS = 10;
+const MAX_SEARCH_SUGGESTIONS = 6;
+const MAX_RECENT_SUGGESTIONS = 4;
+
+function suggestionMeta(o: ExerciseCatalogOption): string | undefined {
+  return [o.equipment, o.target].filter(Boolean).join(" · ") || undefined;
+}
 
 export function useAddExercise({
   workoutId,
@@ -35,7 +41,7 @@ export function useAddExercise({
     const q = normalizeSearch(name);
 
     if (q === "") {
-      return available.slice(0, MAX_SUGGESTIONS).map((n) => ({ name: n }));
+      return available.slice(0, MAX_RECENT_SUGGESTIONS).map((n) => ({ name: n }));
     }
 
     const starts = available.filter((n) => normalizeSearch(n).startsWith(q));
@@ -43,7 +49,7 @@ export function useAddExercise({
       (n) => !normalizeSearch(n).startsWith(q) && normalizeSearch(n).includes(q),
     );
     const recent = [...starts, ...contains]
-      .slice(0, MAX_SUGGESTIONS)
+      .slice(0, MAX_SEARCH_SUGGESTIONS)
       .map((n) => ({ name: n }));
 
     const seen = new Set(recent.map((s) => normalizeSearch(s.name)));
@@ -52,8 +58,13 @@ export function useAddExercise({
         (o) => !existing.has(normalizeSearch(o.name)) && !seen.has(normalizeSearch(o.name)),
       )
       .filter((o) => normalizeSearch(o.name).includes(q))
-      .slice(0, MAX_SUGGESTIONS - recent.length)
-      .map((o) => ({ name: o.name, catalogId: o.id, gifPath: o.gif_path }));
+      .slice(0, MAX_SEARCH_SUGGESTIONS - recent.length)
+      .map((o) => ({
+        name: o.name,
+        catalogId: o.id,
+        gifPath: o.gif_path,
+        meta: suggestionMeta(o),
+      }));
 
     return [...recent, ...catalogMatches];
   }, [name, names, existingNames, catalogOptions]);

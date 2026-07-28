@@ -80,6 +80,9 @@
   --spacing-block: 1.75rem;
   --spacing-nav: var(--nav-h);
   --spacing-safe-b: calc(var(--safe-b) + var(--spacing-tight));
+  --spacing-caption: 3.75rem;
+
+  --aspect-media: 4 / 3;
 
   --shadow-card: var(--elevation-card);
   --shadow-raised: var(--elevation-raised);
