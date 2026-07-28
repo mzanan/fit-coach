@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { AddSetForm } from "@/components/workout/AddSetForm";
+import { ExerciseGif } from "@/components/workout/ExerciseGif";
 import { SetRow } from "@/components/workout/SetRow";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -55,6 +56,9 @@ export function ExerciseCard({
       style={{ animationDelay: `${Math.min(index, 6) * 70}ms` }}
     >
       <div className="flex min-h-11 items-center gap-2">
+        {exercise.gif_path ? (
+          <ExerciseGif name={exercise.name} gifPath={exercise.gif_path} />
+        ) : null}
         <span className="min-w-0 flex-1 truncate text-title font-medium tracking-(--tracking-snug)">
           {exercise.name}
         </span>

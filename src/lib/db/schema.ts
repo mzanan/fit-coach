@@ -180,6 +180,18 @@ export const workouts = sqliteTable(
   (t) => [index("workouts_user_day_idx").on(t.user_id, t.logical_day)],
 );
 
+export const exercise_catalog = sqliteTable("exercise_catalog", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  category: text("category"),
+  body_part: text("body_part"),
+  equipment: text("equipment"),
+  target: text("target"),
+  muscle_group: text("muscle_group"),
+  secondary_muscles: text("secondary_muscles"),
+  gif_path: text("gif_path").notNull(),
+});
+
 export const workout_exercises = sqliteTable(
   "workout_exercises",
   {
@@ -193,6 +205,10 @@ export const workout_exercises = sqliteTable(
     name: text("name").notNull(),
     sort: integer("sort").notNull().default(0),
     notes: text("notes"),
+    exercise_catalog_id: text("exercise_catalog_id").references(
+      () => exercise_catalog.id,
+      { onDelete: "set null" },
+    ),
   },
   (t) => [index("workout_exercises_workout_idx").on(t.workout_id)],
 );
@@ -363,6 +379,7 @@ export type CoachMemory = typeof coach_memory.$inferSelect;
 export type Workout = typeof workouts.$inferSelect;
 export type WorkoutExercise = typeof workout_exercises.$inferSelect;
 export type WorkoutSet = typeof workout_sets.$inferSelect;
+export type ExerciseCatalogItem = typeof exercise_catalog.$inferSelect;
 export type BodyScan = typeof body_scans.$inferSelect;
 export type WhoopConnection = typeof whoop_connections.$inferSelect;
 export type WhoopCycle = typeof whoop_cycles.$inferSelect;

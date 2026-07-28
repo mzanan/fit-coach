@@ -10,6 +10,7 @@
     "format": "prettier --write .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:seed-exercises": "tsx scripts/importExerciseCatalog.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

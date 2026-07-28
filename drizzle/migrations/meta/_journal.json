@@ -43,6 +43,13 @@
       "when": 1785055372123,
       "tag": "0005_nebulous_runaways",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1785230672000,
+      "tag": "0006_green_thunderbolt",
+      "breakpoints": true
     }
   ]
 }

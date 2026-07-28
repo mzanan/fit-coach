@@ -1,6 +1,7 @@
 import { DeleteWorkoutButton } from "@/components/workout/DeleteWorkoutButton";
 import { WorkoutScreen } from "@/components/workout/WorkoutScreen";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { getExerciseCatalogOptions } from "@/lib/data/exerciseCatalog";
 import { getWorkoutForDay, getWorkoutHistory } from "@/lib/data/workouts";
 import { DEFAULT_SPLIT } from "@/lib/constants";
 import { dayConfig, formatDayLabel, todayLogicalDay } from "@/lib/dates";
@@ -12,12 +13,13 @@ export default async function WorkoutPage() {
   const profile = await ensureProfile(user.id);
   const day = todayLogicalDay(dayConfig(profile));
 
-  const [workout, historyResult] = await Promise.all([
+  const [workout, historyResult, catalogOptions] = await Promise.all([
     getWorkoutForDay(user.id, day),
     getWorkoutHistory(user.id, day).then(
       (value) => ({ ok: true as const, value }),
       () => ({ ok: false as const, value: null }),
     ),
+    getExerciseCatalogOptions().catch(() => []),
   ]);
   const historyAvailable = historyResult.ok;
   const history = historyResult.value ?? { lastByName: {}, names: [], lastLabel: null };
@@ -53,6 +55,7 @@ export default async function WorkoutPage() {
         history={history}
         historyAvailable={historyAvailable}
         suggestedSplit={suggestedSplit}
+        catalogOptions={catalogOptions}
       />
     </div>
   );

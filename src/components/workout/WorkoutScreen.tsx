@@ -4,6 +4,7 @@ import { AddExercise } from "@/components/workout/AddExercise";
 import { ExerciseCard } from "@/components/workout/ExerciseCard";
 import { StartWorkout } from "@/components/workout/StartWorkout";
 import { EmptyState } from "@/components/ui/EmptyState";
+import type { ExerciseCatalogOption } from "@/lib/data/exerciseCatalog";
 import type { WorkoutFull, WorkoutHistory } from "@/lib/data/workouts";
 
 export function WorkoutScreen({
@@ -12,12 +13,14 @@ export function WorkoutScreen({
   history,
   historyAvailable,
   suggestedSplit,
+  catalogOptions,
 }: {
   workout: WorkoutFull | null;
   day: string;
   history: WorkoutHistory;
   historyAvailable: boolean;
   suggestedSplit: string;
+  catalogOptions: ExerciseCatalogOption[];
 }) {
   if (!workout) {
     return (
@@ -50,6 +53,7 @@ export function WorkoutScreen({
         workoutId={workout.id}
         names={history.names}
         existingNames={workout.exercises.map((ex) => ex.name)}
+        catalogOptions={catalogOptions}
       />
     </div>
   );

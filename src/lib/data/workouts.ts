@@ -11,10 +11,11 @@ import type {
 import { normalizeSearch } from "@/lib/search";
 import { topSet, type HistorySet } from "@/lib/workoutHistory";
 
-const { workouts, workout_exercises, workout_sets } = schema;
+const { workouts, workout_exercises, workout_sets, exercise_catalog } = schema;
 
 export interface ExerciseFull extends WorkoutExercise {
   sets: WorkoutSet[];
+  gif_path: string | null;
 }
 
 export interface WorkoutFull extends Workout {
@@ -52,9 +53,16 @@ export async function hydrateWorkout(
   userId: string,
   workout: Workout,
 ): Promise<WorkoutFull> {
-  const exercises = await db
-    .select()
+  const exerciseRows = await db
+    .select({
+      exercise: workout_exercises,
+      gif_path: exercise_catalog.gif_path,
+    })
     .from(workout_exercises)
+    .leftJoin(
+      exercise_catalog,
+      eq(workout_exercises.exercise_catalog_id, exercise_catalog.id),
+    )
     .where(
       and(
         eq(workout_exercises.user_id, userId),
@@ -62,6 +70,11 @@ export async function hydrateWorkout(
       ),
     )
     .orderBy(asc(workout_exercises.sort));
+
+  const exercises = exerciseRows.map((r) => ({
+    ...r.exercise,
+    gif_path: r.gif_path,
+  }));
 
   const exIds = exercises.map((e) => e.id);
   const sets = exIds.length
