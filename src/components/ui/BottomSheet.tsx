@@ -10,6 +10,7 @@ export function BottomSheet({
   title,
   description,
   children,
+  footer,
   className,
 }: {
   open: boolean;
@@ -17,6 +18,7 @@ export function BottomSheet({
   title: string;
   description?: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
   className?: string;
 }) {
   return (
@@ -42,9 +44,17 @@ export function BottomSheet({
               <Drawer.Description className="sr-only">{title}</Drawer.Description>
             )}
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-8">
+          <div
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto px-5",
+              footer ? "pb-4" : "pb-8",
+            )}
+          >
             {children}
           </div>
+          {footer ? (
+            <div className="hairline-t shrink-0 px-5 pt-3 pb-safe-b">{footer}</div>
+          ) : null}
         </Drawer.Content>
       </Drawer.Portal>
     </Drawer.Root>

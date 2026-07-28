@@ -32,6 +32,7 @@ export interface ToggleChipProps
     VariantProps<typeof chip> {
   pressedState: boolean;
   onPressedChange: (value: boolean) => void;
+  ref?: React.Ref<HTMLButtonElement>;
 }
 
 export function ToggleChip({
@@ -40,10 +41,12 @@ export function ToggleChip({
   tone,
   pressedState,
   onPressedChange,
+  ref,
   ...props
 }: ToggleChipProps) {
   return (
     <button
+      ref={ref}
       type="button"
       aria-pressed={pressedState}
       onClick={() => onPressedChange(!pressedState)}

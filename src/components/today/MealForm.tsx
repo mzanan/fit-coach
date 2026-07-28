@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { ChipRow } from "@/components/ui/ChipRow";
 import { Input, Label } from "@/components/ui/Input";
 import { MacroInputs, type MacroValues } from "@/components/ui/MacroInputs";
 import { Segmented } from "@/components/ui/Segmented";
@@ -26,12 +27,14 @@ export function MealForm({
   pending,
   onSubmit,
   showPlace = true,
+  showCategory = true,
 }: {
   initial?: Partial<MealFormValues>;
   submitLabel: string;
   pending: boolean;
   onSubmit: (values: MealFormValues) => void;
   showPlace?: boolean;
+  showCategory?: boolean;
 }) {
   const [values, setValues] = useState<MealFormValues>({
     name: initial?.name ?? "",
@@ -74,14 +77,17 @@ export function MealForm({
         </div>
       ) : null}
 
-      <div>
-        <Label>Meal</Label>
-        <Segmented
-          options={MEAL_CATEGORIES.map((c) => ({ value: c.key, label: c.label }))}
-          value={values.category}
-          onChange={(v) => setValues({ ...values, category: v })}
-        />
-      </div>
+      {showCategory ? (
+        <div>
+          <Label>Meal</Label>
+          <ChipRow
+            ariaLabel="Meal category"
+            options={MEAL_CATEGORIES.map((c) => ({ value: c.key, label: c.label }))}
+            value={values.category}
+            onChange={(v) => setValues({ ...values, category: v })}
+          />
+        </div>
+      ) : null}
 
       <MacroInputs
         value={values}
