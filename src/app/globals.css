@@ -34,6 +34,7 @@
   --color-surface-2: var(--surface-2);
   --color-field: var(--field);
   --color-well: var(--well);
+  --color-media-canvas: var(--media-canvas);
   --color-chart-track: var(--chart-track);
   --color-chart-ref: var(--chart-ref);
   --color-overlay: var(--overlay);
@@ -81,6 +82,9 @@
   --spacing-nav: var(--nav-h);
   --spacing-safe-b: calc(var(--safe-b) + var(--spacing-tight));
   --spacing-caption: 3.75rem;
+  --spacing-media-sm: 6rem;
+  --spacing-media-md: 7rem;
+  --spacing-media-hero: 14rem;
 
   --aspect-media: 4 / 3;
 
@@ -123,6 +127,7 @@
   --surface-2: oklch(0.94 0 0);
   --field: oklch(0.975 0 0);
   --well: oklch(0.965 0 0);
+  --media-canvas: oklch(1 0 0);
   --chart-track: oklch(0.9 0 0);
   --chart-ref: oklch(0.62 0 0);
   --overlay: oklch(0 0 0 / 5%);
@@ -188,6 +193,7 @@
   --surface-2: oklch(0.22 0 0);
   --field: oklch(0 0 0 / 20%);
   --well: oklch(0 0 0 / 25%);
+  --media-canvas: oklch(1 0 0);
   --chart-track: oklch(1 0 0 / 12%);
   --chart-ref: oklch(1 0 0 / 30%);
   --overlay: oklch(1 0 0 / 5%);

@@ -8,6 +8,7 @@ import type {
   WorkoutExercise,
   WorkoutSet,
 } from "@/lib/db/schema";
+import { formatExerciseMeta } from "@/lib/exercises";
 import { normalizeSearch } from "@/lib/search";
 import { topSet, type HistorySet } from "@/lib/workoutHistory";
 
@@ -16,6 +17,7 @@ const { workouts, workout_exercises, workout_sets, exercise_catalog } = schema;
 export interface ExerciseFull extends WorkoutExercise {
   sets: WorkoutSet[];
   gif_path: string | null;
+  meta: string | null;
 }
 
 export interface WorkoutFull extends Workout {
@@ -57,6 +59,8 @@ export async function hydrateWorkout(
     .select({
       exercise: workout_exercises,
       gif_path: exercise_catalog.gif_path,
+      equipment: exercise_catalog.equipment,
+      target: exercise_catalog.target,
     })
     .from(workout_exercises)
     .leftJoin(
@@ -74,6 +78,7 @@ export async function hydrateWorkout(
   const exercises = exerciseRows.map((r) => ({
     ...r.exercise,
     gif_path: r.gif_path,
+    meta: formatExerciseMeta(r.equipment, r.target) ?? null,
   }));
 
   const exIds = exercises.map((e) => e.id);

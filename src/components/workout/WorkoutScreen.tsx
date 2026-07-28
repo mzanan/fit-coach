@@ -6,6 +6,7 @@ import { StartWorkout } from "@/components/workout/StartWorkout";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { ExerciseCatalogOption } from "@/lib/data/exerciseCatalog";
 import type { WorkoutFull, WorkoutHistory } from "@/lib/data/workouts";
+import { EXERCISE_MEDIA_ATTRIBUTION } from "@/lib/exercises";
 
 export function WorkoutScreen({
   workout,
@@ -30,6 +31,13 @@ export function WorkoutScreen({
 
   return (
     <div className="space-y-tight">
+      <AddExercise
+        workoutId={workout.id}
+        names={history.names}
+        existingNames={workout.exercises.map((ex) => ex.name)}
+        catalogOptions={catalogOptions}
+      />
+
       {workout.exercises.length === 0 ? (
         <EmptyState
           size="sm"
@@ -49,12 +57,11 @@ export function WorkoutScreen({
         ))
       )}
 
-      <AddExercise
-        workoutId={workout.id}
-        names={history.names}
-        existingNames={workout.exercises.map((ex) => ex.name)}
-        catalogOptions={catalogOptions}
-      />
+      {workout.exercises.some((ex) => ex.gif_path) ? (
+        <p className="mt-block text-center text-eyebrow text-muted-foreground">
+          {EXERCISE_MEDIA_ATTRIBUTION}
+        </p>
+      ) : null}
     </div>
   );
 }

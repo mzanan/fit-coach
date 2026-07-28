@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { addExercise } from "@/lib/actions/workouts";
 import type { ExerciseCatalogOption } from "@/lib/data/exerciseCatalog";
+import { formatExerciseMeta } from "@/lib/exercises";
 import { normalizeSearch } from "@/lib/search";
 import { useAction } from "@/hooks/useAction";
 
@@ -16,10 +17,6 @@ export interface ExerciseSuggestion {
 
 const MAX_SEARCH_SUGGESTIONS = 6;
 const MAX_RECENT_SUGGESTIONS = 4;
-
-function suggestionMeta(o: ExerciseCatalogOption): string | undefined {
-  return [o.equipment, o.target].filter(Boolean).join(" · ") || undefined;
-}
 
 export function useAddExercise({
   workoutId,
@@ -63,7 +60,7 @@ export function useAddExercise({
         name: o.name,
         catalogId: o.id,
         gifPath: o.gif_path,
-        meta: suggestionMeta(o),
+        meta: formatExerciseMeta(o.equipment, o.target),
       }));
 
     return [...recent, ...catalogMatches];

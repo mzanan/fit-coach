@@ -23,10 +23,10 @@ export function AddSetForm({
     useAddSet({ exerciseId, lastCurrentSet, lastSessionTop });
 
   return (
-    <Surface level="sunken" radius="lg" className="p-3">
+    <Surface level="sunken" radius="lg" className="flex h-full flex-col p-3">
       <span className="eyebrow">SET {setCount + 1}</span>
-      <form onSubmit={submit}>
-        <div className="mt-2 flex gap-2">
+      <form onSubmit={submit} className="mt-2 flex flex-1 flex-col justify-between">
+        <div className="flex gap-2">
           <BigNumberField
             id={`${exerciseId}-reps`}
             label="REPS"
@@ -57,7 +57,7 @@ export function AddSetForm({
           <Button
             type="submit"
             variant="solid"
-            size="lg"
+            size="md"
             className="flex-1"
             disabled={pending || (reps.trim() === "" && weight.trim() === "")}
           >
