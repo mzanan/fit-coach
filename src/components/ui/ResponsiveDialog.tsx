@@ -47,11 +47,11 @@ export function ResponsiveDialog({
             className,
           )}
         >
-          <Dialog.Title className="text-center text-lg font-semibold">
+          <Dialog.Title className="text-center text-title font-medium tracking-(--tracking-snug)">
             {title}
           </Dialog.Title>
           {description ? (
-            <Dialog.Description className="mt-0.5 whitespace-pre-line text-sm text-muted-foreground">
+            <Dialog.Description className="mt-0.5 whitespace-pre-line text-meta text-muted-foreground">
               {description}
             </Dialog.Description>
           ) : (

@@ -26,7 +26,7 @@ export function Segmented({
           type="button"
           onClick={() => onChange(o.value)}
           className={cn(
-            "flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition",
+            "min-h-9 flex-1 rounded-md px-2 py-1.5 text-meta font-medium transition-[background-color,color,box-shadow] duration-(--dur-fast) ease-(--ease-out-soft)",
             value === o.value
               ? "bg-card text-foreground shadow-sm"
               : "text-muted-foreground",

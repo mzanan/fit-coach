@@ -31,9 +31,11 @@ export function BottomSheet({
         >
           <div className="mx-auto mt-3 h-1.5 w-10 shrink-0 rounded-full bg-muted" />
           <div className="px-5 pb-2 pt-3">
-            <Drawer.Title className="text-lg font-semibold">{title}</Drawer.Title>
+            <Drawer.Title className="text-title font-medium tracking-(--tracking-snug)">
+              {title}
+            </Drawer.Title>
             {description ? (
-              <Drawer.Description className="mt-0.5 whitespace-pre-line text-sm text-muted-foreground">
+              <Drawer.Description className="mt-0.5 whitespace-pre-line text-meta text-muted-foreground">
                 {description}
               </Drawer.Description>
             ) : (
