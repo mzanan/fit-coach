@@ -21,7 +21,7 @@ export function SetRow({ set }: { set: WorkoutSet }) {
         {set.reps ?? "-"} x {weight}
       </span>
       <ToggleChip
-        size="md"
+        size="sm"
         tone="brand"
         pressedState={set.is_pr}
         onPressedChange={() => run(() => toggleSetPr(set.id))}
