@@ -1,12 +1,20 @@
 "use client";
 
-import { Surface } from "@/components/ui/Surface";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { ensureWorkout } from "@/lib/actions/workouts";
 import { DEFAULT_SPLIT } from "@/lib/constants";
 import { useAction } from "@/hooks/useAction";
 
-export function StartWorkout({ day }: { day: string }) {
+export function StartWorkout({
+  day,
+  lastLabel,
+  suggestedSplit,
+}: {
+  day: string;
+  lastLabel: string | null;
+  suggestedSplit: string;
+}) {
   const { pending, run } = useAction();
 
   function start(label?: string) {
@@ -14,30 +22,39 @@ export function StartWorkout({ day }: { day: string }) {
   }
 
   return (
-    <Surface className="space-y-3 p-4">
-      <p className="text-sm text-muted-foreground">
-        No session today. Pick a split to start.
-      </p>
-      <div className="grid grid-cols-2 gap-2">
-        {DEFAULT_SPLIT.map((label) => (
+    <EmptyState
+      title="No session logged today"
+      body={
+        lastLabel
+          ? `Last session was ${lastLabel}. ${suggestedSplit} is next.`
+          : "Pick a split to start. You can rename it later."
+      }
+      action={
+        <div>
+          <div className="grid grid-cols-2 gap-2">
+            {DEFAULT_SPLIT.map((label) => (
+              <Button
+                key={label}
+                size="lg"
+                variant={label === suggestedSplit ? "solid" : "outline"}
+                disabled={pending}
+                onClick={() => start(label)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
           <Button
-            key={label}
-            variant="outline"
+            variant="ghost"
+            size="lg"
+            className="mt-2 w-full"
             disabled={pending}
-            onClick={() => start(label)}
+            onClick={() => start(undefined)}
           >
-            {label}
+            Empty session
           </Button>
-        ))}
-      </div>
-      <Button
-        variant="ghost"
-        className="w-full"
-        disabled={pending}
-        onClick={() => start(undefined)}
-      >
-        Empty session
-      </Button>
-    </Surface>
+        </div>
+      }
+    />
   );
 }

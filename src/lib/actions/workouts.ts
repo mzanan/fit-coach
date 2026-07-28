@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, max } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -105,8 +105,8 @@ export async function addSet(input: unknown) {
     .limit(1);
   if (!ex[0]) throw new Error("Not found");
 
-  const count = await db
-    .select({ id: workout_sets.id })
+  const [{ maxIndex }] = await db
+    .select({ maxIndex: max(workout_sets.set_index) })
     .from(workout_sets)
     .where(eq(workout_sets.exercise_id, exerciseId));
 
@@ -114,7 +114,7 @@ export async function addSet(input: unknown) {
     id: newId(),
     exercise_id: exerciseId,
     user_id: user.id,
-    set_index: count.length + 1,
+    set_index: (maxIndex ?? 0) + 1,
     reps,
     weight,
     per_side,

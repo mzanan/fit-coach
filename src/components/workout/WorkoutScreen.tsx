@@ -1,52 +1,56 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
-
 import { AddExercise } from "@/components/workout/AddExercise";
 import { ExerciseCard } from "@/components/workout/ExerciseCard";
 import { StartWorkout } from "@/components/workout/StartWorkout";
-import { deleteWorkout } from "@/lib/actions/workouts";
-import type { WorkoutFull } from "@/lib/data/workouts";
-import { useAction } from "@/hooks/useAction";
+import { EmptyState } from "@/components/ui/EmptyState";
+import type { WorkoutFull, WorkoutHistory } from "@/lib/data/workouts";
 
 export function WorkoutScreen({
   workout,
   day,
+  history,
+  historyAvailable,
+  suggestedSplit,
 }: {
   workout: WorkoutFull | null;
   day: string;
+  history: WorkoutHistory;
+  historyAvailable: boolean;
+  suggestedSplit: string;
 }) {
-  const { pending, run } = useAction();
-
   if (!workout) {
-    return <StartWorkout day={day} />;
+    return (
+      <StartWorkout day={day} lastLabel={history.lastLabel} suggestedSplit={suggestedSplit} />
+    );
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-base font-semibold">
-          {workout.label ?? "Session"}
-        </span>
-        <button
-          type="button"
-          aria-label="Delete workout"
-          disabled={pending}
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-accent"
-          onClick={() => {
-            if (!confirm("Delete the whole session?")) return;
-            run(() => deleteWorkout(workout.id));
-          }}
-        >
-          <Trash2 className="size-4" />
-        </button>
-      </div>
+    <div className="space-y-tight">
+      {workout.exercises.length === 0 ? (
+        <EmptyState
+          size="sm"
+          title="No exercises yet"
+          body="Add your first exercise and start logging sets."
+        />
+      ) : (
+        workout.exercises.map((ex, i) => (
+          <ExerciseCard
+            key={ex.id}
+            exercise={ex}
+            day={day}
+            history={history}
+            historyAvailable={historyAvailable}
+            index={i}
+          />
+        ))
+      )}
 
-      {workout.exercises.map((ex) => (
-        <ExerciseCard key={ex.id} exercise={ex} />
-      ))}
-
-      <AddExercise workoutId={workout.id} />
+      <AddExercise
+        workoutId={workout.id}
+        names={history.names}
+        existingNames={workout.exercises.map((ex) => ex.name)}
+      />
     </div>
   );
 }
