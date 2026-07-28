@@ -1,13 +1,14 @@
 "use client";
 
-import { Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { MacroChips } from "@/components/ui/MacroChips";
 import { Pill } from "@/components/ui/Pill";
+import { SearchField } from "@/components/ui/SearchField";
 import type { CatalogItem } from "@/lib/db/schema";
+import { normalizeSearch } from "@/lib/search";
 
 export function CatalogPicker({
   items,
@@ -19,30 +20,27 @@ export function CatalogPicker({
   onPick: (itemId: string) => void;
 }) {
   const [q, setQ] = useState("");
-  const query = q.trim().toLowerCase();
+  const query = normalizeSearch(q);
   const filtered = query
     ? items.filter(
         (i) =>
-          i.name.toLowerCase().includes(query) ||
-          (i.place ?? "").toLowerCase().includes(query),
+          normalizeSearch(i.name).includes(query) ||
+          normalizeSearch(i.place ?? "").includes(query),
       )
     : items;
 
   return (
     <div>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search saved meals"
-          className="pl-9"
-        />
-      </div>
+      <SearchField
+        value={q}
+        onChange={setQ}
+        placeholder="Search saved meals"
+        aria-label="Search saved meals"
+      />
 
       <div className="mt-3 divide-y divide-border">
         {filtered.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
+          <p className="py-6 text-center text-meta text-muted-foreground">
             No matches.
           </p>
         ) : (
@@ -50,13 +48,13 @@ export function CatalogPicker({
             <div key={item.id} className="flex items-center gap-3 py-2.5">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium">
+                  <span className="truncate text-body font-medium">
                     {item.name}
                   </span>
                   {item.fat_quality === "oily" ? <Pill tone="warn">Oily</Pill> : null}
                 </div>
                 {item.place ? (
-                  <p className="text-xs text-muted-foreground">{item.place}</p>
+                  <p className="text-meta text-muted-foreground">{item.place}</p>
                 ) : null}
                 <MacroChips macros={item} className="mt-1" />
               </div>

@@ -9,20 +9,31 @@ import { Button } from "@/components/ui/Button";
 import { createCatalogItem } from "@/lib/actions/catalog";
 import { useAction } from "@/hooks/useAction";
 
-export function AddCatalogItem() {
+export function AddCatalogItem({
+  variant = "fab",
+}: {
+  variant?: "fab" | "inline";
+}) {
   const [open, setOpen] = useState(false);
   const { pending, run } = useAction();
 
   return (
     <>
-      <Button
-        size="icon"
-        aria-label="Add catalog item"
-        className="fixed bottom-20 right-4 z-40 size-14 rounded-full shadow-lg md:bottom-8"
-        onClick={() => setOpen(true)}
-      >
-        <Plus className="size-6" />
-      </Button>
+      {variant === "fab" ? (
+        <Button
+          size="icon"
+          aria-label="Add catalog item"
+          className="fixed right-4 bottom-[calc(var(--spacing-nav)+env(safe-area-inset-bottom)+var(--spacing-tight))] z-40 size-14 rounded-full shadow-raised md:hidden"
+          onClick={() => setOpen(true)}
+        >
+          <Plus className="size-6" />
+        </Button>
+      ) : (
+        <Button size="md" onClick={() => setOpen(true)}>
+          <Plus className="size-[18px]" strokeWidth={1.5} />
+          Add meal
+        </Button>
+      )}
 
       <ResponsiveDialog open={open} onOpenChange={setOpen} title="New saved meal">
         <CatalogForm
