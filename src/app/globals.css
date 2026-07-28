@@ -72,6 +72,7 @@
   --tracking-hero: -0.035em;
   --tracking-snug: -0.02em;
   --tracking-eyebrow: 0.09em;
+  --tracking-code: 0.32em;
 
   --spacing-tight: 0.75rem;
   --spacing-card: 1.25rem;
@@ -144,6 +145,9 @@
   --dur-base: 320ms;
   --dur-slow: 480ms;
   --dur-data: 780ms;
+  --stagger-1: 70ms;
+  --stagger-2: 140ms;
+  --stagger-3: 210ms;
 }
 
 .dark {
