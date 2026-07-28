@@ -3,9 +3,10 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { ChipRow } from "@/components/ui/ChipRow";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { MacroChips } from "@/components/ui/MacroChips";
 import { Pill } from "@/components/ui/Pill";
-import { Segmented } from "@/components/ui/Segmented";
 import { COMPONENT_GROUPS } from "@/lib/constants";
 import type { CatalogItemFull } from "@/lib/data/catalog";
 import { sumMacros } from "@/lib/macros";
@@ -26,9 +27,11 @@ export function BowlBuilder({
 
   if (!item) {
     return (
-      <p className="py-6 text-center text-sm text-muted-foreground">
-        No build-your-own meals yet.
-      </p>
+      <EmptyState
+        size="sm"
+        title="No build-your-own meals yet"
+        body="Mark a catalog item as build your own to use this."
+      />
     );
   }
 
@@ -47,8 +50,10 @@ export function BowlBuilder({
   return (
     <div>
       {items.length > 1 ? (
-        <Segmented
-          className="mb-3"
+        <ChipRow
+          className="mb-3 -mx-5 px-5 sm:mx-0 sm:px-0"
+          ariaLabel="Bowl"
+          tone="neutral"
           options={items.map((i) => ({ value: i.id, label: i.name }))}
           value={itemId}
           onChange={(v) => {
@@ -66,9 +71,7 @@ export function BowlBuilder({
           if (comps.length === 0) return null;
           return (
             <div key={group.key}>
-              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {group.label}
-              </p>
+              <p className="eyebrow mb-2">{group.label}</p>
               <div className="flex flex-wrap gap-2">
                 {comps.map((c) => {
                   const on = selected.has(c.id);
@@ -78,10 +81,10 @@ export function BowlBuilder({
                       type="button"
                       onClick={() => toggle(c.id)}
                       className={cn(
-                        "rounded-lg border px-3 py-2 text-left text-sm transition",
+                        "min-h-14 rounded-lg border px-3 py-2 text-left text-body transition-[background-color,border-color] duration-(--dur-fast) ease-(--ease-out-soft) active:bg-overlay focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         on
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:bg-accent",
+                          ? "border-brand-line bg-brand-soft"
+                          : "border-hairline-strong",
                       )}
                     >
                       <div className="flex items-center gap-1.5 font-medium">

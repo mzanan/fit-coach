@@ -1,7 +1,11 @@
 import { addDays, format, parseISO, subHours } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 
-import { DAY_CUTOFF_DEFAULT, TIMEZONE_DEFAULT } from "@/lib/constants";
+import {
+  DAY_CUTOFF_DEFAULT,
+  TIMEZONE_DEFAULT,
+  type MealCategoryKey,
+} from "@/lib/constants";
 
 export interface DayConfig {
   timezone: string;
@@ -42,4 +46,21 @@ export function formatDayLabel(day: string, todayDay: string): string {
   if (day === shiftDay(todayDay, -1)) return "Yesterday";
   if (day === shiftDay(todayDay, 1)) return "Tomorrow";
   return format(parseISO(day), "EEE, MMM d");
+}
+
+export function inferMealCategory(
+  now: Date,
+  cfg: DayConfig,
+  isGymDay: boolean,
+): MealCategoryKey {
+  const zoned = toZonedTime(now, cfg.timezone);
+  const minutes = zoned.getHours() * 60 + zoned.getMinutes();
+  const cutoff = Math.min(cfg.cutoffHour, 6) * 60;
+
+  if (minutes < cutoff) return "dinner";
+  if (minutes < 9 * 60) return "breakfast";
+  if (minutes < 11 * 60 + 30) return isGymDay ? "post_gym" : "breakfast";
+  if (minutes < 16 * 60) return "lunch";
+  if (minutes < 18 * 60) return "snack";
+  return "dinner";
 }

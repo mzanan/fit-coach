@@ -1,4 +1,5 @@
 import { MealRow } from "@/components/today/MealRow";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Surface } from "@/components/ui/Surface";
 import { MEAL_CATEGORIES } from "@/lib/constants";
 import type { Meal } from "@/lib/db/schema";
@@ -6,12 +7,10 @@ import type { Meal } from "@/lib/db/schema";
 export function MealList({ meals }: { meals: Meal[] }) {
   if (meals.length === 0) {
     return (
-      <Surface level="sunken" className="px-6 py-10 text-center">
-        <p className="text-body text-muted-foreground">Nothing logged yet</p>
-        <p className="mt-1 text-meta text-faint">
-          Add your first meal and the day fills in.
-        </p>
-      </Surface>
+      <EmptyState
+        title="Nothing logged yet"
+        body="Add your first meal and the day fills in."
+      />
     );
   }
 

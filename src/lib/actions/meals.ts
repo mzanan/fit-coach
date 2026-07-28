@@ -23,19 +23,26 @@ const fromCatalogSchema = z.object({
   day: dayString,
 });
 
-export async function addMealFromCatalog(input: unknown) {
+export async function addMealFromCatalog(input: unknown): Promise<string> {
   const user = await requireUser();
   const { itemId, category, day } = fromCatalogSchema.parse(input);
 
   const item = await db
     .select()
     .from(catalog_items)
-    .where(and(eq(catalog_items.id, itemId), eq(catalog_items.user_id, user.id)))
+    .where(
+      and(
+        eq(catalog_items.id, itemId),
+        eq(catalog_items.user_id, user.id),
+        eq(catalog_items.archived, false),
+      ),
+    )
     .limit(1);
   if (!item[0]) throw new Error("Catalog item not found");
 
+  const id = newId();
   await db.insert(meals).values({
-    id: newId(),
+    id,
     user_id: user.id,
     logical_day: day,
     category,
@@ -49,6 +56,7 @@ export async function addMealFromCatalog(input: unknown) {
     created_at: new Date(),
   });
   revalidatePath("/");
+  return id;
 }
 
 const composableSchema = z.object({
@@ -163,6 +171,42 @@ export async function updateMeal(input: unknown) {
     })
     .where(and(eq(meals.id, data.id), eq(meals.user_id, user.id)));
   revalidatePath("/");
+}
+
+const repeatSchema = z.object({
+  mealId: z.string().min(1),
+  category: z.string().min(1),
+  day: dayString,
+});
+
+export async function repeatMeal(input: unknown): Promise<string> {
+  const user = await requireUser();
+  const { mealId, category, day } = repeatSchema.parse(input);
+
+  const source = await db
+    .select()
+    .from(meals)
+    .where(and(eq(meals.id, mealId), eq(meals.user_id, user.id)))
+    .limit(1);
+  if (!source[0]) throw new Error("Meal not found");
+
+  const id = newId();
+  await db.insert(meals).values({
+    id,
+    user_id: user.id,
+    logical_day: day,
+    category,
+    name: source[0].name,
+    place: source[0].place,
+    protein_g: source[0].protein_g,
+    fat_g: source[0].fat_g,
+    carbs_g: source[0].carbs_g,
+    fat_quality: source[0].fat_quality,
+    catalog_item_id: source[0].catalog_item_id,
+    created_at: new Date(),
+  });
+  revalidatePath("/");
+  return id;
 }
 
 export async function deleteMeal(id: string) {

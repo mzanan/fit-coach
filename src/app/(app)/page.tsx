@@ -4,6 +4,7 @@ import { MacroOverview } from "@/components/today/MacroOverview";
 import { MealList } from "@/components/today/MealList";
 import { getCatalog } from "@/lib/data/catalog";
 import { getDayData } from "@/lib/data/today";
+import { getRecentMeals } from "@/lib/data/recentMeals";
 import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
@@ -23,17 +24,37 @@ export default async function TodayPage({
   const sp = await searchParams;
   const day = sp.day && DAY_RE.test(sp.day) ? sp.day : today;
 
-  const [dayData, catalog] = await Promise.all([
+  const [dayData, catalog, recents] = await Promise.all([
     getDayData(user.id, profile, day),
     getCatalog(user.id),
+    getRecentMeals(user.id),
   ]);
 
   return (
     <div className="space-y-7">
       <DayNav day={day} today={today} isGymDay={dayData.isGymDay} />
       <MacroOverview summary={dayData.summary} profile={profile} />
+      <div className="hidden justify-end md:flex">
+        <AddMeal
+          catalog={catalog}
+          recents={recents}
+          day={day}
+          today={today}
+          cfg={cfg}
+          isGymDay={dayData.isGymDay}
+          variant="inline"
+        />
+      </div>
       <MealList meals={dayData.meals} />
-      <AddMeal catalog={catalog} day={day} />
+      <AddMeal
+        catalog={catalog}
+        recents={recents}
+        day={day}
+        today={today}
+        cfg={cfg}
+        isGymDay={dayData.isGymDay}
+        variant="fab"
+      />
     </div>
   );
 }
