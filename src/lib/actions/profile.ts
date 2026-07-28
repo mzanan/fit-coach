@@ -29,6 +29,7 @@ export async function updateTargets(input: unknown) {
     .where(eq(profiles.user_id, user.id));
   revalidatePath("/");
   revalidatePath("/settings");
+  revalidatePath("/settings/targets");
 }
 
 const settingsSchema = z.object({
@@ -49,4 +50,5 @@ export async function updateProfileSettings(input: unknown) {
     .where(eq(profiles.user_id, user.id));
   revalidatePath("/");
   revalidatePath("/settings");
+  revalidatePath("/settings/profile");
 }

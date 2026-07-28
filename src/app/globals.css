@@ -77,6 +77,7 @@
   --spacing-tight: 0.75rem;
   --spacing-card: 1.25rem;
   --spacing-block: 1.75rem;
+  --spacing-nav: var(--nav-h);
 
   --shadow-card: var(--elevation-card);
   --shadow-raised: var(--elevation-raised);
@@ -148,6 +149,7 @@
   --stagger-1: 70ms;
   --stagger-2: 140ms;
   --stagger-3: 210ms;
+  --nav-h: 3.75rem;
 }
 
 .dark {

@@ -185,3 +185,13 @@ export async function getScanCount(userId: string): Promise<number> {
     .where(eq(body_scans.user_id, userId));
   return rows.length;
 }
+
+export async function getLatestScanTakenAt(userId: string): Promise<Date | null> {
+  const rows = await db
+    .select({ taken_at: body_scans.taken_at })
+    .from(body_scans)
+    .where(eq(body_scans.user_id, userId))
+    .orderBy(desc(body_scans.taken_at), desc(body_scans.created_at), desc(body_scans.id))
+    .limit(1);
+  return rows[0]?.taken_at ?? null;
+}

@@ -33,14 +33,14 @@ export function ImportMealRow({
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium">{meal.name}</span>
+          <span className="truncate text-body font-medium">{meal.name}</span>
           {meal.fat_quality === "clean" ? (
             <Pill tone="ok">Clean</Pill>
           ) : meal.fat_quality === "oily" ? (
             <Pill tone="warn">Oily</Pill>
           ) : null}
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-meta text-muted-foreground">
           {categoryLabel(meal.category)}
           {meal.place ? ` · ${meal.place}` : ""}
         </p>
