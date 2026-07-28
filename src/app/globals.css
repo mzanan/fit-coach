@@ -79,6 +79,7 @@
   --spacing-card: 1.25rem;
   --spacing-block: 1.75rem;
   --spacing-nav: var(--nav-h);
+  --spacing-safe-b: calc(var(--safe-b) + var(--spacing-tight));
 
   --shadow-card: var(--elevation-card);
   --shadow-raised: var(--elevation-raised);
@@ -152,6 +153,7 @@
   --stagger-2: 140ms;
   --stagger-3: 210ms;
   --nav-h: 3.75rem;
+  --safe-b: env(safe-area-inset-bottom);
 }
 
 .dark {

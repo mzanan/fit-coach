@@ -12,6 +12,7 @@ export function ResponsiveDialog({
   title,
   description,
   children,
+  footer,
   className,
 }: {
   open: boolean;
@@ -19,6 +20,7 @@ export function ResponsiveDialog({
   title: string;
   description?: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
   className?: string;
 }) {
   const isDesktop = useMediaQuery("(min-width: 640px)");
@@ -30,6 +32,7 @@ export function ResponsiveDialog({
         onOpenChange={onOpenChange}
         title={title}
         description={description}
+        footer={footer}
         className={className}
       >
         {children}
@@ -58,6 +61,9 @@ export function ResponsiveDialog({
             <Dialog.Description className="sr-only">{title}</Dialog.Description>
           )}
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto">{children}</div>
+          {footer ? (
+            <div className="hairline-t -mx-5 mt-4 shrink-0 px-5 pt-4">{footer}</div>
+          ) : null}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

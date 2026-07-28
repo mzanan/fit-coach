@@ -6,14 +6,42 @@ import { toast } from "sonner";
 export function useAction() {
   const [pending, startTransition] = useTransition();
 
-  function run(
-    fn: () => Promise<unknown>,
-    opts?: { success?: string; onDone?: () => void },
+  function run<T>(
+    fn: () => Promise<T>,
+    opts?: {
+      success?: string;
+      onDone?: () => void;
+      undo?: (result: T) => Promise<void>;
+      undoSuccess?: string;
+    },
   ) {
     startTransition(async () => {
       try {
-        await fn();
-        if (opts?.success) toast.success(opts.success);
+        const result = await fn();
+        if (opts?.success) {
+          if (opts.undo) {
+            toast.success(opts.success, {
+              duration: 6000,
+              action: {
+                label: "Undo",
+                onClick: () => {
+                  void opts
+                    .undo!(result)
+                    .then(() => {
+                      if (opts.undoSuccess) toast(opts.undoSuccess);
+                    })
+                    .catch((e: unknown) => {
+                      toast.error(
+                        e instanceof Error ? e.message : "Could not undo",
+                      );
+                    });
+                },
+              },
+            });
+          } else {
+            toast.success(opts.success);
+          }
+        }
         opts?.onDone?.();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Something went wrong");
