@@ -44,10 +44,6 @@ export function useMdImport() {
     startTransition(async () => {
       try {
         const result = await extractMdImport(mdText);
-        if (!result.days.length && !result.catalog_items.length) {
-          toast.error("Nothing recognized in the markdown");
-          return;
-        }
         setDays(
           result.days.map((d, di) => ({
             day: d.day,

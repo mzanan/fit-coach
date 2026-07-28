@@ -1,4 +1,5 @@
 import { MdImportFlow } from "@/components/import/MdImportFlow";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
@@ -9,13 +10,13 @@ export default async function MdImportPage() {
   const today = todayLogicalDay(dayConfig(profile));
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">Import from Markdown</h1>
-        <p className="text-sm text-muted-foreground">
-          Migrate your markdown tracking log: extract, review, then import.
-        </p>
-      </div>
+    <div className="space-y-block">
+      <PageHeader
+        backHref="/settings"
+        backLabel="Back to settings"
+        title="Import from Markdown"
+        description="Extract, review, then import. Nothing is saved until you confirm."
+      />
       <MdImportFlow today={today} />
     </div>
   );

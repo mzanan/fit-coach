@@ -22,8 +22,8 @@ export function ImportWorkoutRow({
         className="mt-0.5"
       />
       <div className="min-w-0 flex-1">
-        <span className="text-sm font-medium">{w.label || "Workout"}</span>
-        <p className="text-xs text-muted-foreground">
+        <span className="text-body font-medium">{w.label || "Workout"}</span>
+        <p className="text-meta text-muted-foreground">
           {w.exercises.length} exercises · {setCount} sets
           {w.exercises.length
             ? ` · ${w.exercises.map((e) => e.name).join(", ")}`

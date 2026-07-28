@@ -20,9 +20,9 @@ export function ImportCatalogRow({
         className="mt-0.5"
       />
       <div className="min-w-0 flex-1">
-        <span className="truncate text-sm font-medium">{item.name}</span>
+        <span className="truncate text-body font-medium">{item.name}</span>
         {item.place ? (
-          <p className="text-xs text-muted-foreground">{item.place}</p>
+          <p className="text-meta text-muted-foreground">{item.place}</p>
         ) : null}
         <MacroChips macros={item} className="mt-1" />
       </div>

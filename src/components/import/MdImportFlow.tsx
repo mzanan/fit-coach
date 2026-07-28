@@ -5,7 +5,10 @@ import { useRef } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Label } from "@/components/ui/Input";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { StickyActions } from "@/components/ui/StickyActions";
 import { Surface } from "@/components/ui/Surface";
+import { Textarea } from "@/components/ui/Textarea";
 import { ImportCatalogRow } from "@/components/import/ImportCatalogRow";
 import { ImportMealRow } from "@/components/import/ImportMealRow";
 import { ImportWorkoutRow } from "@/components/import/ImportWorkoutRow";
@@ -32,20 +35,33 @@ export function MdImportFlow({ today }: { today: string }) {
     commit,
   } = useMdImport();
 
+  if (pending && !days) {
+    return (
+      <Surface level="raised" className="p-card">
+        <p className="eyebrow">Reading the log</p>
+        <Skeleton className="mt-3 h-5 w-48" />
+        <Skeleton className="mt-2 h-5 w-36" />
+        <Skeleton className="mt-2 h-5 w-44" />
+        <p className="mt-3 text-meta text-muted-foreground">
+          Long logs take a few seconds.
+        </p>
+      </Surface>
+    );
+  }
+
   if (!days) {
     return (
-      <div className="space-y-4">
-        <Surface className="p-4">
+      <div className="space-y-card">
+        <Surface className="p-card">
           <Label htmlFor="md-text">Markdown log</Label>
-          <textarea
+          <Textarea
             id="md-text"
             value={mdText}
             onChange={(e) => setMdText(e.target.value)}
             placeholder="Paste your markdown tracking log here, or load the .md file."
             rows={12}
-            className="mt-1 w-full rounded-lg border border-border bg-transparent p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-card grid grid-cols-2 gap-2">
             <Button
               variant="outline"
               disabled={pending}
@@ -56,7 +72,7 @@ export function MdImportFlow({ today }: { today: string }) {
             </Button>
             <Button disabled={pending || !mdText.trim()} onClick={extract}>
               <Sparkles className="size-4" />
-              {pending ? "Extracting..." : "Extract"}
+              Extract
             </Button>
           </div>
           <input
@@ -71,20 +87,34 @@ export function MdImportFlow({ today }: { today: string }) {
             }}
           />
         </Surface>
-        <p className="text-xs text-muted-foreground">
-          The AI reads the log and proposes days, meals, workouts and catalog
-          items. Nothing is saved until you review and confirm.
+        <p className="text-meta text-muted-foreground">
+          The AI proposes days, meals, workouts and catalog items. You review
+          before anything is written.
         </p>
       </div>
     );
   }
 
+  if (days.length === 0 && catalogItems.length === 0) {
+    return (
+      <Surface level="sunken" className="px-6 py-10 text-center">
+        <p className="text-body">Nothing to import</p>
+        <p className="mx-auto mt-1.5 max-w-[32ch] text-meta text-muted-foreground">
+          No days, meals or workouts were found in that log.
+        </p>
+        <Button variant="outline" className="mt-5" onClick={reset}>
+          Back
+        </Button>
+      </Surface>
+    );
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-block pb-4">
       {warnings.length ? (
-        <Surface className="border border-warn/40 p-4">
-          <h2 className="text-sm font-semibold">Warnings</h2>
-          <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
+        <Surface className="border-brand-line p-card">
+          <p className="eyebrow">Check these</p>
+          <ul className="mt-2 space-y-1 text-meta text-muted-foreground">
             {warnings.map((w, i) => (
               <li key={i}>{w}</li>
             ))}
@@ -93,12 +123,12 @@ export function MdImportFlow({ today }: { today: string }) {
       ) : null}
 
       {days.map((d) => (
-        <Surface key={d.day} className="p-4">
-          <h2 className="text-sm font-semibold">
-            {formatDayLabel(d.day, today)}{" "}
-            <span className="font-normal text-muted-foreground">{d.day}</span>
-          </h2>
-          <div className="mt-1 divide-y divide-border">
+        <Surface key={d.day} className="p-card">
+          <p className="text-title font-medium tracking-(--tracking-snug)">
+            {formatDayLabel(d.day, today)}
+          </p>
+          <p className="mt-0.5 text-meta text-muted-foreground">{d.day}</p>
+          <div className="mt-card divide-y divide-border">
             {d.meals.map((m) => (
               <ImportMealRow
                 key={m.key}
@@ -118,12 +148,14 @@ export function MdImportFlow({ today }: { today: string }) {
       ))}
 
       {catalogItems.length ? (
-        <Surface className="p-4">
-          <h2 className="text-sm font-semibold">Catalog items</h2>
-          <p className="text-xs text-muted-foreground">
-            Existing items with the same name are skipped on import.
+        <Surface className="p-card">
+          <p className="text-title font-medium tracking-(--tracking-snug)">
+            Catalog items
           </p>
-          <div className="mt-1 divide-y divide-border">
+          <p className="mt-0.5 text-meta text-muted-foreground">
+            Items with a name you already have are skipped.
+          </p>
+          <div className="mt-card divide-y divide-border">
             {catalogItems.map((c) => (
               <ImportCatalogRow
                 key={c.key}
@@ -135,7 +167,7 @@ export function MdImportFlow({ today }: { today: string }) {
         </Surface>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-2">
+      <StickyActions className="grid grid-cols-2 gap-2">
         <Button variant="outline" disabled={pending} onClick={reset}>
           Back
         </Button>
@@ -151,7 +183,7 @@ export function MdImportFlow({ today }: { today: string }) {
             ? "Importing..."
             : `Import ${included?.meals ?? 0} meals, ${included?.workouts ?? 0} workouts`}
         </Button>
-      </div>
+      </StickyActions>
     </div>
   );
 }
