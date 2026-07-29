@@ -2,13 +2,13 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function WorkoutLoading() {
   return (
-    <div className="mx-auto w-full max-w-(--container-default) px-gutter">
+    <div className="mx-auto w-full max-w-(--container-wide) px-gutter">
       <div className="space-y-block">
         <div>
           <Skeleton className="h-7 w-28" />
           <Skeleton className="mt-1.5 h-4 w-44" />
         </div>
-        <div className="space-y-tight">
+        <div className="space-y-tight lg:grid lg:grid-cols-2 lg:gap-tight lg:space-y-0">
           <Skeleton className="h-[380px] w-full rounded-xl" />
           <Skeleton className="h-[380px] w-full rounded-xl" />
         </div>

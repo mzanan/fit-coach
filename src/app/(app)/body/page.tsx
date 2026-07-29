@@ -23,7 +23,7 @@ export default async function BodyPage() {
   if (!latest) {
     return (
       <Page
-        width="default"
+        width="wide"
         title="Body"
         description="Body composition from your InBody scans."
       >
@@ -65,7 +65,7 @@ export default async function BodyPage() {
 
   return (
     <Page
-      width="default"
+      width="wide"
       title="Body"
       description={`Scan from ${takenAt}${latest.device ? ` · ${latest.device}` : ""}`}
       action={
@@ -77,68 +77,73 @@ export default async function BodyPage() {
       }
     >
       <div className="space-y-7">
-        <RecompHero latest={latest} delta={delta} />
-
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Surface className="p-4">
-            <Stat
-              label="Skeletal muscle"
-              value={latest.skeletal_muscle_kg}
-              unit="kg"
-              delta={
-                delta?.skeletal_muscle_kg != null
-                  ? {
-                      value: delta.skeletal_muscle_kg,
-                      goodDirection: "up",
-                      unit: "kg",
-                    }
-                  : undefined
-              }
-            />
-          </Surface>
-          <Surface className="p-4">
-            <Stat
-              label="Body fat"
-              value={latest.body_fat_kg}
-              unit="kg"
-              delta={
-                delta?.body_fat_kg != null
-                  ? {
-                      value: delta.body_fat_kg,
-                      goodDirection: "down",
-                      unit: "kg",
-                    }
-                  : undefined
-              }
-            />
-          </Surface>
-          <Surface className="p-4">
-            <Stat
-              label="Visceral fat"
-              value={latest.visceral_fat_level}
-              hint="Healthy under 10"
-            />
-          </Surface>
-          <Surface className="p-4">
-            <Stat
-              label="Waist"
-              value={latest.waist_circumference_cm}
-              unit="cm"
-            />
-          </Surface>
+        <div className="lg:grid lg:grid-cols-12 lg:items-start lg:gap-6">
+          <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards duration-(--dur-slow) ease-(--ease-out-soft) lg:col-span-7">
+            <RecompHero latest={latest} delta={delta} />
+          </div>
+          <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards mt-3 grid grid-cols-2 gap-3 delay-(--stagger-1) duration-(--dur-slow) ease-(--ease-out-soft) lg:col-span-5 lg:mt-0">
+            <Surface className="p-4">
+              <Stat
+                label="Skeletal muscle"
+                value={latest.skeletal_muscle_kg}
+                unit="kg"
+                delta={
+                  delta?.skeletal_muscle_kg != null
+                    ? {
+                        value: delta.skeletal_muscle_kg,
+                        goodDirection: "up",
+                        unit: "kg",
+                      }
+                    : undefined
+                }
+              />
+            </Surface>
+            <Surface className="p-4">
+              <Stat
+                label="Body fat"
+                value={latest.body_fat_kg}
+                unit="kg"
+                delta={
+                  delta?.body_fat_kg != null
+                    ? {
+                        value: delta.body_fat_kg,
+                        goodDirection: "down",
+                        unit: "kg",
+                      }
+                    : undefined
+                }
+              />
+            </Surface>
+            <Surface className="p-4">
+              <Stat
+                label="Visceral fat"
+                value={latest.visceral_fat_level}
+                hint="Healthy under 10"
+              />
+            </Surface>
+            <Surface className="p-4">
+              <Stat
+                label="Waist"
+                value={latest.waist_circumference_cm}
+                unit="cm"
+              />
+            </Surface>
+          </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards grid gap-3 delay-(--stagger-2) duration-(--dur-slow) ease-(--ease-out-soft) md:grid-cols-2">
           <CompositionCard scan={latest} />
           <InbodyGuidance scan={latest} profile={profile} />
         </div>
 
         {adherence ? (
-          <IntakeSinceScan
-            adherence={adherence}
-            daily={daily}
-            title={delta ? "Between scans" : "Since the scan"}
-          />
+          <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards delay-(--stagger-3) duration-(--dur-slow) ease-(--ease-out-soft)">
+            <IntakeSinceScan
+              adherence={adherence}
+              daily={daily}
+              title={delta ? "Between scans" : "Since the scan"}
+            />
+          </div>
         ) : null}
       </div>
     </Page>

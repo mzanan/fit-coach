@@ -32,32 +32,43 @@ export default async function TodayPage({
   ]);
 
   return (
-    <Page width="default">
-      <div className="space-y-7">
-        <DayNav day={day} today={today} isGymDay={dayData.isGymDay} />
-        <MacroOverview summary={dayData.summary} profile={profile} />
-        <div className="hidden justify-end md:flex">
-          <AddMeal
-            catalog={catalog}
-            recents={recents}
-            day={day}
-            today={today}
-            cfg={cfg}
-            isGymDay={dayData.isGymDay}
-            variant="inline"
-          />
+    <Page width="wide">
+      <div className="lg:grid lg:grid-cols-12 lg:items-start lg:gap-8">
+        <div className="space-y-7 lg:sticky lg:top-gutter lg:col-span-5 lg:animate-in lg:fade-in lg:slide-in-from-bottom-2 lg:fill-mode-backwards lg:duration-(--dur-slow) lg:ease-(--ease-out-soft)">
+          <DayNav day={day} today={today} isGymDay={dayData.isGymDay} />
+          <MacroOverview summary={dayData.summary} profile={profile} />
         </div>
-        <MealList meals={dayData.meals} />
-        <AddMeal
-          catalog={catalog}
-          recents={recents}
-          day={day}
-          today={today}
-          cfg={cfg}
-          isGymDay={dayData.isGymDay}
-          variant="fab"
-        />
+
+        <div className="mt-7 lg:col-span-7 lg:mt-0 lg:animate-in lg:fade-in lg:slide-in-from-bottom-2 lg:fill-mode-backwards lg:delay-(--stagger-1) lg:duration-(--dur-slow) lg:ease-(--ease-out-soft)">
+          <div className="mb-3 hidden items-center gap-3 md:flex">
+            <h2 className="text-title font-medium tracking-(--tracking-snug) md:text-title-lg">
+              Meals
+            </h2>
+            <div className="ml-auto">
+              <AddMeal
+                catalog={catalog}
+                recents={recents}
+                day={day}
+                today={today}
+                cfg={cfg}
+                isGymDay={dayData.isGymDay}
+                variant="inline"
+              />
+            </div>
+          </div>
+          <MealList meals={dayData.meals} />
+        </div>
       </div>
+
+      <AddMeal
+        catalog={catalog}
+        recents={recents}
+        day={day}
+        today={today}
+        cfg={cfg}
+        isGymDay={dayData.isGymDay}
+        variant="fab"
+      />
     </Page>
   );
 }

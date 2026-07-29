@@ -22,7 +22,11 @@ export function WorkoutScreen({
 }) {
   if (!workout) {
     return (
-      <StartWorkout day={day} lastLabel={history.lastLabel} suggestedSplit={suggestedSplit} />
+      <StartWorkout
+        day={day}
+        lastLabel={history.lastLabel}
+        suggestedSplit={suggestedSplit}
+      />
     );
   }
 
@@ -40,16 +44,18 @@ export function WorkoutScreen({
           body="Add your first exercise and start logging sets."
         />
       ) : (
-        workout.exercises.map((ex, i) => (
-          <ExerciseCard
-            key={ex.id}
-            exercise={ex}
-            day={day}
-            history={history}
-            historyAvailable={historyAvailable}
-            index={i}
-          />
-        ))
+        <div className="space-y-tight lg:grid lg:grid-cols-2 lg:items-start lg:gap-tight lg:space-y-0">
+          {workout.exercises.map((ex, i) => (
+            <ExerciseCard
+              key={ex.id}
+              exercise={ex}
+              day={day}
+              history={history}
+              historyAvailable={historyAvailable}
+              index={i}
+            />
+          ))}
+        </div>
       )}
 
       {workout.exercises.some((ex) => ex.gif_path) ? (

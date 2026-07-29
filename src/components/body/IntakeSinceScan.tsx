@@ -2,6 +2,7 @@ import { ColumnChart } from "@/components/ui/ColumnChart";
 import { Stat } from "@/components/ui/Stat";
 import { Surface } from "@/components/ui/Surface";
 import type { DailyIntake, PeriodAdherence } from "@/lib/data/bodyScans";
+import { cn } from "@/lib/utils";
 
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -46,14 +47,19 @@ export function IntakeSinceScan({
         <Stat label="Gym sessions" value={adherence.workouts} />
       </div>
 
-      <div className="mt-6">
+      <div
+        className={cn("mt-6", daily.length <= 5 && "max-w-(--container-focus)")}
+      >
         {logged.length === 0 ? (
           <p className="text-meta text-muted-foreground">
             No meals logged in this window.
           </p>
         ) : (
           <ColumnChart
-            points={daily.map((d) => ({ label: shortDay(d.day), value: d.kcal }))}
+            points={daily.map((d) => ({
+              label: shortDay(d.day),
+              value: d.kcal,
+            }))}
             refValue={adherence.kcalTarget}
             refLabel="Target"
             unit="kcal"

@@ -8,12 +8,14 @@ function verdict(delta: ScanDelta): string | null {
   const fat = delta.body_fat_kg;
   if (muscle == null || fat == null) return null;
   const flat = (n: number) => Math.abs(n) <= 0.3;
-  if (flat(muscle) && flat(fat)) return `Little movement in ${delta.days} days.`;
+  if (flat(muscle) && flat(fat))
+    return `Little movement in ${delta.days} days.`;
   if (muscle > 0 && fat < 0) return "Recomposition. Muscle up, fat down.";
   if (muscle > 0 && fat > 0) return "Gaining both. Consider trimming calories.";
   if (muscle < 0 && fat < 0)
     return "Losing both. Protein or the deficit is too aggressive.";
-  if (flat(muscle) && fat < 0) return "Fat down, muscle held. That is the goal.";
+  if (flat(muscle) && fat < 0)
+    return "Fat down, muscle held. That is the goal.";
   return "Muscle down while fat holds. Check protein and training.";
 }
 
@@ -35,7 +37,7 @@ export function RecompHero({
           <div>
             <p className="eyebrow">Body fat</p>
             <p className="mt-2 flex items-baseline gap-2">
-              <span className="num text-hero font-semibold tracking-(--tracking-hero)">
+              <span className="num text-hero font-semibold tracking-(--tracking-hero) md:text-hero-lg">
                 {latest.body_fat_pct ?? "--"}
               </span>
               <span className="text-meta text-faint">%</span>
@@ -48,7 +50,8 @@ export function RecompHero({
           ) : null}
         </div>
         <p className="mt-3 text-meta text-muted-foreground">
-          Skeletal muscle <span className="num">{latest.skeletal_muscle_kg ?? "--"}</span> kg
+          Skeletal muscle{" "}
+          <span className="num">{latest.skeletal_muscle_kg ?? "--"}</span> kg
           <span className="mx-1.5 text-faint">·</span>
           Weight <span className="num">{latest.weight_kg ?? "--"}</span> kg
         </p>
@@ -61,7 +64,11 @@ export function RecompHero({
 
   const lead =
     delta.skeletal_muscle_kg != null
-      ? { label: "Skeletal muscle", value: delta.skeletal_muscle_kg, unit: "kg" }
+      ? {
+          label: "Skeletal muscle",
+          value: delta.skeletal_muscle_kg,
+          unit: "kg",
+        }
       : delta.body_fat_pct != null
         ? { label: "Body fat", value: delta.body_fat_pct, unit: "%" }
         : delta.weight_kg != null
@@ -87,7 +94,7 @@ export function RecompHero({
         {lead.label}, {delta.days} days
       </p>
       <p className="mt-2 flex items-baseline gap-2">
-        <span className="num text-hero font-semibold tracking-(--tracking-hero)">
+        <span className="num text-hero font-semibold tracking-(--tracking-hero) md:text-hero-lg">
           {signed(lead.value)}
         </span>
         <span className="text-meta text-faint">{lead.unit}</span>

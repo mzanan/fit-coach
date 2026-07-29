@@ -23,6 +23,7 @@ export function StartWorkout({
 
   return (
     <EmptyState
+      className="mx-auto max-w-(--container-focus)"
       title="No session logged today"
       body={
         lastLabel
@@ -31,7 +32,7 @@ export function StartWorkout({
       }
       action={
         <div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
             {DEFAULT_SPLIT.map((label) => (
               <Button
                 key={label}

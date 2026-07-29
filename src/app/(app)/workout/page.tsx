@@ -20,7 +20,11 @@ export default async function WorkoutPage() {
     ),
   ]);
   const historyAvailable = historyResult.ok;
-  const history = historyResult.value ?? { lastByName: {}, names: [], lastLabel: null };
+  const history = historyResult.value ?? {
+    lastByName: {},
+    names: [],
+    lastLabel: null,
+  };
 
   const lastIndex = history.lastLabel
     ? DEFAULT_SPLIT.findIndex((s) => s === history.lastLabel)
@@ -36,7 +40,7 @@ export default async function WorkoutPage() {
 
   return (
     <Page
-      width="default"
+      width="wide"
       title="Workout"
       description={
         workout
