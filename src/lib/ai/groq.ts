@@ -6,7 +6,10 @@ const VISION_BASE_URL =
   process.env.AI_VISION_BASE_URL ??
   "https://generativelanguage.googleapis.com/v1beta/openai";
 const VISION_MODEL = process.env.AI_VISION_MODEL ?? "gemini-2.5-flash";
-const EM_DASH = new RegExp("\\s*" + String.fromCharCode(0x2014) + "\\s*", "g");
+const LONG_DASH = new RegExp(
+  "\\s*[" + String.fromCharCode(0x2013) + String.fromCharCode(0x2014) + "]\\s*",
+  "g",
+);
 
 type ContentPart =
   | { type: "text"; text: string }
@@ -36,7 +39,7 @@ export function hasVisionAi(): boolean {
 }
 
 function clean(text: string): string {
-  return text.replace(EM_DASH, ", ").trim();
+  return text.replace(LONG_DASH, ", ").trim();
 }
 
 interface CompleteTarget {
