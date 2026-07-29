@@ -50,6 +50,13 @@
       "when": 1785230672000,
       "tag": "0006_green_thunderbolt",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1785301385107,
+      "tag": "0007_outgoing_giant_girl",
+      "breakpoints": true
     }
   ]
 }
