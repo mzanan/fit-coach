@@ -28,7 +28,10 @@ export default async function BodyPage() {
         description="Body composition from your InBody scans."
       >
         <div className="space-y-7">
-          <Surface level="sunken" className="mx-auto max-w-(--container-focus) px-6 py-10 text-center">
+          <Surface
+            level="sunken"
+            className="mx-auto max-w-(--container-focus) px-6 py-10 text-center"
+          >
             <p className="text-body">No body scan yet</p>
             <p className="mx-auto mt-1.5 max-w-[32ch] text-meta text-muted-foreground">
               Import an InBody result and this screen shows what your diet and
@@ -76,60 +79,68 @@ export default async function BodyPage() {
       <div className="space-y-7">
         <RecompHero latest={latest} delta={delta} />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Surface className="p-4">
-          <Stat
-            label="Skeletal muscle"
-            value={latest.skeletal_muscle_kg}
-            unit="kg"
-            delta={
-              delta?.skeletal_muscle_kg != null
-                ? {
-                    value: delta.skeletal_muscle_kg,
-                    goodDirection: "up",
-                    unit: "kg",
-                  }
-                : undefined
-            }
-          />
-        </Surface>
-        <Surface className="p-4">
-          <Stat
-            label="Body fat"
-            value={latest.body_fat_kg}
-            unit="kg"
-            delta={
-              delta?.body_fat_kg != null
-                ? { value: delta.body_fat_kg, goodDirection: "down", unit: "kg" }
-                : undefined
-            }
-          />
-        </Surface>
-        <Surface className="p-4">
-          <Stat
-            label="Visceral fat"
-            value={latest.visceral_fat_level}
-            hint="Healthy under 10"
-          />
-        </Surface>
-        <Surface className="p-4">
-          <Stat label="Waist" value={latest.waist_circumference_cm} unit="cm" />
-        </Surface>
-      </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Surface className="p-4">
+            <Stat
+              label="Skeletal muscle"
+              value={latest.skeletal_muscle_kg}
+              unit="kg"
+              delta={
+                delta?.skeletal_muscle_kg != null
+                  ? {
+                      value: delta.skeletal_muscle_kg,
+                      goodDirection: "up",
+                      unit: "kg",
+                    }
+                  : undefined
+              }
+            />
+          </Surface>
+          <Surface className="p-4">
+            <Stat
+              label="Body fat"
+              value={latest.body_fat_kg}
+              unit="kg"
+              delta={
+                delta?.body_fat_kg != null
+                  ? {
+                      value: delta.body_fat_kg,
+                      goodDirection: "down",
+                      unit: "kg",
+                    }
+                  : undefined
+              }
+            />
+          </Surface>
+          <Surface className="p-4">
+            <Stat
+              label="Visceral fat"
+              value={latest.visceral_fat_level}
+              hint="Healthy under 10"
+            />
+          </Surface>
+          <Surface className="p-4">
+            <Stat
+              label="Waist"
+              value={latest.waist_circumference_cm}
+              unit="cm"
+            />
+          </Surface>
+        </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <CompositionCard scan={latest} />
-        <InbodyGuidance scan={latest} profile={profile} />
-      </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <CompositionCard scan={latest} />
+          <InbodyGuidance scan={latest} profile={profile} />
+        </div>
 
-      {adherence ? (
-        <IntakeSinceScan
-          adherence={adherence}
-          daily={daily}
-          title={delta ? "Between scans" : "Since the scan"}
-        />
-      ) : null}
-    </div>
+        {adherence ? (
+          <IntakeSinceScan
+            adherence={adherence}
+            daily={daily}
+            title={delta ? "Between scans" : "Since the scan"}
+          />
+        ) : null}
+      </div>
     </Page>
   );
 }

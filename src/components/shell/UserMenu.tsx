@@ -37,22 +37,29 @@ export function UserMenu({
     router.refresh();
   }
 
-  const avatar = (
-    <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-hairline-strong bg-surface-2 text-meta font-medium">
-      {image && !avatarFailed ? (
-        <Image
-          src={image}
-          alt=""
-          width={32}
-          height={32}
-          unoptimized
-          onError={() => setAvatarFailed(true)}
-        />
-      ) : (
-        initial
-      )}
-    </span>
-  );
+  function avatar(size: 32 | 36) {
+    return (
+      <span
+        className={cn(
+          "flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-hairline-strong bg-surface-2 text-meta font-medium",
+          size === 32 ? "size-8" : "size-9",
+        )}
+      >
+        {image && !avatarFailed ? (
+          <Image
+            src={image}
+            alt=""
+            width={size}
+            height={size}
+            unoptimized
+            onError={() => setAvatarFailed(true)}
+          />
+        ) : (
+          initial
+        )}
+      </span>
+    );
+  }
 
   return (
     <DropdownMenu.Root>
@@ -61,7 +68,7 @@ export function UserMenu({
           aria-label="Account menu"
           className="flex min-h-12 min-w-0 flex-1 items-center gap-2.5 rounded-control px-2 text-left outline-none transition-colors duration-(--dur-fast) hover:bg-overlay focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {avatar}
+          {avatar(32)}
           <span className="min-w-0 flex-1">
             <span className="block truncate text-meta font-medium">
               {name || email}
@@ -76,20 +83,9 @@ export function UserMenu({
       ) : (
         <DropdownMenu.Trigger
           aria-label="Account menu"
-          className="flex size-9 items-center justify-center overflow-hidden rounded-full border border-hairline-strong bg-surface-2 text-meta font-medium transition-colors duration-(--dur-fast) outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-full outline-none transition-colors duration-(--dur-fast) focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {image && !avatarFailed ? (
-            <Image
-              src={image}
-              alt=""
-              width={36}
-              height={36}
-              unoptimized
-              onError={() => setAvatarFailed(true)}
-            />
-          ) : (
-            initial
-          )}
+          {avatar(36)}
         </DropdownMenu.Trigger>
       )}
 
@@ -104,7 +100,9 @@ export function UserMenu({
             <>
               <div className="px-3 py-2">
                 {name ? <p className="text-body font-medium">{name}</p> : null}
-                <p className="truncate text-meta text-muted-foreground">{email}</p>
+                <p className="truncate text-meta text-muted-foreground">
+                  {email}
+                </p>
               </div>
               <div className="my-1 h-px bg-border" />
             </>
