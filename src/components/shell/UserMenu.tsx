@@ -94,7 +94,7 @@ export function UserMenu({
           align={variant === "rail" ? "start" : "end"}
           side={variant === "rail" ? "top" : "bottom"}
           sideOffset={8}
-          className="z-50 min-w-56 rounded-2xl border border-border bg-popover p-1.5 shadow-raised"
+          className="z-50 min-w-56 rounded-xl border border-border bg-popover p-1.5 shadow-raised"
         >
           {variant === "rail" ? null : (
             <>

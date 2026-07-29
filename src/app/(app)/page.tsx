@@ -36,16 +36,21 @@ export default async function TodayPage({
       <div className="space-y-7">
         <DayNav day={day} today={today} isGymDay={dayData.isGymDay} />
         <MacroOverview summary={dayData.summary} profile={profile} />
-        <div className="hidden justify-end md:flex">
-          <AddMeal
-            catalog={catalog}
-            recents={recents}
-            day={day}
-            today={today}
-            cfg={cfg}
-            isGymDay={dayData.isGymDay}
-            variant="inline"
-          />
+        <div className="hidden items-center gap-3 md:flex">
+          <h2 className="text-title font-medium tracking-(--tracking-snug)">
+            Meals
+          </h2>
+          <div className="ml-auto">
+            <AddMeal
+              catalog={catalog}
+              recents={recents}
+              day={day}
+              today={today}
+              cfg={cfg}
+              isGymDay={dayData.isGymDay}
+              variant="inline"
+            />
+          </div>
         </div>
         <MealList meals={dayData.meals} />
         <AddMeal
