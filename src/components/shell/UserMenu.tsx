@@ -105,20 +105,20 @@ export function UserMenu({
                 </p>
               </div>
               <div className="my-1 h-px bg-border" />
+              <DropdownMenu.Item asChild>
+                <Link href="/catalog" className={ITEM}>
+                  <UtensilsCrossed className="size-[18px]" strokeWidth={1.5} />
+                  Catalog
+                </Link>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item asChild>
+                <Link href="/settings" className={ITEM}>
+                  <Settings className="size-[18px]" strokeWidth={1.5} />
+                  Settings
+                </Link>
+              </DropdownMenu.Item>
             </>
           )}
-          <DropdownMenu.Item asChild>
-            <Link href="/catalog" className={ITEM}>
-              <UtensilsCrossed className="size-[18px]" strokeWidth={1.5} />
-              Catalog
-            </Link>
-          </DropdownMenu.Item>
-          <DropdownMenu.Item asChild>
-            <Link href="/settings" className={ITEM}>
-              <Settings className="size-[18px]" strokeWidth={1.5} />
-              Settings
-            </Link>
-          </DropdownMenu.Item>
           <DropdownMenu.Item
             disabled={busy}
             onSelect={(e) => {
