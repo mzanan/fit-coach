@@ -143,3 +143,45 @@ export type BodySegment = (typeof BODY_SEGMENTS)[number]["key"];
 export type SegmentMetric = (typeof SEGMENT_METRICS)[number]["key"];
 export type SegmentValues = Partial<Record<SegmentMetric, number | null>>;
 export type Segmental = Partial<Record<BodySegment, SegmentValues | null>>;
+
+export const EXERCISE_EQUIPMENT_OTHER = "__other";
+
+export const EXERCISE_MUSCLE_FACETS = [
+  { value: "abs", label: "Abs" },
+  { value: "pectorals", label: "Chest" },
+  { value: "upper back", label: "Back" },
+  { value: "lats", label: "Lats" },
+  { value: "delts", label: "Shoulders" },
+  { value: "biceps", label: "Biceps" },
+  { value: "triceps", label: "Triceps" },
+  { value: "forearms", label: "Forearms" },
+  { value: "glutes", label: "Glutes" },
+  { value: "quads", label: "Quads" },
+  { value: "hamstrings", label: "Hamstrings" },
+  { value: "calves", label: "Calves" },
+  { value: "traps", label: "Traps" },
+  { value: "adductors", label: "Adductors" },
+  { value: "abductors", label: "Abductors" },
+  { value: "spine", label: "Spine" },
+  { value: "serratus anterior", label: "Serratus" },
+  { value: "levator scapulae", label: "Neck" },
+  { value: "cardiovascular system", label: "Cardio" },
+] as const;
+
+export const EXERCISE_EQUIPMENT_FACETS = [
+  { value: "body weight", label: "Bodyweight" },
+  { value: "dumbbell", label: "Dumbbell" },
+  { value: "barbell", label: "Barbell" },
+  { value: "cable", label: "Cable" },
+  { value: "leverage machine", label: "Machine" },
+  { value: "smith machine", label: "Smith" },
+  { value: "band", label: "Band" },
+  { value: "kettlebell", label: "Kettlebell" },
+  { value: "weighted", label: "Weighted" },
+  { value: "stability ball", label: "Stability ball" },
+  { value: EXERCISE_EQUIPMENT_OTHER, label: "Other" },
+] as const;
+
+export const EXERCISE_EQUIPMENT_KNOWN = EXERCISE_EQUIPMENT_FACETS.filter(
+  (f) => f.value !== EXERCISE_EQUIPMENT_OTHER,
+).map((f) => f.value);
