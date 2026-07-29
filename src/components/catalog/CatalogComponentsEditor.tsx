@@ -4,7 +4,6 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { MacroChips } from "@/components/ui/MacroChips";
 import { Pill } from "@/components/ui/Pill";
 import {
@@ -57,6 +56,35 @@ function CatalogComponentRow({ component }: { component: CatalogComponent }) {
     );
   }
 
+  if (confirmingDelete) {
+    return (
+      <div className="rounded-lg bg-well px-3 py-2.5">
+        <p className="text-body">Remove {component.name}?</p>
+        <p className="mt-0.5 text-meta text-muted-foreground">
+          It is removed from this build-your-own item. Past meals keep their macros.
+        </p>
+        <div className="mt-2.5 flex gap-2">
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={pending}
+            onClick={() => run(() => deleteCatalogComponent(component.id))}
+          >
+            Remove
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={pending}
+            onClick={() => setConfirmingDelete(false)}
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-start gap-2 rounded-lg bg-well px-3 py-2.5">
       <div className="min-w-0 flex-1">
@@ -85,17 +113,6 @@ function CatalogComponentRow({ component }: { component: CatalogComponent }) {
           <Trash2 className="size-[18px] text-muted-foreground" strokeWidth={1.5} />
         </Button>
       </div>
-
-      <ConfirmDialog
-        open={confirmingDelete}
-        onOpenChange={setConfirmingDelete}
-        title="Remove this component?"
-        body="It is removed from this build-your-own item. Past meals built from it keep their macros."
-        confirmLabel="Remove"
-        tone="danger"
-        pending={pending}
-        onConfirm={() => run(() => deleteCatalogComponent(component.id))}
-      />
     </div>
   );
 }
