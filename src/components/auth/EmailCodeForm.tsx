@@ -55,7 +55,7 @@ export function EmailCodeForm({ login }: { login: ReturnType<typeof useLogin> })
           <div className="mt-tight flex gap-2">
             <Button
               type="button"
-              variant="quiet"
+              variant="ghost"
               size="md"
               className="flex-1 text-meta"
               disabled={resendIn > 0 || pending}
@@ -65,7 +65,7 @@ export function EmailCodeForm({ login }: { login: ReturnType<typeof useLogin> })
             </Button>
             <Button
               type="button"
-              variant="quiet"
+              variant="ghost"
               size="md"
               className="flex-1 text-meta"
               onClick={useDifferentEmail}

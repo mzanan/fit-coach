@@ -21,7 +21,7 @@ export function DeleteWorkoutButton({ workoutId }: { workoutId: string }) {
         disabled={pending}
         onClick={() => setConfirmOpen(true)}
       >
-        <Trash2 className="size-[18px] text-muted-foreground" strokeWidth={1.5} />
+        <Trash2 className="size-[18px]" strokeWidth={1.5} />
       </Button>
 
       <ConfirmDialog

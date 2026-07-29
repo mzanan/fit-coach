@@ -90,7 +90,7 @@ function CatalogComponentRow({ component }: { component: CatalogComponent }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span className="min-w-0 flex-1 truncate text-body">{component.name}</span>
-          {component.fat_quality === "oily" ? <Pill tone="warn">Oily</Pill> : null}
+          {component.fat_quality === "oily" ? <Pill tone="brand">Oily</Pill> : null}
         </div>
         <MacroChips macros={component} className="mt-0.5" />
       </div>
@@ -102,7 +102,7 @@ function CatalogComponentRow({ component }: { component: CatalogComponent }) {
           aria-label={`Edit ${component.name}`}
           onClick={() => setEditing(true)}
         >
-          <Pencil className="size-[18px] text-muted-foreground" strokeWidth={1.5} />
+          <Pencil className="size-[18px]" strokeWidth={1.5} />
         </Button>
         <Button
           variant="ghost"
@@ -110,7 +110,7 @@ function CatalogComponentRow({ component }: { component: CatalogComponent }) {
           aria-label={`Remove ${component.name}`}
           onClick={() => setConfirmingDelete(true)}
         >
-          <Trash2 className="size-[18px] text-muted-foreground" strokeWidth={1.5} />
+          <Trash2 className="size-[18px]" strokeWidth={1.5} />
         </Button>
       </div>
     </div>

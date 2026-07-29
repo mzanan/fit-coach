@@ -43,18 +43,22 @@
   --color-brand-soft: var(--brand-soft);
   --color-brand-line: var(--brand-line);
   --color-brand-ink: var(--brand-ink);
-  --color-ok: var(--ok);
-  --color-warn: var(--warn);
   --color-macro-protein: var(--macro-protein);
   --color-macro-fat: var(--macro-fat);
   --color-macro-carbs: var(--macro-carbs);
   --color-macro-cal: var(--macro-cal);
+  --color-destructive-surface: var(--destructive-surface);
+  --color-destructive-surface-hover: var(--destructive-surface-hover);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
   --radius-sm: calc(var(--radius) * 0.55);
   --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.4);
+  --radius-control: calc(var(--radius) * 0.875);
+  --radius-control-inset: calc(var(--radius) * 0.625);
 
   --text-hero: 2.75rem;
   --text-hero--line-height: 1;
@@ -137,12 +141,14 @@
   --brand-soft: oklch(0.58 0.095 72 / 12%);
   --brand-line: oklch(0.58 0.095 72 / 34%);
   --brand-ink: oklch(0.44 0.1 72);
-  --ok: oklch(0.45 0 0);
-  --warn: var(--brand);
   --macro-protein: var(--brand);
   --macro-carbs: oklch(0.42 0 0);
   --macro-fat: oklch(0.68 0 0);
   --macro-cal: oklch(0.5 0 0);
+  --destructive-surface: oklch(0.50 0.20 25);
+  --destructive-surface-hover: oklch(0.44 0.20 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --destructive-soft: oklch(0.53 0.19 25 / 10%);
   --sheen: linear-gradient(
     180deg,
     oklch(1 0 0 / 70%) 0%,
@@ -203,12 +209,14 @@
   --brand-soft: oklch(0.8 0.105 82 / 14%);
   --brand-line: oklch(0.8 0.105 82 / 38%);
   --brand-ink: oklch(0.86 0.1 82);
-  --ok: oklch(0.74 0 0);
-  --warn: var(--brand);
   --macro-protein: var(--brand);
   --macro-carbs: oklch(0.88 0 0);
   --macro-fat: oklch(0.56 0 0);
   --macro-cal: oklch(0.7 0 0);
+  --destructive-surface: oklch(0.52 0.20 25);
+  --destructive-surface-hover: oklch(0.58 0.20 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --destructive-soft: oklch(0.63 0.17 25 / 14%);
   --sheen: linear-gradient(
     180deg,
     oklch(1 0 0 / 4.5%) 0%,

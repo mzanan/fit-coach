@@ -8,8 +8,6 @@ const pill = cva(
     variants: {
       tone: {
         brand: "bg-brand-soft text-brand-ink",
-        ok: "bg-overlay text-ok",
-        warn: "bg-brand-soft text-brand-ink",
         muted: "bg-overlay text-muted-foreground",
       },
       variant: {
@@ -19,8 +17,6 @@ const pill = cva(
     },
     compoundVariants: [
       { variant: "solid", tone: "brand", className: "bg-brand text-brand-foreground" },
-      { variant: "solid", tone: "ok", className: "bg-foreground/80 text-background" },
-      { variant: "solid", tone: "warn", className: "bg-brand text-brand-foreground" },
     ],
     defaultVariants: { tone: "muted", variant: "soft" },
   },

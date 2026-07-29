@@ -35,9 +35,9 @@ export function ImportMealRow({
         <div className="flex items-center gap-2">
           <span className="truncate text-body font-medium">{meal.name}</span>
           {meal.fat_quality === "clean" ? (
-            <Pill tone="ok">Clean</Pill>
+            <Pill tone="muted">Clean</Pill>
           ) : meal.fat_quality === "oily" ? (
-            <Pill tone="warn">Oily</Pill>
+            <Pill tone="brand">Oily</Pill>
           ) : null}
         </div>
         <p className="text-meta text-muted-foreground">
@@ -49,7 +49,7 @@ export function ImportMealRow({
       <button
         type="button"
         aria-label="Edit"
-        className="rounded-md p-1.5 text-muted-foreground hover:bg-accent"
+        className="rounded-control p-1.5 text-muted-foreground hover:bg-accent"
         onClick={() => setEditing(true)}
       >
         <Pencil className="size-4" />

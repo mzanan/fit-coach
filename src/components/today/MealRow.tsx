@@ -26,7 +26,7 @@ export function MealRow({ meal }: { meal: Meal }) {
           {meal.fat_quality === "clean" ? (
             <Pill tone="muted">Clean</Pill>
           ) : meal.fat_quality === "oily" ? (
-            <Pill tone="warn">Oily</Pill>
+            <Pill tone="brand">Oily</Pill>
           ) : null}
         </div>
         {meal.place ? (
@@ -39,7 +39,6 @@ export function MealRow({ meal }: { meal: Meal }) {
           variant="ghost"
           size="icon"
           aria-label="Edit"
-          className="text-muted-foreground"
           onClick={() => setEditing(true)}
         >
           <Pencil className="size-[18px]" strokeWidth={1.5} />
@@ -48,7 +47,6 @@ export function MealRow({ meal }: { meal: Meal }) {
           variant="ghost"
           size="icon"
           aria-label="Delete"
-          className="text-muted-foreground"
           disabled={pending}
           onClick={() => setConfirming(true)}
         >

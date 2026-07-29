@@ -81,7 +81,7 @@ export function BowlBuilder({
                       type="button"
                       onClick={() => toggle(c.id)}
                       className={cn(
-                        "min-h-14 rounded-lg border px-3 py-2 text-left text-body transition-[background-color,border-color] duration-(--dur-fast) ease-(--ease-out-soft) active:bg-overlay focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        "min-h-14 rounded-control border px-3 py-2 text-left text-body transition-[background-color,border-color] duration-(--dur-fast) ease-(--ease-out-soft) active:bg-overlay focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         on
                           ? "border-brand-line bg-brand-soft"
                           : "border-hairline-strong",
@@ -90,7 +90,7 @@ export function BowlBuilder({
                       <div className="flex items-center gap-1.5 font-medium">
                         {c.name}
                         {c.fat_quality === "oily" ? (
-                          <Pill tone="warn">Oily</Pill>
+                          <Pill tone="brand">Oily</Pill>
                         ) : null}
                       </div>
                       <MacroChips macros={c} className="mt-0.5" />
