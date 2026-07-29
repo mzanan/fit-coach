@@ -74,12 +74,6 @@
   --text-meta--line-height: 1.45;
   --text-eyebrow: 0.6875rem;
   --text-eyebrow--line-height: 1;
-  --text-hero-lg: 3.25rem;
-  --text-hero-lg--line-height: 1;
-  --text-h1-lg: 2rem;
-  --text-h1-lg--line-height: 1.12;
-  --text-title-lg: 1.125rem;
-  --text-title-lg--line-height: 1.35;
 
   --tracking-hero: -0.035em;
   --tracking-snug: -0.02em;
@@ -94,9 +88,7 @@
   --spacing-caption: 3.75rem;
   --spacing-rail: var(--rail-w);
   --spacing-gutter: var(--gutter);
-  --container-focus: 40rem;
   --container-default: 52rem;
-  --container-wide: 76rem;
   --spacing-media-sm: 6rem;
   --spacing-media-md: 7rem;
   --spacing-media-hero: 14rem;

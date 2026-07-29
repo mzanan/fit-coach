@@ -40,7 +40,6 @@ export default async function WorkoutPage() {
 
   return (
     <Page
-      width="wide"
       title="Workout"
       description={
         workout

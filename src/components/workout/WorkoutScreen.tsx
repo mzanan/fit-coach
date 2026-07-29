@@ -44,18 +44,16 @@ export function WorkoutScreen({
           body="Add your first exercise and start logging sets."
         />
       ) : (
-        <div className="space-y-tight lg:grid lg:grid-cols-2 lg:items-start lg:gap-tight lg:space-y-0">
-          {workout.exercises.map((ex, i) => (
-            <ExerciseCard
-              key={ex.id}
-              exercise={ex}
-              day={day}
-              history={history}
-              historyAvailable={historyAvailable}
-              index={i}
-            />
-          ))}
-        </div>
+        workout.exercises.map((ex, i) => (
+          <ExerciseCard
+            key={ex.id}
+            exercise={ex}
+            day={day}
+            history={history}
+            historyAvailable={historyAvailable}
+            index={i}
+          />
+        ))
       )}
 
       {workout.exercises.some((ex) => ex.gif_path) ? (

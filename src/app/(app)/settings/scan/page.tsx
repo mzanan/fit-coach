@@ -8,7 +8,6 @@ export default async function ScanSettingsPage() {
 
   return (
     <Page
-      width="focus"
       backHref="/settings"
       backLabel="Back to settings"
       title="InBody scan"

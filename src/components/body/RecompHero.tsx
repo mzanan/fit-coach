@@ -37,7 +37,7 @@ export function RecompHero({
           <div>
             <p className="eyebrow">Body fat</p>
             <p className="mt-2 flex items-baseline gap-2">
-              <span className="num text-hero font-semibold tracking-(--tracking-hero) md:text-hero-lg">
+              <span className="num text-hero font-semibold tracking-(--tracking-hero)">
                 {latest.body_fat_pct ?? "--"}
               </span>
               <span className="text-meta text-faint">%</span>
@@ -94,7 +94,7 @@ export function RecompHero({
         {lead.label}, {delta.days} days
       </p>
       <p className="mt-2 flex items-baseline gap-2">
-        <span className="num text-hero font-semibold tracking-(--tracking-hero) md:text-hero-lg">
+        <span className="num text-hero font-semibold tracking-(--tracking-hero)">
           {signed(lead.value)}
         </span>
         <span className="text-meta text-faint">{lead.unit}</span>

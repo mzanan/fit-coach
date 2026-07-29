@@ -12,9 +12,10 @@ export default async function CatalogPage() {
 
   return (
     <Page
-      width="default"
       title="Catalog"
-      description={catalog.length === 1 ? "1 saved meal" : `${catalog.length} saved meals`}
+      description={
+        catalog.length === 1 ? "1 saved meal" : `${catalog.length} saved meals`
+      }
       action={
         catalog.length > 0 ? (
           <div className="hidden md:block">

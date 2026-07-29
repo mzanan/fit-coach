@@ -7,7 +7,6 @@ export default async function BackupSettingsPage() {
 
   return (
     <Page
-      width="focus"
       backHref="/settings"
       backLabel="Back to settings"
       title="Backup"
