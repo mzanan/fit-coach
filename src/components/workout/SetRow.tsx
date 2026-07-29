@@ -32,13 +32,13 @@ export function SetRow({ set }: { set: WorkoutSet }) {
         PR
       </ToggleChip>
       <Button
-        variant="ghost"
+        variant="danger"
         size="icon"
         aria-label={`Delete set ${set.set_index}`}
         disabled={pending}
         onClick={() => run(() => deleteSet(set.id))}
       >
-        <X className="size-[18px] text-muted-foreground" strokeWidth={1.5} />
+        <X className="size-[18px]" strokeWidth={1.5} />
       </Button>
     </div>
   );

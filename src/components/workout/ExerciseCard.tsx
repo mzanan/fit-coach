@@ -71,7 +71,7 @@ export function ExerciseCard({
           disabled={pending}
           onClick={() => setConfirmOpen(true)}
         >
-          <Trash2 className="size-[18px] text-muted-foreground" strokeWidth={1.5} />
+          <Trash2 className="size-[18px]" strokeWidth={1.5} />
         </Button>
       </div>
 
@@ -95,7 +95,7 @@ export function ExerciseCard({
             type="button"
             aria-label={`Last session for ${exercise.name}, ${formatDayLabel(last.day, day)}`}
             onClick={() => setSheetOpen(true)}
-            className="mt-2.5 flex min-h-11 w-full items-center gap-2 rounded-md bg-well px-3 py-2 text-left"
+            className="mt-2.5 flex min-h-11 w-full items-center gap-2 rounded-control bg-well px-3 py-2 text-left"
           >
             <span className="eyebrow shrink-0 text-brand-ink">LAST</span>
             <span className="num min-w-0 flex-1 truncate text-meta text-foreground">
@@ -106,7 +106,7 @@ export function ExerciseCard({
             </span>
           </button>
         ) : (
-          <div className="mt-2.5 flex min-h-11 items-center rounded-md bg-well px-3 py-2">
+          <div className="mt-2.5 flex min-h-11 items-center rounded-control bg-well px-3 py-2">
             <span className="text-meta text-muted-foreground">No previous session</span>
           </div>
         )
@@ -176,7 +176,7 @@ export function ExerciseCard({
         title="Delete this exercise?"
         body="Its sets from today are removed. Past sessions are untouched."
         confirmLabel="Delete"
-        tone="danger"
+        tone="destructive"
         pending={pending}
         onConfirm={() => run(() => deleteExercise(exercise.id))}
       />

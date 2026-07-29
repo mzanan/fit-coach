@@ -12,8 +12,8 @@ export default function LoginLoading() {
         </div>
 
         <div className="mt-block">
-          <Skeleton className="h-13 w-full rounded-full" />
-          <Skeleton className="mt-tight h-11 w-full rounded-full" />
+          <Skeleton className="h-13 w-full rounded-control" />
+          <Skeleton className="mt-tight h-11 w-full rounded-control" />
         </div>
 
         <div className="flex-1" />

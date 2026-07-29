@@ -34,7 +34,7 @@ export function MealPickerRow({
             ) : null}
           </span>
           {item.fat_quality === "oily" ? (
-            <Pill tone="warn" className="shrink-0">
+            <Pill tone="brand" className="shrink-0">
               Oily
             </Pill>
           ) : null}

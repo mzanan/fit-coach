@@ -95,7 +95,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
             still counts as yesterday.
           </p>
         </div>
-        <Button type="submit" className="w-full" disabled={pending}>
+        <Button type="submit" size="lg" className="w-full" disabled={pending}>
           {pending ? "Saving..." : "Save profile"}
         </Button>
       </form>

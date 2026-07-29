@@ -98,7 +98,7 @@ export function TargetsForm({ profile }: { profile: Profile }) {
             Min and max are the target band. Floor is the hard minimum.
           </p>
         </div>
-        <Button type="submit" className="w-full" disabled={pending}>
+        <Button type="submit" size="lg" className="w-full" disabled={pending}>
           {pending ? "Saving..." : "Save targets"}
         </Button>
       </form>

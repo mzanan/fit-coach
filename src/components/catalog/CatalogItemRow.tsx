@@ -32,7 +32,7 @@ export function CatalogItemRow({ item }: { item: CatalogItemFull }) {
             </Pill>
           ) : null}
           {item.fat_quality === "oily" ? (
-            <Pill tone="warn" className="shrink-0">
+            <Pill tone="brand" className="shrink-0">
               Oily
             </Pill>
           ) : null}
@@ -63,7 +63,7 @@ export function CatalogItemRow({ item }: { item: CatalogItemFull }) {
           aria-label={`Edit ${item.name}`}
           onClick={() => setEditing(true)}
         >
-          <Pencil className="size-[18px] text-muted-foreground" strokeWidth={1.5} />
+          <Pencil className="size-[18px]" strokeWidth={1.5} />
         </Button>
         <Button
           variant="ghost"
@@ -72,7 +72,7 @@ export function CatalogItemRow({ item }: { item: CatalogItemFull }) {
           disabled={pending}
           onClick={() => setConfirmOpen(true)}
         >
-          <Trash2 className="size-[18px] text-muted-foreground" strokeWidth={1.5} />
+          <Trash2 className="size-[18px]" strokeWidth={1.5} />
         </Button>
       </div>
 
@@ -122,7 +122,7 @@ export function CatalogItemRow({ item }: { item: CatalogItemFull }) {
         title="Archive this item?"
         body="It stops appearing in your catalog and in the meal picker. Past meals keep their macros."
         confirmLabel="Archive"
-        tone="danger"
+        tone="destructive"
         pending={pending}
         onConfirm={() => run(() => archiveCatalogItem(item.id), { success: "Archived" })}
       />

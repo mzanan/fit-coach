@@ -39,7 +39,7 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
           {mode !== "code" ? (
             <Button
               type="button"
-              variant="quiet"
+              variant="ghost"
               size="md"
               className="mt-tight w-full text-meta"
               aria-expanded={panelOpen}

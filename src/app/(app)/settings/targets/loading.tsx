@@ -5,7 +5,7 @@ export default function TargetsLoading() {
   return (
     <div className="space-y-block">
       <div className="flex items-start gap-1">
-        <Skeleton className="size-11 rounded-md" />
+        <Skeleton className="size-11 rounded-control" />
         <div className="pt-1.5">
           <Skeleton className="h-7 w-32" />
           <Skeleton className="mt-1.5 h-4 w-48" />
