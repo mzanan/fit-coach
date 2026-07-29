@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 const SIZE = {
   sm: "size-(--spacing-media-sm) sm:size-(--spacing-media-md)",
   hero: "size-(--spacing-media-hero)",
+  card: "h-(--spacing-media-hero) w-full sm:size-(--spacing-media-hero)",
 } as const;
 
 export function MediaPlate({

@@ -11,6 +11,6 @@ export function ExerciseGif({
   priority?: boolean;
 }) {
   return (
-    <MediaPlate src={exerciseGifUrl(gifPath)} alt={`${name} demo`} priority={priority} size="hero" />
+    <MediaPlate src={exerciseGifUrl(gifPath)} alt={`${name} demo`} priority={priority} size="card" />
   );
 }

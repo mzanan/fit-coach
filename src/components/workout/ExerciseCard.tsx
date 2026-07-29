@@ -76,9 +76,9 @@ export function ExerciseCard({
       </div>
 
       {exercise.gif_path ? (
-        <div className="mt-3 flex items-stretch gap-3">
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-stretch">
           <ExerciseGif name={exercise.name} gifPath={exercise.gif_path} priority={index === 0} />
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 sm:flex-1">
             <AddSetForm
               exerciseId={exercise.id}
               setCount={exercise.sets.length}
