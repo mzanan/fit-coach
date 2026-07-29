@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 const WIDTH = {
   focus: "max-w-(--container-focus)",
   default: "max-w-(--container-default)",
-  wide: "max-w-(--container-wide)",
+  wide: "max-w-(--container-default) lg:max-w-(--container-wide)",
 } as const;
 
 export function Page({

@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function WorkoutLoading() {
   return (
-    <div className="mx-auto w-full max-w-(--container-wide) px-gutter">
+    <div className="mx-auto w-full max-w-(--container-default) lg:max-w-(--container-wide) px-gutter">
       <div className="space-y-block">
         <div>
           <Skeleton className="h-7 w-28" />
