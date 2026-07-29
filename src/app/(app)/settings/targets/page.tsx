@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/ui/PageHeader";
+import { Page } from "@/components/ui/Page";
 import { TargetsForm } from "@/components/settings/TargetsForm";
 import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
@@ -8,14 +8,14 @@ export default async function TargetsPage() {
   const profile = await ensureProfile(user.id);
 
   return (
-    <div className="space-y-block">
-      <PageHeader
-        backHref="/settings"
-        backLabel="Back to settings"
-        title="Macro targets"
-        description="What Today measures your intake against."
-      />
+    <Page
+      width="focus"
+      backHref="/settings"
+      backLabel="Back to settings"
+      title="Macro targets"
+      description="What Today measures your intake against."
+    >
       <TargetsForm profile={profile} />
-    </div>
+    </Page>
   );
 }

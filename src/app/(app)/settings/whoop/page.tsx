@@ -1,6 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz";
 
-import { PageHeader } from "@/components/ui/PageHeader";
+import { Page } from "@/components/ui/Page";
 import { WhoopCard } from "@/components/settings/WhoopCard";
 import { getWhoopConnection, hasWhoopEnv } from "@/lib/integrations/whoop";
 import { ensureProfile } from "@/lib/profile";
@@ -14,13 +14,13 @@ export default async function WhoopSettingsPage() {
   ]);
 
   return (
-    <div className="space-y-block">
-      <PageHeader
-        backHref="/settings"
-        backLabel="Back to settings"
-        title="Whoop"
-        description="Recovery, sleep, strain and workouts from your band."
-      />
+    <Page
+      width="focus"
+      backHref="/settings"
+      backLabel="Back to settings"
+      title="Whoop"
+      description="Recovery, sleep, strain and workouts from your band."
+    >
       <WhoopCard
         configured={hasWhoopEnv()}
         connected={Boolean(whoop)}
@@ -30,6 +30,6 @@ export default async function WhoopSettingsPage() {
             : null
         }
       />
-    </div>
+    </Page>
   );
 }

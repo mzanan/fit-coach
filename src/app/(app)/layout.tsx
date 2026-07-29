@@ -8,18 +8,29 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireUser();
+  const user = await requireUser();
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-5xl">
-      <SideNav />
-      <div className="flex w-full min-w-0 flex-1 flex-col">
-        <AppHeader />
-        <main className="flex-1 px-5 pt-2 pb-28 md:px-8 md:pt-4 md:pb-10">
-          <div className="mx-auto w-full max-w-2xl">{children}</div>
-        </main>
-        <NavBar className="md:hidden" />
+    <>
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-control focus:bg-card focus:px-4 focus:py-2 focus:text-body focus:shadow-raised"
+      >
+        Skip to content
+      </a>
+      <div className="flex min-h-dvh w-full">
+        <SideNav user={user} />
+        <div className="flex w-full min-w-0 flex-1 flex-col">
+          <AppHeader className="md:hidden" />
+          <main
+            id="main"
+            className="flex-1 pt-2 pb-28 md:pt-gutter md:pb-gutter"
+          >
+            {children}
+          </main>
+          <NavBar className="md:hidden" />
+        </div>
       </div>
-    </div>
+    </>
   );
 }

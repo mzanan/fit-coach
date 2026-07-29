@@ -96,7 +96,7 @@ export function AddMeal({
         <Button
           size="icon"
           aria-label="Add meal"
-          className="fixed right-4 bottom-[calc(var(--spacing-nav)+var(--spacing-safe-b))] z-40 size-14 rounded-full shadow-raised md:hidden"
+          className="fixed right-gutter bottom-[calc(var(--spacing-nav)+var(--spacing-safe-b))] z-40 size-14 rounded-full shadow-raised md:hidden"
           onClick={openSheet}
         >
           <Plus className="size-6" />

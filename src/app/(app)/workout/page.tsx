@@ -1,6 +1,6 @@
 import { DeleteWorkoutButton } from "@/components/workout/DeleteWorkoutButton";
 import { WorkoutScreen } from "@/components/workout/WorkoutScreen";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { Page } from "@/components/ui/Page";
 import { getWorkoutForDay, getWorkoutHistory } from "@/lib/data/workouts";
 import { DEFAULT_SPLIT } from "@/lib/constants";
 import { dayConfig, formatDayLabel, todayLogicalDay } from "@/lib/dates";
@@ -35,25 +35,27 @@ export default async function WorkoutPage() {
     : 0;
 
   return (
-    <div className="space-y-block">
-      <PageHeader
-        title="Workout"
-        description={
-          workout
-            ? `${formatDayLabel(day, day)} · ${workout.label ?? "Session"}${
-                setCount > 0 ? ` · ${setCount} sets` : ""
-              }`
-            : formatDayLabel(day, day)
-        }
-        action={workout ? <DeleteWorkoutButton workoutId={workout.id} /> : null}
-      />
-      <WorkoutScreen
-        workout={workout}
-        day={day}
-        history={history}
-        historyAvailable={historyAvailable}
-        suggestedSplit={suggestedSplit}
-      />
-    </div>
+    <Page
+      width="default"
+      title="Workout"
+      description={
+        workout
+          ? `${formatDayLabel(day, day)} · ${workout.label ?? "Session"}${
+              setCount > 0 ? ` · ${setCount} sets` : ""
+            }`
+          : formatDayLabel(day, day)
+      }
+      action={workout ? <DeleteWorkoutButton workoutId={workout.id} /> : null}
+    >
+      <div className="space-y-block">
+        <WorkoutScreen
+          workout={workout}
+          day={day}
+          history={history}
+          historyAvailable={historyAvailable}
+          suggestedSplit={suggestedSplit}
+        />
+      </div>
+    </Page>
   );
 }
