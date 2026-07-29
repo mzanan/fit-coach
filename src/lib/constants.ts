@@ -19,6 +19,11 @@ export const FAT_QUALITIES = [
 
 export type FatQuality = (typeof FAT_QUALITIES)[number]["key"];
 
+export const FAT_QUALITY_OPTIONS = [
+  { value: "", label: "Unset" },
+  ...FAT_QUALITIES.map((f) => ({ value: f.key, label: f.label })),
+] as const;
+
 export const COMPONENT_GROUPS = [
   { key: "protein", label: "Protein" },
   { key: "carb", label: "Carb" },

@@ -7,7 +7,7 @@ import { ChipRow } from "@/components/ui/ChipRow";
 import { Input, Label } from "@/components/ui/Input";
 import { MacroInputs, type MacroValues } from "@/components/ui/MacroInputs";
 import { Segmented } from "@/components/ui/Segmented";
-import { MEAL_CATEGORIES, FAT_QUALITIES } from "@/lib/constants";
+import { MEAL_CATEGORIES, FAT_QUALITY_OPTIONS } from "@/lib/constants";
 
 export interface MealFormValues extends MacroValues {
   name: string;
@@ -15,11 +15,6 @@ export interface MealFormValues extends MacroValues {
   category: string;
   fat_quality: string;
 }
-
-const FAT_OPTIONS = [
-  { value: "", label: "Unset" },
-  ...FAT_QUALITIES.map((f) => ({ value: f.key, label: f.label })),
-];
 
 export function MealForm({
   initial,
@@ -97,7 +92,7 @@ export function MealForm({
       <div>
         <Label>Fat quality</Label>
         <Segmented
-          options={FAT_OPTIONS}
+          options={FAT_QUALITY_OPTIONS}
           value={values.fat_quality}
           onChange={(v) => setValues({ ...values, fat_quality: v })}
         />

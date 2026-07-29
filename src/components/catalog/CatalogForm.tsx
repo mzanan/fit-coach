@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 import { MacroInputs, type MacroValues } from "@/components/ui/MacroInputs";
 import { Segmented } from "@/components/ui/Segmented";
-import { FAT_QUALITIES } from "@/lib/constants";
+import { FAT_QUALITY_OPTIONS } from "@/lib/constants";
 
 export interface CatalogFormValues extends MacroValues {
   name: string;
@@ -15,20 +15,17 @@ export interface CatalogFormValues extends MacroValues {
   fat_quality: string;
 }
 
-const FAT_OPTIONS = [
-  { value: "", label: "Unset" },
-  ...FAT_QUALITIES.map((f) => ({ value: f.key, label: f.label })),
-];
-
 export function CatalogForm({
   initial,
   submitLabel,
   pending,
+  hideMacros,
   onSubmit,
 }: {
   initial?: Partial<CatalogFormValues>;
   submitLabel: string;
   pending: boolean;
+  hideMacros?: boolean;
   onSubmit: (values: CatalogFormValues) => void;
 }) {
   const [values, setValues] = useState<CatalogFormValues>({
@@ -69,15 +66,17 @@ export function CatalogForm({
         />
       </div>
 
-      <MacroInputs
-        value={values}
-        onChange={(m) => setValues({ ...values, ...m })}
-      />
+      {hideMacros ? null : (
+        <MacroInputs
+          value={values}
+          onChange={(m) => setValues({ ...values, ...m })}
+        />
+      )}
 
       <div>
         <Label>Fat quality</Label>
         <Segmented
-          options={FAT_OPTIONS}
+          options={FAT_QUALITY_OPTIONS}
           value={values.fat_quality}
           onChange={(v) => setValues({ ...values, fat_quality: v })}
         />

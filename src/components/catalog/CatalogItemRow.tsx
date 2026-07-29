@@ -3,6 +3,7 @@
 import { Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 
+import { CatalogComponentsEditor } from "@/components/catalog/CatalogComponentsEditor";
 import { CatalogForm } from "@/components/catalog/CatalogForm";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -56,16 +57,14 @@ export function CatalogItemRow({ item }: { item: CatalogItemFull }) {
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
-        {item.is_composable ? null : (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={`Edit ${item.name}`}
-            onClick={() => setEditing(true)}
-          >
-            <Pencil className="size-[18px] text-muted-foreground" strokeWidth={1.5} />
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={`Edit ${item.name}`}
+          onClick={() => setEditing(true)}
+        >
+          <Pencil className="size-[18px] text-muted-foreground" strokeWidth={1.5} />
+        </Button>
         <Button
           variant="ghost"
           size="icon"
@@ -77,10 +76,15 @@ export function CatalogItemRow({ item }: { item: CatalogItemFull }) {
         </Button>
       </div>
 
-      <ResponsiveDialog open={editing} onOpenChange={setEditing} title="Edit item">
+      <ResponsiveDialog
+        open={editing}
+        onOpenChange={setEditing}
+        title={item.is_composable ? "Edit build-your-own item" : "Edit item"}
+      >
         <CatalogForm
           submitLabel="Save changes"
           pending={pending}
+          hideMacros={item.is_composable}
           initial={{
             name: item.name,
             place: item.place ?? "",
@@ -99,14 +103,17 @@ export function CatalogItemRow({ item }: { item: CatalogItemFull }) {
                   place: v.place || undefined,
                   notes: v.notes || undefined,
                   fat_quality: v.fat_quality || null,
-                  protein_g: v.protein_g,
-                  fat_g: v.fat_g,
-                  carbs_g: v.carbs_g,
+                  protein_g: item.is_composable ? 0 : v.protein_g,
+                  fat_g: item.is_composable ? 0 : v.fat_g,
+                  carbs_g: item.is_composable ? 0 : v.carbs_g,
                 }),
               { success: "Item updated", onDone: () => setEditing(false) },
             )
           }
         />
+        {item.is_composable ? (
+          <CatalogComponentsEditor itemId={item.id} components={item.components} />
+        ) : null}
       </ResponsiveDialog>
 
       <ConfirmDialog
