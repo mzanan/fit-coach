@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { AddSetForm } from "@/components/workout/AddSetForm";
+import { ExerciseGif } from "@/components/workout/ExerciseGif";
 import { SetRow } from "@/components/workout/SetRow";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -54,10 +55,15 @@ export function ExerciseCard({
       className="animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards px-card py-4 duration-(--dur-base) ease-(--ease-out-soft) md:p-5"
       style={{ animationDelay: `${Math.min(index, 6) * 70}ms` }}
     >
-      <div className="flex min-h-11 items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-title font-medium tracking-(--tracking-snug)">
-          {exercise.name}
-        </span>
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-title font-medium tracking-(--tracking-snug)">
+            {exercise.name}
+          </p>
+          {exercise.meta ? (
+            <p className="mt-0.5 truncate text-meta text-muted-foreground">{exercise.meta}</p>
+          ) : null}
+        </div>
         <Button
           variant="ghost"
           size="icon"
@@ -68,6 +74,20 @@ export function ExerciseCard({
           <Trash2 className="size-[18px] text-muted-foreground" strokeWidth={1.5} />
         </Button>
       </div>
+
+      {exercise.gif_path ? (
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-stretch">
+          <ExerciseGif name={exercise.name} gifPath={exercise.gif_path} priority={index === 0} />
+          <div className="min-w-0 sm:flex-1">
+            <AddSetForm
+              exerciseId={exercise.id}
+              setCount={exercise.sets.length}
+              lastCurrentSet={exercise.sets[exercise.sets.length - 1] ?? null}
+              lastSessionTop={last?.top ?? null}
+            />
+          </div>
+        </div>
+      ) : null}
 
       {historyAvailable ? (
         last ? (
@@ -119,14 +139,16 @@ export function ExerciseCard({
         </p>
       ) : null}
 
-      <div className="mt-3">
-        <AddSetForm
-          exerciseId={exercise.id}
-          setCount={exercise.sets.length}
-          lastCurrentSet={exercise.sets[exercise.sets.length - 1] ?? null}
-          lastSessionTop={last?.top ?? null}
-        />
-      </div>
+      {exercise.gif_path ? null : (
+        <div className="mt-3">
+          <AddSetForm
+            exerciseId={exercise.id}
+            setCount={exercise.sets.length}
+            lastCurrentSet={exercise.sets[exercise.sets.length - 1] ?? null}
+            lastSessionTop={last?.top ?? null}
+          />
+        </div>
+      )}
 
       {last ? (
         <ResponsiveDialog

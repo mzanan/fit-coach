@@ -30,10 +30,6 @@ export function CatalogList({ items }: { items: CatalogItemFull[] }) {
 
   return (
     <>
-      <div className="hidden justify-end md:flex">
-        <AddCatalogItem variant="inline" />
-      </div>
-
       {showToolbar ? (
         <CatalogToolbar
           query={query}

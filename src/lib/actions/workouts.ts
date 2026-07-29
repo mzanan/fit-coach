@@ -5,11 +5,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db, schema } from "@/lib/db";
+import { findExerciseByName } from "@/lib/data/exerciseCatalog";
 import { requireUser } from "@/lib/session";
 import { dayString } from "@/lib/validation";
 import { newId } from "@/lib/utils";
 
-const { workouts, workout_exercises, workout_sets } = schema;
+const { workouts, workout_exercises, workout_sets, exercise_catalog } = schema;
 
 const createWorkoutSchema = z.object({
   day: dayString,
@@ -60,12 +61,33 @@ async function ownsWorkout(userId: string, workoutId: string) {
 const addExerciseSchema = z.object({
   workoutId: z.string().min(1),
   name: z.string().min(1),
+  exerciseCatalogId: z.string().min(1).optional(),
 });
 
 export async function addExercise(input: unknown) {
   const user = await requireUser();
-  const { workoutId, name } = addExerciseSchema.parse(input);
+  const { workoutId, name, exerciseCatalogId } = addExerciseSchema.parse(input);
   if (!(await ownsWorkout(user.id, workoutId))) throw new Error("Not found");
+
+  let catalogId: string | null = null;
+  let resolvedName = name.trim();
+  if (exerciseCatalogId) {
+    const catalogEntry = await db
+      .select({ id: exercise_catalog.id, name: exercise_catalog.name })
+      .from(exercise_catalog)
+      .where(eq(exercise_catalog.id, exerciseCatalogId))
+      .limit(1);
+    if (catalogEntry[0]) {
+      catalogId = catalogEntry[0].id;
+      resolvedName = catalogEntry[0].name;
+    }
+  } else {
+    const byName = await findExerciseByName(resolvedName);
+    if (byName) {
+      catalogId = byName.id;
+      resolvedName = byName.name;
+    }
+  }
 
   const count = await db
     .select({ id: workout_exercises.id })
@@ -76,8 +98,9 @@ export async function addExercise(input: unknown) {
     id: newId(),
     workout_id: workoutId,
     user_id: user.id,
-    name: name.trim(),
+    name: resolvedName,
     sort: count.length,
+    exercise_catalog_id: catalogId,
   });
   revalidatePath("/workout");
 }

@@ -26,6 +26,7 @@ export function SetRow({ set }: { set: WorkoutSet }) {
         pressedState={set.is_pr}
         onPressedChange={() => run(() => toggleSetPr(set.id))}
         disabled={pending}
+        className="min-w-12"
         aria-label={`Mark set ${set.set_index} as personal record`}
       >
         PR
