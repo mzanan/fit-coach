@@ -86,6 +86,10 @@
   --spacing-nav: var(--nav-h);
   --spacing-safe-b: calc(var(--safe-b) + var(--spacing-tight));
   --spacing-caption: 3.75rem;
+  --spacing-rail: var(--rail-w);
+  --spacing-gutter: var(--gutter);
+  --container-focus: 40rem;
+  --container-default: 52rem;
   --spacing-media-sm: 6rem;
   --spacing-media-md: 7rem;
   --spacing-media-hero: 14rem;
@@ -169,6 +173,25 @@
   --stagger-3: 210ms;
   --nav-h: 3.75rem;
   --safe-b: env(safe-area-inset-bottom);
+  --rail-w: 15rem;
+  --gutter: 1.25rem;
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --gutter: 2rem;
+  }
+}
+@media (min-width: 64rem) {
+  :root {
+    --gutter: 2.5rem;
+  }
+}
+@media (min-width: 80rem) {
+  :root {
+    --gutter: 3rem;
+    --rail-w: 16.5rem;
+  }
 }
 
 .dark {

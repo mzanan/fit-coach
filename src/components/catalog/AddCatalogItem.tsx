@@ -23,7 +23,7 @@ export function AddCatalogItem({
         <Button
           size="icon"
           aria-label="Add catalog item"
-          className="fixed right-4 bottom-[calc(var(--spacing-nav)+env(safe-area-inset-bottom)+var(--spacing-tight))] z-40 size-14 rounded-full shadow-raised md:hidden"
+          className="fixed right-gutter bottom-[calc(var(--spacing-nav)+env(safe-area-inset-bottom)+var(--spacing-tight))] z-40 size-14 rounded-full shadow-raised md:hidden"
           onClick={() => setOpen(true)}
         >
           <Plus className="size-6" />

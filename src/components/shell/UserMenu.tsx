@@ -11,16 +11,18 @@ import { authClient } from "@/lib/authClient";
 import { cn } from "@/lib/utils";
 
 const ITEM =
-  "flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-md px-3 text-body outline-none transition-colors duration-(--dur-fast) focus-visible:bg-accent data-[highlighted]:bg-accent";
+  "flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-control px-3 text-body outline-none transition-colors duration-(--dur-fast) focus-visible:bg-accent data-[highlighted]:bg-accent";
 
 export function UserMenu({
   email,
   name,
   image,
+  variant = "header",
 }: {
   email: string;
   name: string | null;
   image: string | null;
+  variant?: "header" | "rail";
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -35,37 +37,78 @@ export function UserMenu({
     router.refresh();
   }
 
+  const avatar = (
+    <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-hairline-strong bg-surface-2 text-meta font-medium">
+      {image && !avatarFailed ? (
+        <Image
+          src={image}
+          alt=""
+          width={32}
+          height={32}
+          unoptimized
+          onError={() => setAvatarFailed(true)}
+        />
+      ) : (
+        initial
+      )}
+    </span>
+  );
+
   return (
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger
-        aria-label="Account menu"
-        className="flex size-9 items-center justify-center overflow-hidden rounded-full border border-hairline-strong bg-surface-2 text-meta font-medium transition-colors duration-(--dur-fast) outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        {image && !avatarFailed ? (
-          <Image
-            src={image}
-            alt=""
-            width={36}
-            height={36}
-            unoptimized
-            onError={() => setAvatarFailed(true)}
-          />
-        ) : (
-          initial
-        )}
-      </DropdownMenu.Trigger>
+      {variant === "rail" ? (
+        <DropdownMenu.Trigger
+          aria-label="Account menu"
+          className="flex min-h-12 min-w-0 flex-1 items-center gap-2.5 rounded-control px-2 text-left outline-none transition-colors duration-(--dur-fast) hover:bg-overlay focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {avatar}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-meta font-medium">
+              {name || email}
+            </span>
+            {name ? (
+              <span className="block truncate text-eyebrow text-muted-foreground">
+                {email}
+              </span>
+            ) : null}
+          </span>
+        </DropdownMenu.Trigger>
+      ) : (
+        <DropdownMenu.Trigger
+          aria-label="Account menu"
+          className="flex size-9 items-center justify-center overflow-hidden rounded-full border border-hairline-strong bg-surface-2 text-meta font-medium transition-colors duration-(--dur-fast) outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {image && !avatarFailed ? (
+            <Image
+              src={image}
+              alt=""
+              width={36}
+              height={36}
+              unoptimized
+              onError={() => setAvatarFailed(true)}
+            />
+          ) : (
+            initial
+          )}
+        </DropdownMenu.Trigger>
+      )}
 
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          align="end"
+          align={variant === "rail" ? "start" : "end"}
+          side={variant === "rail" ? "top" : "bottom"}
           sideOffset={8}
-          className="z-50 min-w-56 rounded-xl border border-border bg-popover p-1.5 shadow-raised"
+          className="z-50 min-w-56 rounded-2xl border border-border bg-popover p-1.5 shadow-raised"
         >
-          <div className="px-3 py-2">
-            {name ? <p className="text-body font-medium">{name}</p> : null}
-            <p className="truncate text-meta text-muted-foreground">{email}</p>
-          </div>
-          <div className="my-1 h-px bg-border" />
+          {variant === "rail" ? null : (
+            <>
+              <div className="px-3 py-2">
+                {name ? <p className="text-body font-medium">{name}</p> : null}
+                <p className="truncate text-meta text-muted-foreground">{email}</p>
+              </div>
+              <div className="my-1 h-px bg-border" />
+            </>
+          )}
           <DropdownMenu.Item asChild>
             <Link href="/catalog" className={ITEM}>
               <UtensilsCrossed className="size-[18px]" strokeWidth={1.5} />

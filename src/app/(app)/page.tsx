@@ -2,6 +2,7 @@ import { AddMeal } from "@/components/today/AddMeal";
 import { DayNav } from "@/components/today/DayNav";
 import { MacroOverview } from "@/components/today/MacroOverview";
 import { MealList } from "@/components/today/MealList";
+import { Page } from "@/components/ui/Page";
 import { getCatalog } from "@/lib/data/catalog";
 import { getDayData } from "@/lib/data/today";
 import { getRecentMeals } from "@/lib/data/recentMeals";
@@ -31,10 +32,22 @@ export default async function TodayPage({
   ]);
 
   return (
-    <div className="space-y-7">
-      <DayNav day={day} today={today} isGymDay={dayData.isGymDay} />
-      <MacroOverview summary={dayData.summary} profile={profile} />
-      <div className="hidden justify-end md:flex">
+    <Page width="default">
+      <div className="space-y-7">
+        <DayNav day={day} today={today} isGymDay={dayData.isGymDay} />
+        <MacroOverview summary={dayData.summary} profile={profile} />
+        <div className="hidden justify-end md:flex">
+          <AddMeal
+            catalog={catalog}
+            recents={recents}
+            day={day}
+            today={today}
+            cfg={cfg}
+            isGymDay={dayData.isGymDay}
+            variant="inline"
+          />
+        </div>
+        <MealList meals={dayData.meals} />
         <AddMeal
           catalog={catalog}
           recents={recents}
@@ -42,19 +55,9 @@ export default async function TodayPage({
           today={today}
           cfg={cfg}
           isGymDay={dayData.isGymDay}
-          variant="inline"
+          variant="fab"
         />
       </div>
-      <MealList meals={dayData.meals} />
-      <AddMeal
-        catalog={catalog}
-        recents={recents}
-        day={day}
-        today={today}
-        cfg={cfg}
-        isGymDay={dayData.isGymDay}
-        variant="fab"
-      />
-    </div>
+    </Page>
   );
 }

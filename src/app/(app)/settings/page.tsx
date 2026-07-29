@@ -3,7 +3,7 @@ import { Activity, Database, FileText, ScanLine, Target, User } from "lucide-rea
 
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { ListGroup, ListRow } from "@/components/ui/ListRow";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { Page } from "@/components/ui/Page";
 import { getLatestScanTakenAt } from "@/lib/data/bodyScans";
 import { getWhoopConnection, hasWhoopEnv } from "@/lib/integrations/whoop";
 import { ensureProfile } from "@/lib/profile";
@@ -25,9 +25,8 @@ export default async function SettingsPage() {
   const whoopConfigured = hasWhoopEnv();
 
   return (
-    <div className="space-y-block">
-      <PageHeader title="Settings" description={user.email} />
-
+    <Page width="focus" title="Settings" description={user.email}>
+      <div className="space-y-block">
       <ListGroup
         label="Plan"
         className="animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards duration-(--dur-slow) ease-(--ease-out-soft)"
@@ -77,6 +76,7 @@ export default async function SettingsPage() {
       >
         <SignOutButton />
       </ListGroup>
-    </div>
+      </div>
+    </Page>
   );
 }

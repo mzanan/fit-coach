@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/ui/PageHeader";
+import { Page } from "@/components/ui/Page";
 import { ProfileForm } from "@/components/settings/ProfileForm";
 import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
@@ -8,14 +8,14 @@ export default async function ProfileSettingsPage() {
   const profile = await ensureProfile(user.id);
 
   return (
-    <div className="space-y-block">
-      <PageHeader
-        backHref="/settings"
-        backLabel="Back to settings"
-        title="Profile"
-        description="Used for body metrics and when your day rolls over."
-      />
+    <Page
+      width="focus"
+      backHref="/settings"
+      backLabel="Back to settings"
+      title="Profile"
+      description="Used for body metrics and when your day rolls over."
+    >
       <ProfileForm profile={profile} />
-    </div>
+    </Page>
   );
 }

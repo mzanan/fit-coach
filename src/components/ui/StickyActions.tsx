@@ -10,7 +10,7 @@ export function StickyActions({
   return (
     <div
       className={cn(
-        "hairline-t sticky bottom-(--nav-h) z-20 -mx-5 mt-block bg-background/80 px-5 pt-3 pb-3 backdrop-blur-xl md:bottom-0 md:-mx-8 md:px-8",
+        "hairline-t sticky bottom-(--nav-h) z-20 -mx-gutter mt-block bg-background/80 px-gutter pt-3 pb-3 backdrop-blur-xl md:bottom-0",
         className,
       )}
     >

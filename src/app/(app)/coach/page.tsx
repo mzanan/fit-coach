@@ -1,10 +1,14 @@
 import { CoachPanel } from "@/components/coach/CoachPanel";
+import { Page } from "@/components/ui/Page";
 
 export default function CoachPage() {
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Coach</h1>
+    <Page
+      width="focus"
+      title="Coach"
+      description="Answers based on what you have logged."
+    >
       <CoachPanel />
-    </div>
+    </Page>
   );
 }
