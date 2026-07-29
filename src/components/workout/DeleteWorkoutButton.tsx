@@ -30,7 +30,7 @@ export function DeleteWorkoutButton({ workoutId }: { workoutId: string }) {
         title="Delete this session?"
         body="Every exercise and set logged today goes with it."
         confirmLabel="Delete"
-        tone="danger"
+        tone="destructive"
         pending={pending}
         onConfirm={() => run(() => deleteWorkout(workoutId))}
       />

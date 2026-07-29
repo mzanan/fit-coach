@@ -176,7 +176,7 @@ export function ExerciseCard({
         title="Delete this exercise?"
         body="Its sets from today are removed. Past sessions are untouched."
         confirmLabel="Delete"
-        tone="danger"
+        tone="destructive"
         pending={pending}
         onConfirm={() => run(() => deleteExercise(exercise.id))}
       />

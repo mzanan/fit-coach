@@ -86,7 +86,7 @@ export function WhoopCard({ configured, connected, lastSyncedAt }: WhoopCardProp
         title="Disconnect Whoop?"
         body="Data already synced stays. New data stops arriving until you reconnect."
         confirmLabel="Disconnect"
-        tone="danger"
+        tone="destructive"
         pending={pending}
         onConfirm={() =>
           run(() => disconnectWhoopNow(), { success: "Whoop disconnected" })

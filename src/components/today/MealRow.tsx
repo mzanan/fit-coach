@@ -60,7 +60,7 @@ export function MealRow({ meal }: { meal: Meal }) {
         title="Delete this meal?"
         body="It will be removed from today's totals."
         confirmLabel="Delete"
-        tone="danger"
+        tone="destructive"
         pending={pending}
         onConfirm={() => run(() => deleteMeal(meal.id))}
       />

@@ -32,7 +32,7 @@ export function SetRow({ set }: { set: WorkoutSet }) {
         PR
       </ToggleChip>
       <Button
-        variant="ghost"
+        variant="danger"
         size="icon"
         aria-label={`Delete set ${set.set_index}`}
         disabled={pending}

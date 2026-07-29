@@ -18,7 +18,7 @@ export function ConfirmDialog({
   title: string;
   body: string;
   confirmLabel: string;
-  tone?: "default" | "danger";
+  tone?: "default" | "destructive";
   pending?: boolean;
   onConfirm: () => void;
 }) {
@@ -31,7 +31,7 @@ export function ConfirmDialog({
     >
       <div className="grid gap-2">
         <Button
-          variant={tone === "danger" ? "destructive" : "solid"}
+          variant={tone === "destructive" ? "destructive" : "solid"}
           disabled={pending}
           onClick={() => {
             onConfirm();

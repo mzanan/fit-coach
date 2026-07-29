@@ -112,7 +112,7 @@ export function BackupCard() {
         title="Replace all data?"
         body="Restoring overwrites every meal, workout, scan and catalog item in this account. This cannot be undone."
         confirmLabel="Replace everything"
-        tone="danger"
+        tone="destructive"
         pending={busy}
         onConfirm={confirmRestore}
       />

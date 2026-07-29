@@ -122,7 +122,7 @@ export function CatalogItemRow({ item }: { item: CatalogItemFull }) {
         title="Archive this item?"
         body="It stops appearing in your catalog and in the meal picker. Past meals keep their macros."
         confirmLabel="Archive"
-        tone="danger"
+        tone="destructive"
         pending={pending}
         onConfirm={() => run(() => archiveCatalogItem(item.id), { success: "Archived" })}
       />
