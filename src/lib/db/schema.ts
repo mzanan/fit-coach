@@ -1,10 +1,19 @@
 import {
+  customType,
   index,
   integer,
   real,
   sqliteTable,
   text,
 } from "drizzle-orm/sqlite-core";
+
+import { EMBEDDING_DIM } from "@/lib/constants";
+
+const vector = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return `F32_BLOB(${EMBEDDING_DIM})`;
+  },
+});
 
 // ---------------------------------------------------------------------------
 // Better Auth tables. Column names match the Better Auth Drizzle adapter
@@ -164,6 +173,23 @@ export const coach_memory = sqliteTable("coach_memory", {
   content: text("content").notNull(),
   updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 });
+
+export const coach_facts = sqliteTable(
+  "coach_facts",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    category: text("category").notNull(),
+    embedding: vector("embedding"),
+    source: text("source"),
+    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("coach_facts_user_idx").on(t.user_id)],
+);
 
 export const workouts = sqliteTable(
   "workouts",
@@ -376,6 +402,7 @@ export type CatalogItem = typeof catalog_items.$inferSelect;
 export type CatalogComponent = typeof catalog_components.$inferSelect;
 export type Meal = typeof meals.$inferSelect;
 export type CoachMemory = typeof coach_memory.$inferSelect;
+export type CoachFact = typeof coach_facts.$inferSelect;
 export type Workout = typeof workouts.$inferSelect;
 export type WorkoutExercise = typeof workout_exercises.$inferSelect;
 export type WorkoutSet = typeof workout_sets.$inferSelect;
