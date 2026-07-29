@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db, schema } from "@/lib/db";
+import { findExerciseByName } from "@/lib/data/exerciseCatalog";
 import { requireUser } from "@/lib/session";
 import { dayString } from "@/lib/validation";
 import { newId } from "@/lib/utils";
@@ -79,6 +80,12 @@ export async function addExercise(input: unknown) {
     if (catalogEntry[0]) {
       catalogId = catalogEntry[0].id;
       resolvedName = catalogEntry[0].name;
+    }
+  } else {
+    const byName = await findExerciseByName(resolvedName);
+    if (byName) {
+      catalogId = byName.id;
+      resolvedName = byName.name;
     }
   }
 

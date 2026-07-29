@@ -39,10 +39,10 @@ export function AddExercise({
 
   const query = search.query.trim();
   const hasFilters = Boolean(search.filters.target || search.filters.equipment);
-  const exactMatch = search.items.some(
+  const exactItem = search.items.find(
     (item) => normalizeSearch(item.name) === normalizeSearch(query),
   );
-  const showFreeEntry = query !== "" && !exactMatch && search.items.length > 0;
+  const showFreeEntry = query !== "" && !exactItem && search.items.length > 0;
 
   const { hasMore, loadMore } = search;
   useEffect(() => {
@@ -84,7 +84,14 @@ export function AddExercise({
           ) : undefined
         }
       >
-        <div className="hairline-b sticky top-0 z-10 -mx-5 bg-card px-5 pt-1 pb-3">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (query === "") return;
+            add(exactItem?.name ?? query, exactItem?.id);
+          }}
+          className="hairline-b sticky top-0 z-10 -mx-5 bg-card px-5 pt-1 pb-3"
+        >
           <SearchField
             value={search.query}
             onChange={search.setQuery}
@@ -99,7 +106,7 @@ export function AddExercise({
             onChange={search.setFilter}
             onReset={search.resetFilters}
           />
-        </div>
+        </form>
 
         {search.failed ? (
           <EmptyState
@@ -138,19 +145,22 @@ export function AddExercise({
                 title={hasFilters ? "No matches with these filters" : `No matches for "${query}"`}
                 body={
                   hasFilters
-                    ? "Clear the filters or search a different name."
+                    ? "Clear the filters, search a different name, or add it as it is."
                     : "Add it as a custom exercise, or try another spelling."
                 }
                 action={
-                  hasFilters ? (
-                    <Button variant="outline" size="md" onClick={search.resetFilters}>
-                      Clear filters
-                    </Button>
-                  ) : query !== "" ? (
-                    <Button size="md" onClick={() => add(query)}>
-                      {`Add "${query}"`}
-                    </Button>
-                  ) : undefined
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {hasFilters ? (
+                      <Button variant="outline" size="md" onClick={search.resetFilters}>
+                        Clear filters
+                      </Button>
+                    ) : null}
+                    {query !== "" ? (
+                      <Button size="md" onClick={() => add(query)}>
+                        <span className="truncate">{`Add "${query}"`}</span>
+                      </Button>
+                    ) : null}
+                  </div>
                 }
               />
             ) : (
