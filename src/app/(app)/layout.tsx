@@ -24,7 +24,7 @@ export default async function AppLayout({
           <AppHeader className="md:hidden" />
           <main
             id="main"
-            className="flex-1 px-gutter pt-2 pb-28 md:pt-gutter md:pb-gutter"
+            className="flex-1 pt-2 pb-28 md:pt-gutter md:pb-gutter"
           >
             {children}
           </main>

@@ -26,7 +26,7 @@ export function Page({
   className?: string;
 }) {
   return (
-    <div className={cn("mx-auto w-full", WIDTH[width], className)}>
+    <div className={cn("mx-auto w-full px-gutter", WIDTH[width], className)}>
       {title ? (
         <PageHeader
           title={title}
