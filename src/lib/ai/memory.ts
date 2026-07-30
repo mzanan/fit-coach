@@ -2,7 +2,7 @@ import "server-only";
 
 import { eq } from "drizzle-orm";
 
-import { chat } from "@/lib/ai/groq";
+import { chat } from "@/lib/ai/provider";
 import { db, schema } from "@/lib/db";
 
 const { coach_memory } = schema;

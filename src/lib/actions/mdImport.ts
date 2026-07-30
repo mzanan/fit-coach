@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { parseISO } from "date-fns";
 
-import { hasAi } from "@/lib/ai/groq";
+import { hasAi } from "@/lib/ai/provider";
 import {
   extractFromMarkdown,
   mdExtraction,

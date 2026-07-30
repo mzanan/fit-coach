@@ -8,7 +8,7 @@ import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
 import { getWhoopConnection } from "@/lib/integrations/whoop";
 import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
-import { chat, hasAi } from "@/lib/ai/groq";
+import { chat, hasAi } from "@/lib/ai/provider";
 import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
 import { categoryLabel } from "@/lib/constants";
