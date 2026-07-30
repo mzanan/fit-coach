@@ -94,7 +94,7 @@ export function UserMenu({
           align={variant === "rail" ? "start" : "end"}
           side={variant === "rail" ? "top" : "bottom"}
           sideOffset={8}
-          className="z-50 min-w-56 rounded-2xl border border-border bg-popover p-1.5 shadow-raised"
+          className="z-50 min-w-56 rounded-xl border border-border bg-popover p-1.5 shadow-raised"
         >
           {variant === "rail" ? null : (
             <>
@@ -105,20 +105,20 @@ export function UserMenu({
                 </p>
               </div>
               <div className="my-1 h-px bg-border" />
+              <DropdownMenu.Item asChild>
+                <Link href="/catalog" className={ITEM}>
+                  <UtensilsCrossed className="size-[18px]" strokeWidth={1.5} />
+                  Catalog
+                </Link>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item asChild>
+                <Link href="/settings" className={ITEM}>
+                  <Settings className="size-[18px]" strokeWidth={1.5} />
+                  Settings
+                </Link>
+              </DropdownMenu.Item>
             </>
           )}
-          <DropdownMenu.Item asChild>
-            <Link href="/catalog" className={ITEM}>
-              <UtensilsCrossed className="size-[18px]" strokeWidth={1.5} />
-              Catalog
-            </Link>
-          </DropdownMenu.Item>
-          <DropdownMenu.Item asChild>
-            <Link href="/settings" className={ITEM}>
-              <Settings className="size-[18px]" strokeWidth={1.5} />
-              Settings
-            </Link>
-          </DropdownMenu.Item>
           <DropdownMenu.Item
             disabled={busy}
             onSelect={(e) => {

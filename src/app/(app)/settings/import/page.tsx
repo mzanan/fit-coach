@@ -11,7 +11,6 @@ export default async function MdImportPage() {
 
   return (
     <Page
-      width="focus"
       backHref="/settings"
       backLabel="Back to settings"
       title="Import from Markdown"

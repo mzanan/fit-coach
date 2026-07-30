@@ -9,7 +9,6 @@ export default async function TargetsPage() {
 
   return (
     <Page
-      width="focus"
       backHref="/settings"
       backLabel="Back to settings"
       title="Macro targets"

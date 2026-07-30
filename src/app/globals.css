@@ -88,7 +88,6 @@
   --spacing-caption: 3.75rem;
   --spacing-rail: var(--rail-w);
   --spacing-gutter: var(--gutter);
-  --container-focus: 40rem;
   --container-default: 52rem;
   --spacing-media-sm: 6rem;
   --spacing-media-md: 7rem;
@@ -149,8 +148,8 @@
   --macro-carbs: oklch(0.42 0 0);
   --macro-fat: oklch(0.68 0 0);
   --macro-cal: oklch(0.5 0 0);
-  --destructive-surface: oklch(0.50 0.20 25);
-  --destructive-surface-hover: oklch(0.44 0.20 25);
+  --destructive-surface: oklch(0.5 0.2 25);
+  --destructive-surface-hover: oklch(0.44 0.2 25);
   --destructive-foreground: oklch(0.99 0 0);
   --destructive-soft: oklch(0.53 0.19 25 / 10%);
   --sheen: linear-gradient(
@@ -236,8 +235,8 @@
   --macro-carbs: oklch(0.88 0 0);
   --macro-fat: oklch(0.56 0 0);
   --macro-cal: oklch(0.7 0 0);
-  --destructive-surface: oklch(0.52 0.20 25);
-  --destructive-surface-hover: oklch(0.58 0.20 25);
+  --destructive-surface: oklch(0.52 0.2 25);
+  --destructive-surface-hover: oklch(0.58 0.2 25);
   --destructive-foreground: oklch(0.99 0 0);
   --destructive-soft: oklch(0.63 0.17 25 / 14%);
   --sheen: linear-gradient(
@@ -293,7 +292,11 @@
     box-shadow: inset 0 -1px 0 0 var(--hairline);
   }
   .fade-r {
-    mask-image: linear-gradient(90deg, #000 calc(100% - 1.5rem), transparent 100%);
+    mask-image: linear-gradient(
+      90deg,
+      #000 calc(100% - 1.5rem),
+      transparent 100%
+    );
   }
   .num {
     font-family: var(--font-mono);

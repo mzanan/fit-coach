@@ -22,7 +22,11 @@ export function WorkoutScreen({
 }) {
   if (!workout) {
     return (
-      <StartWorkout day={day} lastLabel={history.lastLabel} suggestedSplit={suggestedSplit} />
+      <StartWorkout
+        day={day}
+        lastLabel={history.lastLabel}
+        suggestedSplit={suggestedSplit}
+      />
     );
   }
 

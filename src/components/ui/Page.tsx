@@ -1,13 +1,7 @@
 import { PageHeader } from "@/components/ui/PageHeader";
 import { cn } from "@/lib/utils";
 
-const WIDTH = {
-  focus: "max-w-(--container-focus)",
-  default: "max-w-(--container-default)",
-} as const;
-
 export function Page({
-  width = "default",
   title,
   description,
   backHref,
@@ -16,7 +10,6 @@ export function Page({
   children,
   className,
 }: {
-  width?: keyof typeof WIDTH;
   title?: string;
   description?: React.ReactNode;
   backHref?: string;
@@ -26,7 +19,12 @@ export function Page({
   className?: string;
 }) {
   return (
-    <div className={cn("mx-auto w-full px-gutter", WIDTH[width], className)}>
+    <div
+      className={cn(
+        "mx-auto w-full max-w-(--container-default) px-gutter",
+        className,
+      )}
+    >
       {title ? (
         <PageHeader
           title={title}

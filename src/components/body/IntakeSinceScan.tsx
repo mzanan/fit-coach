@@ -53,7 +53,10 @@ export function IntakeSinceScan({
           </p>
         ) : (
           <ColumnChart
-            points={daily.map((d) => ({ label: shortDay(d.day), value: d.kcal }))}
+            points={daily.map((d) => ({
+              label: shortDay(d.day),
+              value: d.kcal,
+            }))}
             refValue={adherence.kcalTarget}
             refLabel="Target"
             unit="kcal"

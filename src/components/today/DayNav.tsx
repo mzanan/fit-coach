@@ -33,7 +33,7 @@ export function DayNav({
         <ChevronLeft className="size-5" />
       </Button>
       <div className="flex flex-col items-center">
-        <span className="text-base font-semibold">
+        <span className="text-title font-medium tracking-(--tracking-snug)">
           {formatDayLabel(day, today)}
         </span>
         <Pill tone={isGymDay ? "brand" : "muted"} className="mt-0.5">

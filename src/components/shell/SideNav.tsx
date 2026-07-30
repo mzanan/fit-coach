@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 export function SideNav({ user }: { user: SessionUser }) {
   const pathname = usePathname();
   return (
-    <aside className="sticky top-0 hidden h-dvh w-rail shrink-0 flex-col border-r border-border px-3 py-gutter md:flex">
+    <aside className="sticky top-0 hidden h-dvh w-rail shrink-0 flex-col border-r border-border px-3 pt-gutter pb-4 md:flex">
       <div className="px-3 pb-6">
         <span className="text-title font-medium tracking-(--tracking-snug)">
           Fit Coach

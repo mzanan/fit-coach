@@ -3,7 +3,7 @@ import { Surface } from "@/components/ui/Surface";
 
 export default function WhoopLoading() {
   return (
-    <div className="mx-auto w-full max-w-(--container-focus) px-gutter">
+    <div className="mx-auto w-full max-w-(--container-default) px-gutter">
       <div className="space-y-block">
         <div className="flex items-start gap-1">
           <Skeleton className="size-11 rounded-control" />

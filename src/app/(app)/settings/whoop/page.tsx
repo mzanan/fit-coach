@@ -15,7 +15,6 @@ export default async function WhoopSettingsPage() {
 
   return (
     <Page
-      width="focus"
       backHref="/settings"
       backLabel="Back to settings"
       title="Whoop"
@@ -26,7 +25,11 @@ export default async function WhoopSettingsPage() {
         connected={Boolean(whoop)}
         lastSyncedAt={
           whoop?.last_synced_at
-            ? formatInTimeZone(whoop.last_synced_at, profile.timezone, "yyyy-MM-dd HH:mm")
+            ? formatInTimeZone(
+                whoop.last_synced_at,
+                profile.timezone,
+                "yyyy-MM-dd HH:mm",
+              )
             : null
         }
       />

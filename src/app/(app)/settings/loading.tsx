@@ -3,7 +3,7 @@ import { Surface } from "@/components/ui/Surface";
 
 export default function SettingsLoading() {
   return (
-    <div className="mx-auto w-full max-w-(--container-focus) px-gutter">
+    <div className="mx-auto w-full max-w-(--container-default) px-gutter">
       <div className="space-y-block">
         <div>
           <Skeleton className="h-7 w-24" />

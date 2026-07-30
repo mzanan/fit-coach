@@ -32,7 +32,7 @@ export default async function SettingsPage() {
   const whoopConfigured = hasWhoopEnv();
 
   return (
-    <Page width="focus" title="Settings" description={user.email}>
+    <Page title="Settings" description={user.email}>
       <div className="space-y-block">
         <ListGroup
           label="Plan"

@@ -22,16 +22,9 @@ export default async function BodyPage() {
 
   if (!latest) {
     return (
-      <Page
-        width="default"
-        title="Body"
-        description="Body composition from your InBody scans."
-      >
+      <Page title="Body" description="Body composition from your InBody scans.">
         <div className="space-y-7">
-          <Surface
-            level="sunken"
-            className="mx-auto max-w-(--container-focus) px-6 py-10 text-center"
-          >
+          <Surface level="sunken" className="px-6 py-10 text-center">
             <p className="text-body">No body scan yet</p>
             <p className="mx-auto mt-1.5 max-w-[32ch] text-meta text-muted-foreground">
               Import an InBody result and this screen shows what your diet and
@@ -65,7 +58,6 @@ export default async function BodyPage() {
 
   return (
     <Page
-      width="default"
       title="Body"
       description={`Scan from ${takenAt}${latest.device ? ` · ${latest.device}` : ""}`}
       action={
