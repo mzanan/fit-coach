@@ -176,7 +176,7 @@ async function buildWhoopLines(userId: string): Promise<string[]> {
 }
 
 function deterministicReply(ctx: CoachContext): string {
-  return `Set AI_API_KEY for full coaching. Snapshot:\n${ctx.lines.join("\n")}`;
+  return `Set OPENROUTER_API_KEY and AI_MODEL for full coaching. Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
 export async function coachReply(
