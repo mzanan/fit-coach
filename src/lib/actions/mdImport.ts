@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { parseISO } from "date-fns";
 
-import { hasAi } from "@/lib/ai/groq";
+import { hasAi } from "@/lib/ai/provider";
 import {
   extractFromMarkdown,
   mdExtraction,
@@ -24,7 +24,7 @@ const {
 
 export async function extractMdImport(text: string): Promise<MdExtraction> {
   await requireUser();
-  if (!hasAi()) throw new Error("AI_API_KEY not set; MD import needs AI");
+  if (!hasAi()) throw new Error("OPENROUTER_API_KEY or AI_MODEL not set; MD import needs AI");
   const trimmed = text.trim();
   if (!trimmed) throw new Error("Empty markdown");
   return extractFromMarkdown(trimmed);

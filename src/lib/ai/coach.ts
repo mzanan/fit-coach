@@ -8,7 +8,7 @@ import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
 import { getWhoopConnection } from "@/lib/integrations/whoop";
 import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
-import { chat, hasAi } from "@/lib/ai/groq";
+import { chat, hasAi } from "@/lib/ai/provider";
 import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
 import { categoryLabel } from "@/lib/constants";
@@ -32,6 +32,7 @@ Meal distribution rules, in priority order:
 Hard limits:
 - NEVER change the user's daily targets on your own. If the data conflicts with the targets or something is ambiguous, surface it and ask.
 - Weekly review (Sunday or when asked): look at adherence and training progression, then recommend keep / adjust calories by 100-150 / swap exercises stalled 3+ weeks. Routine changes only with a concrete reason, never for variety.
+- ALWAYS reply in the same language the user wrote their question in. If there is no question, reply in the language of the user's previous messages, and in English if you have no signal at all. Never switch to a different language than the user's, even a closely related one.
 - Be direct and concrete, no hype, no alarmism, no emoji. Give one or two specific next actions (e.g. what to add to hit protein). Keep it under 130 words. Never use em dashes.`;
 
 interface CoachContext {
@@ -176,7 +177,7 @@ async function buildWhoopLines(userId: string): Promise<string[]> {
 }
 
 function deterministicReply(ctx: CoachContext): string {
-  return `Set AI_API_KEY for full coaching. Snapshot:\n${ctx.lines.join("\n")}`;
+  return `Set OPENROUTER_API_KEY and AI_MODEL for full coaching. Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
 export async function coachReply(

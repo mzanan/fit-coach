@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import { chatJson } from "@/lib/ai/groq";
+import { chatJson } from "@/lib/ai/provider";
 import { dayString, fatQuality, macroFields } from "@/lib/validation";
 
 const importedMeal = z.object({

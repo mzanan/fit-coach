@@ -2,7 +2,7 @@ import "server-only";
 
 import { sql } from "drizzle-orm";
 
-import { chatJson, hasAi } from "@/lib/ai/groq";
+import { chatJson, hasAi } from "@/lib/ai/provider";
 import { embed, hasEmbeddings, toVectorLiteral } from "@/lib/ai/embeddings";
 import { db } from "@/lib/db";
 import { COACH_FACT_CATEGORY_KEYS, type CoachFactCategory } from "@/lib/constants";

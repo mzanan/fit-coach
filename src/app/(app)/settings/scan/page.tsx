@@ -1,6 +1,6 @@
 import { InbodyCard } from "@/components/settings/InbodyCard";
 import { Page } from "@/components/ui/Page";
-import { hasVisionAi } from "@/lib/ai/groq";
+import { hasVisionAi } from "@/lib/ai/vision";
 import { requireUser } from "@/lib/session";
 
 export default async function ScanSettingsPage() {
