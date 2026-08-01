@@ -3,6 +3,7 @@ import { Page } from "@/components/ui/Page";
 import { groqModels } from "@/lib/ai/groq";
 import { getAiSetup, providerApiKey } from "@/lib/ai/providers";
 import { listModels, type ModelInfo } from "@/lib/ai/registry";
+import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
 
 async function savedGroqModels(userId: string): Promise<ModelInfo[] | null> {
@@ -14,6 +15,7 @@ async function savedGroqModels(userId: string): Promise<ModelInfo[] | null> {
 
 export default async function AiSettingsPage() {
   const user = await requireUser();
+  await ensureProfile(user.id);
   const setup = await getAiSetup(user.id);
   const hasGroq = setup.saved.some(
     (credential) => credential.provider === "groq",
@@ -36,6 +38,7 @@ export default async function AiSettingsPage() {
         openrouterModels={openrouterModels ?? []}
         openrouterFailed={openrouterModels === null}
         groqModels={groqList}
+        groqFailed={hasGroq && groqList === null}
       />
     </Page>
   );

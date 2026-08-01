@@ -29,6 +29,7 @@ interface AiCardProps {
   openrouterModels: ModelInfo[];
   openrouterFailed: boolean;
   groqModels: ModelInfo[] | null;
+  groqFailed: boolean;
 }
 
 function ModelRow({
@@ -72,10 +73,12 @@ export function AiCard({
   openrouterModels,
   openrouterFailed,
   groqModels,
+  groqFailed,
 }: AiCardProps) {
-  const ai = useAiSettings(setup, openrouterModels, groqModels);
+  const ai = useAiSettings(setup, openrouterModels, groqModels, groqFailed);
   const limited = ai.selectedModel && !ai.selectedModel.tools;
-  const listFailed = ai.provider === "openrouter" && openrouterFailed;
+  const listFailed =
+    ai.listFailed || (ai.provider === "openrouter" && openrouterFailed);
 
   return (
     <div className="space-y-block">
@@ -166,7 +169,7 @@ export function AiCard({
               ) : (
                 <p className="px-3.5 py-6 text-center text-meta text-muted-foreground">
                   {listFailed
-                    ? "Could not load the model list. Reload to retry."
+                    ? `Could not load ${PROVIDER_LABEL[ai.provider]}'s model list. Your key stays saved, reload to retry.`
                     : "No models match your search."}
                 </p>
               )}

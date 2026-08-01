@@ -31,6 +31,7 @@ const saveSchema = z.object({
   model: z.string().trim().min(1),
 });
 
+
 async function openrouterKeyError(apiKey: string): Promise<string | null> {
   let response: Response;
   try {
@@ -128,37 +129,49 @@ export async function activateProviderAction(
   const parsed = providerSchema.safeParse(input);
   if (!parsed.success) return { error: "Unknown provider." };
 
-  const switched = await activateProvider(user.id, parsed.data);
-  if (!switched) return { error: "Add a key for that provider first." };
+  try {
+    const switched = await activateProvider(user.id, parsed.data);
+    if (!switched) return { error: "Add a key for that provider first." };
+  } catch {
+    return { error: "Could not switch provider. Try again." };
+  }
   revalidateAi();
   return {};
 }
+
+const updateSchema = z.object({
+  provider: providerSchema,
+  model: z.string().trim().min(1),
+});
 
 export async function updateAiModelAction(
   input: unknown,
 ): Promise<AiActionResult> {
   const user = await requireUser();
-  const parsed = z.string().trim().min(1).safeParse(input);
+  const parsed = updateSchema.safeParse(input);
   if (!parsed.success) return { error: "Pick a model from the list." };
+  const { provider, model } = parsed.data;
 
-  const { active } = await getAiSetup(user.id);
-  if (!active) return { error: "Save your API key first." };
+  const { saved } = await getAiSetup(user.id);
+  if (!saved.some((credential) => credential.provider === provider)) {
+    return { error: "Save a key for that provider first." };
+  }
 
-  if (active.provider === "groq") {
+  if (provider === "groq") {
     const apiKey = await providerApiKey(user.id, "groq");
     if (!apiKey) {
       return {
         error: "Your stored key could not be read. Remove it and add it again.",
       };
     }
-    const error = await groqError(apiKey, parsed.data);
+    const error = await groqError(apiKey, model);
     if (error) return { error };
   } else {
-    const invalidModel = await openrouterModelError(parsed.data);
+    const invalidModel = await openrouterModelError(model);
     if (invalidModel) return { error: invalidModel };
   }
 
-  await updateAiModel(user.id, active.provider, parsed.data);
+  await updateAiModel(user.id, provider, model);
   revalidateAi();
   return {};
 }

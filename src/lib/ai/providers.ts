@@ -143,10 +143,13 @@ async function setActive(
   userId: string,
   provider: AiProvider | null,
 ): Promise<void> {
-  await db
+  const result = await db
     .update(profiles)
     .set({ ai_provider: provider, updated_at: new Date() })
     .where(eq(profiles.user_id, userId));
+  if (result.rowsAffected === 0) {
+    throw new Error("Profile row missing, cannot set the active AI provider");
+  }
 }
 
 export async function saveAiCredential(
@@ -157,21 +160,29 @@ export async function saveAiCredential(
 ): Promise<void> {
   const now = new Date();
   const api_key_enc = encryptSecret(apiKey, aad(userId, provider));
-  await db
-    .insert(ai_credentials)
-    .values({
-      user_id: userId,
-      provider,
-      api_key_enc,
-      model,
-      created_at: now,
-      updated_at: now,
-    })
-    .onConflictDoUpdate({
-      target: [ai_credentials.user_id, ai_credentials.provider],
-      set: { api_key_enc, model, updated_at: now },
-    });
-  await setActive(userId, provider);
+  await db.transaction(async (tx) => {
+    const result = await tx
+      .update(profiles)
+      .set({ ai_provider: provider, updated_at: now })
+      .where(eq(profiles.user_id, userId));
+    if (result.rowsAffected === 0) {
+      throw new Error("Profile row missing, cannot save the AI credential");
+    }
+    await tx
+      .insert(ai_credentials)
+      .values({
+        user_id: userId,
+        provider,
+        api_key_enc,
+        model,
+        created_at: now,
+        updated_at: now,
+      })
+      .onConflictDoUpdate({
+        target: [ai_credentials.user_id, ai_credentials.provider],
+        set: { api_key_enc, model, updated_at: now },
+      });
+  });
 }
 
 export async function activateProvider(
@@ -206,6 +217,7 @@ export async function deleteAiCredential(
   userId: string,
   provider: AiProvider,
 ): Promise<void> {
+  const wasActive = (await activeProvider(userId)) === provider;
   await db
     .delete(ai_credentials)
     .where(
@@ -214,6 +226,7 @@ export async function deleteAiCredential(
         eq(ai_credentials.provider, provider),
       ),
     );
+  if (!wasActive) return;
   const remaining = await savedCredentials(userId);
   await setActive(userId, remaining[0]?.provider ?? null);
 }
