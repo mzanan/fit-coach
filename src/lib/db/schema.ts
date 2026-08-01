@@ -2,6 +2,7 @@ import {
   customType,
   index,
   integer,
+  primaryKey,
   real,
   sqliteTable,
   text,
@@ -96,6 +97,7 @@ export const profiles = sqliteTable("profiles", {
   carbs_rest: real("carbs_rest").notNull().default(135),
   calories_target: real("calories_target").notNull().default(2150),
   seeded_at: integer("seeded_at", { mode: "timestamp_ms" }),
+  ai_provider: text("ai_provider"),
   created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 });
@@ -184,6 +186,21 @@ export const ai_settings = sqliteTable("ai_settings", {
   created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 });
+
+export const ai_credentials = sqliteTable(
+  "ai_credentials",
+  {
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    api_key_enc: text("api_key_enc").notNull(),
+    model: text("model").notNull(),
+    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.user_id, t.provider] })],
+);
 
 export const coach_facts = sqliteTable(
   "coach_facts",

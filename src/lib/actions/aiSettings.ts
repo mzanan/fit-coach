@@ -5,12 +5,13 @@ import { z } from "zod";
 
 import { groqModels } from "@/lib/ai/groq";
 import {
+  activateProvider,
   AI_PROVIDERS,
-  deleteAiSettings,
-  getAiSettings,
-  saveAiSettings,
+  deleteAiCredential,
+  getAiSetup,
+  providerApiKey,
+  saveAiCredential,
   updateAiModel,
-  userModelRef,
 } from "@/lib/ai/providers";
 import { getModelInfo, type ModelInfo } from "@/lib/ai/registry";
 import { requireUser } from "@/lib/session";
@@ -22,8 +23,10 @@ export interface AiActionResult {
 const OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/key";
 const FETCH_TIMEOUT_MS = 10_000;
 
+const providerSchema = z.enum(AI_PROVIDERS);
+
 const saveSchema = z.object({
-  provider: z.enum(AI_PROVIDERS),
+  provider: providerSchema,
   apiKey: z.string().trim().min(1),
   model: z.string().trim().min(1),
 });
@@ -113,7 +116,20 @@ export async function saveAiSettingsAction(
     if (invalidModel) return { error: invalidModel };
   }
 
-  await saveAiSettings(user.id, provider, apiKey, model);
+  await saveAiCredential(user.id, provider, apiKey, model);
+  revalidateAi();
+  return {};
+}
+
+export async function activateProviderAction(
+  input: unknown,
+): Promise<AiActionResult> {
+  const user = await requireUser();
+  const parsed = providerSchema.safeParse(input);
+  if (!parsed.success) return { error: "Unknown provider." };
+
+  const switched = await activateProvider(user.id, parsed.data);
+  if (!switched) return { error: "Add a key for that provider first." };
   revalidateAi();
   return {};
 }
@@ -125,29 +141,36 @@ export async function updateAiModelAction(
   const parsed = z.string().trim().min(1).safeParse(input);
   if (!parsed.success) return { error: "Pick a model from the list." };
 
-  const existing = await getAiSettings(user.id);
-  if (!existing) return { error: "Save your API key first." };
+  const { active } = await getAiSetup(user.id);
+  if (!active) return { error: "Save your API key first." };
 
-  if (existing.provider === "groq") {
-    const ref = await userModelRef(user.id);
-    if (!ref) {
-      return { error: "Your stored key could not be read. Remove it and add it again." };
+  if (active.provider === "groq") {
+    const apiKey = await providerApiKey(user.id, "groq");
+    if (!apiKey) {
+      return {
+        error: "Your stored key could not be read. Remove it and add it again.",
+      };
     }
-    const error = await groqError(ref.apiKey, parsed.data);
+    const error = await groqError(apiKey, parsed.data);
     if (error) return { error };
   } else {
     const invalidModel = await openrouterModelError(parsed.data);
     if (invalidModel) return { error: invalidModel };
   }
 
-  await updateAiModel(user.id, parsed.data);
+  await updateAiModel(user.id, active.provider, parsed.data);
   revalidateAi();
   return {};
 }
 
-export async function removeAiSettingsAction(): Promise<AiActionResult> {
+export async function removeAiSettingsAction(
+  input: unknown,
+): Promise<AiActionResult> {
   const user = await requireUser();
-  await deleteAiSettings(user.id);
+  const parsed = providerSchema.safeParse(input);
+  if (!parsed.success) return { error: "Unknown provider." };
+
+  await deleteAiCredential(user.id, parsed.data);
   revalidateAi();
   return {};
 }

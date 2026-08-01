@@ -10,7 +10,7 @@ import { SearchField } from "@/components/ui/SearchField";
 import { Segmented } from "@/components/ui/Segmented";
 import { Surface } from "@/components/ui/Surface";
 import { useAiSettings } from "@/components/settings/useAiSettings";
-import type { AiProvider } from "@/lib/ai/providers";
+import type { AiProvider, AiSetup } from "@/lib/ai/providers";
 import type { ModelInfo } from "@/lib/ai/registry";
 import { cn } from "@/lib/utils";
 
@@ -25,11 +25,10 @@ const PROVIDER_LABEL: Record<AiProvider, string> = {
 };
 
 interface AiCardProps {
-  configured: boolean;
-  currentProvider: AiProvider;
-  currentModel: string | null;
-  models: ModelInfo[];
-  modelsFailed: boolean;
+  setup: AiSetup;
+  openrouterModels: ModelInfo[];
+  openrouterFailed: boolean;
+  groqModels: ModelInfo[] | null;
 }
 
 function ModelRow({
@@ -69,67 +68,63 @@ function ModelRow({
 }
 
 export function AiCard({
-  configured,
-  currentProvider,
-  currentModel,
-  models,
-  modelsFailed,
+  setup,
+  openrouterModels,
+  openrouterFailed,
+  groqModels,
 }: AiCardProps) {
-  const ai = useAiSettings(configured, currentProvider, currentModel, models);
+  const ai = useAiSettings(setup, openrouterModels, groqModels);
   const limited = ai.selectedModel && !ai.selectedModel.tools;
+  const listFailed = ai.provider === "openrouter" && openrouterFailed;
 
   return (
     <div className="space-y-block">
       <Surface level="raised" className="relative p-card">
-        {configured ? (
+        {setup.active ? (
           <Pill tone="brand" className="absolute top-4 right-4">
-            Enabled
+            {PROVIDER_LABEL[setup.active.provider]}
           </Pill>
         ) : null}
-        <p className="eyebrow">Status</p>
+        <p className="eyebrow">Coach runs on</p>
         <p className="mt-2 text-metric font-medium">
-          {configured ? PROVIDER_LABEL[currentProvider] : "Not configured"}
+          {setup.active?.model ?? "Not configured"}
         </p>
         <p className="mt-1.5 text-meta text-muted-foreground">
-          {configured
-            ? `Coach and import run on ${currentModel} with your ${PROVIDER_LABEL[currentProvider]} key.`
+          {setup.active
+            ? "Keys stay saved per provider, so you can switch back and forth without pasting them again."
             : "The coach and Markdown import stay off until you add your own API key."}
         </p>
       </Surface>
 
-      {configured ? (
-        <Button
-          variant="outline"
-          className="w-full"
-          disabled={ai.pending}
-          onClick={() => ai.setConfirmOpen(true)}
-        >
-          <Trash2 className="size-4" />
-          Remove key
-        </Button>
-      ) : (
-        <>
-          <div>
-            <Label>Provider</Label>
-            <Segmented
-              options={PROVIDER_OPTIONS}
-              value={ai.provider}
-              onChange={ai.switchProvider}
-              ariaLabel="AI provider"
-            />
-          </div>
-          <div>
-            <Label htmlFor="ai-key">{PROVIDER_LABEL[ai.provider]} API key</Label>
-            <Input
-              id="ai-key"
-              type="password"
-              autoComplete="off"
-              placeholder={ai.provider === "groq" ? "gsk_..." : "sk-or-..."}
-              value={ai.apiKey}
-              onChange={(e) => ai.setApiKey(e.target.value)}
-            />
-          </div>
-        </>
+      <div>
+        <Label>Provider</Label>
+        <Segmented
+          options={PROVIDER_OPTIONS}
+          value={ai.provider}
+          onChange={ai.switchProvider}
+          ariaLabel="AI provider"
+        />
+        {ai.saved ? (
+          <p className="mt-1.5 text-meta text-muted-foreground">
+            {ai.isActive
+              ? `Key saved. The coach is using ${PROVIDER_LABEL[ai.provider]}.`
+              : `Key saved. Tap to switch the coach to ${PROVIDER_LABEL[ai.provider]}.`}
+          </p>
+        ) : null}
+      </div>
+
+      {ai.saved ? null : (
+        <div>
+          <Label htmlFor="ai-key">{PROVIDER_LABEL[ai.provider]} API key</Label>
+          <Input
+            id="ai-key"
+            type="password"
+            autoComplete="off"
+            placeholder={ai.provider === "groq" ? "gsk_..." : "sk-or-..."}
+            value={ai.apiKey}
+            onChange={(e) => ai.setApiKey(e.target.value)}
+          />
+        </div>
       )}
 
       <div>
@@ -170,7 +165,7 @@ export function AiCard({
                 </div>
               ) : (
                 <p className="px-3.5 py-6 text-center text-meta text-muted-foreground">
-                  {modelsFailed
+                  {listFailed
                     ? "Could not load the model list. Reload to retry."
                     : "No models match your search."}
                 </p>
@@ -190,7 +185,17 @@ export function AiCard({
         )}
       </div>
 
-      {configured ? null : (
+      {ai.saved ? (
+        <Button
+          variant="outline"
+          className="w-full"
+          disabled={ai.pending}
+          onClick={() => ai.setConfirmOpen(true)}
+        >
+          <Trash2 className="size-4" />
+          Remove {PROVIDER_LABEL[ai.provider]} key
+        </Button>
+      ) : (
         <Button
           variant="solid"
           className="w-full"
@@ -205,8 +210,8 @@ export function AiCard({
       <ConfirmDialog
         open={ai.confirmOpen}
         onOpenChange={ai.setConfirmOpen}
-        title="Remove your AI key?"
-        body="The coach and Markdown import turn off until you add a key again. Nothing else is deleted."
+        title={`Remove your ${PROVIDER_LABEL[ai.provider]} key?`}
+        body="Your other provider keys stay. If this was the active one, the coach falls back to another saved key or turns off."
         confirmLabel="Remove"
         tone="destructive"
         pending={ai.pending}

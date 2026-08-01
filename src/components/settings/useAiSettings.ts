@@ -3,9 +3,10 @@
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import type { AiProvider, AiSetup } from "@/lib/ai/providers";
 import type { ModelInfo } from "@/lib/ai/registry";
-import type { AiProvider } from "@/lib/ai/providers";
 import {
+  activateProviderAction,
   listGroqModelsAction,
   removeAiSettingsAction,
   saveAiSettingsAction,
@@ -16,20 +17,25 @@ import {
 const VISIBLE_LIMIT = 30;
 
 export function useAiSettings(
-  configured: boolean,
-  currentProvider: AiProvider,
-  currentModel: string | null,
-  savedModels: ModelInfo[],
+  setup: AiSetup,
+  openrouterModels: ModelInfo[],
+  groqModels: ModelInfo[] | null,
 ) {
+  const startProvider = setup.active?.provider ?? "openrouter";
   const [pending, startTransition] = useTransition();
-  const [provider, setProvider] = useState<AiProvider>(currentProvider);
+  const [provider, setProvider] = useState<AiProvider>(startProvider);
   const [apiKey, setApiKey] = useState("");
-  const [selected, setSelected] = useState<string | null>(currentModel);
   const [search, setSearch] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [typedGroqModels, setTypedGroqModels] = useState<ModelInfo[] | null>(
-    null,
-  );
+  const [typedModels, setTypedModels] = useState<ModelInfo[] | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+
+  const savedFor = (target: AiProvider) =>
+    setup.saved.find((credential) => credential.provider === target) ?? null;
+
+  const saved = savedFor(provider);
+  const isActive = setup.active?.provider === provider;
+  const selected = saved?.model ?? drafts[provider] ?? null;
 
   function exec(
     fn: () => Promise<AiActionResult>,
@@ -51,11 +57,10 @@ export function useAiSettings(
     });
   }
 
-  const usesTypedKey = !configured && provider !== currentProvider;
-  const models = useMemo(
-    () => (usesTypedKey ? (typedGroqModels ?? []) : savedModels),
-    [usesTypedKey, typedGroqModels, savedModels],
-  );
+  const models = useMemo(() => {
+    if (provider === "openrouter") return openrouterModels;
+    return groqModels ?? typedModels ?? [];
+  }, [provider, openrouterModels, groqModels, typedModels]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -69,17 +74,23 @@ export function useAiSettings(
 
   const visible = filtered.slice(0, VISIBLE_LIMIT);
   const hiddenCount = filtered.length - visible.length;
-  const needsKeyToList = usesTypedKey && typedGroqModels === null;
+  const needsKeyToList =
+    provider === "groq" && !groqModels && typedModels === null;
   const canSave = Boolean(apiKey.trim() && selected);
   const selectedModel = models.find((model) => model.id === selected) ?? null;
 
   function switchProvider(next: string) {
-    if (pending || configured) return;
+    if (pending || next === provider) return;
     if (next !== "openrouter" && next !== "groq") return;
     setProvider(next);
-    setSelected(null);
+    setApiKey("");
     setSearch("");
-    setTypedGroqModels(null);
+    if (savedFor(next) && setup.active?.provider !== next) {
+      exec(
+        () => activateProviderAction(next),
+        `Coach now runs on ${next === "groq" ? "Groq" : "OpenRouter"}`,
+      );
+    }
   }
 
   function loadModels() {
@@ -94,7 +105,7 @@ export function useAiSettings(
           toast.error(result.error);
           return;
         }
-        setTypedGroqModels(result.models ?? []);
+        setTypedModels(result.models ?? []);
       } catch {
         toast.error("Could not load the model list. Try again.");
       }
@@ -102,13 +113,11 @@ export function useAiSettings(
   }
 
   function pick(model: string) {
-    if (configured) {
-      exec(() => updateAiModelAction(model), "Model updated", () =>
-        setSelected(model),
-      );
+    if (saved) {
+      exec(() => updateAiModelAction(model), "Model updated");
       return;
     }
-    setSelected(model);
+    setDrafts((current) => ({ ...current, [provider]: model }));
   }
 
   function save() {
@@ -121,20 +130,26 @@ export function useAiSettings(
           model: selected,
         }),
       "AI enabled",
-      () => setApiKey(""),
+      () => {
+        setApiKey("");
+        setTypedModels(null);
+      },
     );
   }
 
   function removeKey() {
-    exec(() => removeAiSettingsAction(), "AI key removed", () =>
-      setConfirmOpen(false),
-    );
+    exec(() => removeAiSettingsAction(provider), "AI key removed", () => {
+      setConfirmOpen(false);
+      setTypedModels(null);
+    });
   }
 
   return {
     pending,
     provider,
     switchProvider,
+    saved,
+    isActive,
     apiKey,
     setApiKey,
     selected,
