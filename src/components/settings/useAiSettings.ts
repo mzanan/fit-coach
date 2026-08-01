@@ -107,7 +107,7 @@ export function useAiSettings(
   const selectedModel = models.find((model) => model.id === selected) ?? null;
 
   function switchProvider(next: string) {
-    if (pending || next === provider) return;
+    if (next === provider) return;
     if (next !== "openrouter" && next !== "groq") return;
 
     const previous = provider;
