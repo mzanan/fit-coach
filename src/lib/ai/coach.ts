@@ -211,7 +211,9 @@ function limitErrorReply(
 
 const TOOLS_ADDENDUM = `
 
-Data access: you have tools that read the user's live data (today's meals and targets, the food catalog, recent workouts, body scans). Call only the tools the question actually needs, then answer that question directly and concretely. Never invent data you did not read from a tool.`;
+Data access: you have tools that read the user's live data (today's meals and targets, the food catalog, recent workouts, body scans). Call only the tools the question actually needs, then answer that question directly and concretely. Never invent data you did not read from a tool.
+
+Whenever you suggest what to eat, search the catalog first and build the suggestion from the user's own saved items and their exact macros. The catalog is written in the user's own words and may be in a different language than the question, so search more than once with the terms they would have used, in both languages. Only fall back to generic foods when the catalog genuinely has nothing that fits, and say so when you do.`;
 
 async function memoryAndFacts(
   userId: string,
