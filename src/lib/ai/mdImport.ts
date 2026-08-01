@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { chatJson } from "@/lib/ai/provider";
+import type { ModelRef } from "@/lib/ai/providers";
 import { dayString, fatQuality, macroFields } from "@/lib/validation";
 
 const importedMeal = z.object({
@@ -130,11 +131,15 @@ function mergeExtractions(parts: MdExtraction[]): MdExtraction {
   return { days, catalog_items: [...catalog.values()], warnings };
 }
 
-export async function extractFromMarkdown(text: string): Promise<MdExtraction> {
+export async function extractFromMarkdown(
+  ref: ModelRef,
+  text: string,
+): Promise<MdExtraction> {
   const chunks = chunkMarkdown(text);
   const parts: MdExtraction[] = [];
   for (let i = 0; i < chunks.length; i++) {
     const raw = await chatJson<unknown>(
+      ref,
       [
         { role: "system", content: SYSTEM },
         {

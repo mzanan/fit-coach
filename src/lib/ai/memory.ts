@@ -3,6 +3,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 
 import { chat } from "@/lib/ai/provider";
+import type { ModelRef } from "@/lib/ai/providers";
 import { db, schema } from "@/lib/db";
 
 const { coach_memory } = schema;
@@ -19,12 +20,14 @@ export async function getCoachMemory(userId: string): Promise<string | null> {
 }
 
 export async function refreshCoachMemory(
+  ref: ModelRef,
   userId: string,
   previous: string | null,
   exchange: string,
 ): Promise<void> {
   try {
     const content = await chat(
+      ref,
       [
         { role: "system", content: MEMORY_SYSTEM },
         {

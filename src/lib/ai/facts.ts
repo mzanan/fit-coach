@@ -2,7 +2,8 @@ import "server-only";
 
 import { sql } from "drizzle-orm";
 
-import { chatJson, hasAi } from "@/lib/ai/provider";
+import { chatJson } from "@/lib/ai/provider";
+import type { ModelRef } from "@/lib/ai/providers";
 import { embed, hasEmbeddings, toVectorLiteral } from "@/lib/ai/embeddings";
 import { db } from "@/lib/db";
 import { COACH_FACT_CATEGORY_KEYS, type CoachFactCategory } from "@/lib/constants";
@@ -144,13 +145,15 @@ async function saveFact(
 }
 
 export async function learnFromExchange(
+  ref: ModelRef,
   userId: string,
   exchange: string,
   source: string,
 ): Promise<void> {
-  if (!hasAi() || !hasEmbeddings()) return;
+  if (!hasEmbeddings()) return;
   try {
     const { facts } = await chatJson<{ facts?: ExtractedFact[] }>(
+      ref,
       [
         { role: "system", content: EXTRACT_SYSTEM },
         { role: "user", content: exchange },

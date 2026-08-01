@@ -8,7 +8,8 @@ import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
 import { getWhoopConnection } from "@/lib/integrations/whoop";
 import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
-import { chat, hasAi } from "@/lib/ai/provider";
+import { chat } from "@/lib/ai/provider";
+import { userModelRef } from "@/lib/ai/providers";
 import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
 import { categoryLabel } from "@/lib/constants";
@@ -177,7 +178,11 @@ async function buildWhoopLines(userId: string): Promise<string[]> {
 }
 
 function deterministicReply(ctx: CoachContext): string {
-  return `Set OPENROUTER_API_KEY and AI_MODEL for full coaching. Snapshot:\n${ctx.lines.join("\n")}`;
+  return `Add your OpenRouter API key in Settings > AI to enable coaching. Snapshot:\n${ctx.lines.join("\n")}`;
+}
+
+function aiErrorReply(ctx: CoachContext): string {
+  return `The coach could not reach your AI model. Check your key and model in Settings > AI, or try again. Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
 export async function coachReply(
@@ -186,7 +191,8 @@ export async function coachReply(
   question?: string,
 ): Promise<{ text: string; generated: boolean }> {
   const ctx = await buildContext(userId, profile);
-  if (!hasAi()) {
+  const ref = await userModelRef(userId);
+  if (!ref) {
     return { text: deterministicReply(ctx), generated: false };
   }
 
@@ -212,19 +218,19 @@ export async function coachReply(
   ].join("\n");
 
   try {
-    const text = await chat([
+    const text = await chat(ref, [
       { role: "system", content: SYSTEM },
       { role: "user", content: userMsg },
     ]);
     if (text) {
       const exchange = `${ctx.lines.join("\n")}\nUser: ${question?.trim() || "(daily check-in)"}\nCoach: ${text}`;
-      await refreshCoachMemory(userId, memory, exchange);
+      await refreshCoachMemory(ref, userId, memory, exchange);
       if (question?.trim()) {
-        await learnFromExchange(userId, exchange, "coach");
+        await learnFromExchange(ref, userId, exchange, "coach");
       }
     }
-    return { text: text || deterministicReply(ctx), generated: Boolean(text) };
+    return { text: text || aiErrorReply(ctx), generated: Boolean(text) };
   } catch {
-    return { text: deterministicReply(ctx), generated: false };
+    return { text: aiErrorReply(ctx), generated: false };
   }
 }

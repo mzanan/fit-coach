@@ -4,6 +4,7 @@ import {
   Database,
   FileText,
   ScanLine,
+  Sparkles,
   Target,
   User,
 } from "lucide-react";
@@ -11,6 +12,7 @@ import {
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { ListGroup, ListRow } from "@/components/ui/ListRow";
 import { Page } from "@/components/ui/Page";
+import { getAiSettings } from "@/lib/ai/providers";
 import { getLatestScanTakenAt } from "@/lib/data/bodyScans";
 import { getWhoopConnection, hasWhoopEnv } from "@/lib/integrations/whoop";
 import { ensureProfile } from "@/lib/profile";
@@ -23,10 +25,11 @@ function timezoneCity(timezone: string): string {
 
 export default async function SettingsPage() {
   const user = await requireUser();
-  const [profile, whoop, latestScan] = await Promise.all([
+  const [profile, whoop, latestScan, ai] = await Promise.all([
     ensureProfile(user.id),
     getWhoopConnection(user.id),
     getLatestScanTakenAt(user.id),
+    getAiSettings(user.id),
   ]);
 
   const whoopConfigured = hasWhoopEnv();
@@ -49,6 +52,12 @@ export default async function SettingsPage() {
             icon={User}
             label="Profile"
             value={timezoneCity(profile.timezone)}
+          />
+          <ListRow
+            href="/settings/ai"
+            icon={Sparkles}
+            label="AI"
+            value={ai ? ai.model.split("/").pop() : "Not configured"}
           />
         </ListGroup>
 
