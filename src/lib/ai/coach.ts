@@ -8,8 +8,10 @@ import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
 import { getWhoopConnection } from "@/lib/integrations/whoop";
 import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
-import { chat } from "@/lib/ai/provider";
-import { userModelRef } from "@/lib/ai/providers";
+import { chat, chatTools } from "@/lib/ai/provider";
+import { buildCoachTools } from "@/lib/ai/coachTools";
+import { userModelRef, type ModelRef } from "@/lib/ai/providers";
+import { toolsRouteOnly } from "@/lib/ai/registry";
 import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
 import { categoryLabel } from "@/lib/constants";
@@ -185,17 +187,32 @@ function aiErrorReply(ctx: CoachContext): string {
   return `The coach could not reach your AI model. Check your key and model in Settings > AI, or try again. Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
-export async function coachReply(
-  userId: string,
-  profile: Profile,
-  question?: string,
-): Promise<{ text: string; generated: boolean }> {
-  const ctx = await buildContext(userId, profile);
-  const ref = await userModelRef(userId);
-  if (!ref) {
-    return { text: deterministicReply(ctx), generated: false };
-  }
+function quotaReply(ctx: CoachContext): string {
+  return `Your model's free daily quota on OpenRouter is used up. It resets daily; try again later or add your own credits. Snapshot:\n${ctx.lines.join("\n")}`;
+}
 
+function throttleReply(ctx: CoachContext): string {
+  return `OpenRouter is rate limiting your model right now (free tier per-minute cap). Wait a minute and ask again. Snapshot:\n${ctx.lines.join("\n")}`;
+}
+
+function limitErrorReply(error: unknown, ctx: CoachContext): string | null {
+  const status = (error as { statusCode?: number })?.statusCode;
+  const message = error instanceof Error ? error.message : "";
+  const isLimit = status === 429 || /rate limit|quota/i.test(message);
+  if (!isLimit) return null;
+  return /per-day|free-models-per-day/i.test(message)
+    ? quotaReply(ctx)
+    : throttleReply(ctx);
+}
+
+const TOOLS_ADDENDUM = `
+
+Data access: you have tools that read the user's live data (today's meals and targets, the food catalog, recent workouts, body scans). Call only the tools the question actually needs, then answer that question directly and concretely. Never invent data you did not read from a tool.`;
+
+async function memoryAndFacts(
+  userId: string,
+  question?: string,
+): Promise<{ memory: string | null; parts: string[] }> {
   const [memory, facts] = await Promise.all([
     getCoachMemory(userId),
     retrieveFacts(userId, question?.trim() ?? ""),
@@ -208,9 +225,80 @@ export async function coachReply(
       ]
     : [];
 
+  return {
+    memory,
+    parts: [
+      ...(memory ? [`Coach memory about this user:\n${memory}`] : []),
+      ...factLines,
+    ],
+  };
+}
+
+async function learn(
+  ref: ModelRef,
+  userId: string,
+  memory: string | null,
+  exchange: string,
+  hasQuestion: boolean,
+): Promise<void> {
+  await refreshCoachMemory(ref, userId, memory, exchange);
+  if (hasQuestion) {
+    await learnFromExchange(ref, userId, exchange, "coach");
+  }
+}
+
+async function toolReply(
+  ref: ModelRef,
+  routeOnly: string[],
+  userId: string,
+  profile: Profile,
+  question?: string,
+): Promise<{ text: string; generated: boolean }> {
+  const { memory, parts } = await memoryAndFacts(userId, question);
+  const ask = question?.trim()
+    ? `User question: ${question.trim()}`
+    : "Give a short read on how today and the week are going, and the next action.";
+
+  try {
+    const { text, toolLog } = await chatTools(
+      { ...ref, routeOnly },
+      {
+        instructions: SYSTEM + TOOLS_ADDENDUM,
+        prompt: [...parts, ask].join("\n"),
+        tools: buildCoachTools(userId, profile, todayLogicalDay(dayConfig(profile))),
+      },
+    );
+    if (text) {
+      const exchange = [
+        ...(toolLog.length ? ["Data the coach read from the app:", ...toolLog] : []),
+        `User: ${question?.trim() || "(daily check-in)"}`,
+        `Coach: ${text}`,
+      ].join("\n");
+      await learn(ref, userId, memory, exchange, Boolean(question?.trim()));
+      return { text, generated: true };
+    }
+    const ctx = await buildContext(userId, profile);
+    return { text: aiErrorReply(ctx), generated: false };
+  } catch (error) {
+    const ctx = await buildContext(userId, profile);
+    return {
+      text: limitErrorReply(error, ctx) ?? aiErrorReply(ctx),
+      generated: false,
+    };
+  }
+}
+
+async function contextReply(
+  ref: ModelRef,
+  userId: string,
+  profile: Profile,
+  question?: string,
+): Promise<{ text: string; generated: boolean }> {
+  const ctx = await buildContext(userId, profile);
+  const { memory, parts } = await memoryAndFacts(userId, question);
+
   const userMsg = [
-    ...(memory ? [`Coach memory about this user:\n${memory}`] : []),
-    ...factLines,
+    ...parts,
     ...ctx.lines,
     question?.trim()
       ? `User question: ${question.trim()}`
@@ -224,13 +312,37 @@ export async function coachReply(
     ]);
     if (text) {
       const exchange = `${ctx.lines.join("\n")}\nUser: ${question?.trim() || "(daily check-in)"}\nCoach: ${text}`;
-      await refreshCoachMemory(ref, userId, memory, exchange);
-      if (question?.trim()) {
-        await learnFromExchange(ref, userId, exchange, "coach");
-      }
+      await learn(ref, userId, memory, exchange, Boolean(question?.trim()));
     }
     return { text: text || aiErrorReply(ctx), generated: Boolean(text) };
-  } catch {
-    return { text: aiErrorReply(ctx), generated: false };
+  } catch (error) {
+    return {
+      text: limitErrorReply(error, ctx) ?? aiErrorReply(ctx),
+      generated: false,
+    };
   }
+}
+
+export async function coachReply(
+  userId: string,
+  profile: Profile,
+  question?: string,
+): Promise<{ text: string; generated: boolean }> {
+  const ref = await userModelRef(userId);
+  if (!ref) {
+    const ctx = await buildContext(userId, profile);
+    return { text: deterministicReply(ctx), generated: false };
+  }
+
+  let toolPin: string[] | null = null;
+  try {
+    toolPin = await toolsRouteOnly(ref.model);
+  } catch {
+    toolPin = null;
+  }
+
+  if (toolPin) {
+    return toolReply(ref, toolPin, userId, profile, question);
+  }
+  return contextReply(ref, userId, profile, question);
 }

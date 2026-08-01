@@ -1,6 +1,6 @@
 import "server-only";
 
-import { generateObject, generateText } from "ai";
+import { generateObject, generateText, isStepCount, type ToolSet } from "ai";
 
 import { resolveModel, type ModelRef } from "@/lib/ai/providers";
 import { structuredRouteOnly } from "@/lib/ai/registry";
@@ -40,6 +40,36 @@ export async function chat(
     maxOutputTokens: maxTokens,
   });
   return text.trim();
+}
+
+export async function chatTools(
+  ref: ModelRef,
+  options: {
+    instructions: string;
+    prompt: string;
+    tools: ToolSet;
+    maxSteps?: number;
+    maxTokens?: number;
+  },
+): Promise<{ text: string; toolLog: string[] }> {
+  const maxSteps = options.maxSteps ?? 5;
+  const result = await generateText({
+    model: resolveModel(ref),
+    instructions: options.instructions,
+    prompt: options.prompt,
+    tools: options.tools,
+    stopWhen: isStepCount(maxSteps),
+    maxOutputTokens: options.maxTokens ?? 1200,
+    prepareStep: ({ stepNumber }) =>
+      stepNumber >= maxSteps - 1 ? { toolChoice: "none" } : {},
+  });
+  const toolLog = result.steps.flatMap((step) =>
+    step.toolResults.map(
+      (tool) =>
+        `${tool.toolName}(${JSON.stringify(tool.input)}) -> ${JSON.stringify(tool.output).slice(0, 400)}`,
+    ),
+  );
+  return { text: result.text.trim(), toolLog };
 }
 
 function unwrapJson({ text }: { text: string }): string | null {
