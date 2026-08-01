@@ -2,25 +2,12 @@ import "server-only";
 
 import { generateObject, generateText } from "ai";
 
-import {
-  resolveModel,
-  systemModelRef,
-  type ModelRef,
-} from "@/lib/ai/providers";
+import { resolveModel, type ModelRef } from "@/lib/ai/providers";
+import { structuredRouteOnly } from "@/lib/ai/registry";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
-}
-
-export function hasAi(): boolean {
-  return Boolean(systemModelRef());
-}
-
-function requireRef(ref?: ModelRef): ModelRef {
-  const resolved = ref ?? systemModelRef();
-  if (!resolved) throw new Error("OPENROUTER_API_KEY or AI_MODEL not set");
-  return resolved;
 }
 
 function split(messages: ChatMessage[]): {
@@ -41,13 +28,13 @@ function split(messages: ChatMessage[]): {
 }
 
 export async function chat(
+  ref: ModelRef,
   messages: ChatMessage[],
   maxTokens = 600,
-  ref?: ModelRef,
 ): Promise<string> {
   const { instructions, turns } = split(messages);
   const { text } = await generateText({
-    model: resolveModel(requireRef(ref)),
+    model: resolveModel(ref),
     instructions,
     messages: turns,
     maxOutputTokens: maxTokens,
@@ -68,13 +55,17 @@ function unwrapJson({ text }: { text: string }): string | null {
 }
 
 export async function chatJson<T>(
+  ref: ModelRef,
   messages: ChatMessage[],
   maxTokens = 4000,
-  ref?: ModelRef,
 ): Promise<T> {
+  const routeOnly = await structuredRouteOnly(ref.model);
+  if (routeOnly === null) {
+    throw new Error(`Model ${ref.model} has no provider with structured output`);
+  }
   const { instructions, turns } = split(messages);
   const { object } = await generateObject({
-    model: resolveModel(requireRef(ref)),
+    model: resolveModel({ ...ref, routeOnly: routeOnly ?? ref.routeOnly }),
     instructions,
     messages: turns,
     maxOutputTokens: maxTokens,

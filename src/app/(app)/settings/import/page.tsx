@@ -1,13 +1,23 @@
+import Link from "next/link";
+
 import { MdImportFlow } from "@/components/import/MdImportFlow";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Page } from "@/components/ui/Page";
+import { getAiSettings } from "@/lib/ai/providers";
+import { canStructured } from "@/lib/ai/registry";
 import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
 
 export default async function MdImportPage() {
   const user = await requireUser();
-  const profile = await ensureProfile(user.id);
+  const [profile, ai] = await Promise.all([
+    ensureProfile(user.id),
+    getAiSettings(user.id),
+  ]);
   const today = todayLogicalDay(dayConfig(profile));
+  const structuredOk = ai ? await canStructured(ai.model) : false;
 
   return (
     <Page
@@ -16,7 +26,29 @@ export default async function MdImportPage() {
       title="Import from Markdown"
       description="Extract, review, then import. Nothing is saved until you confirm."
     >
-      <MdImportFlow today={today} />
+      {!ai ? (
+        <EmptyState
+          title="Import needs your AI key"
+          body="Add your OpenRouter API key to extract meals and workouts from a Markdown log."
+          action={
+            <Button variant="solid" asChild>
+              <Link href="/settings/ai">Set up AI</Link>
+            </Button>
+          }
+        />
+      ) : !structuredOk ? (
+        <EmptyState
+          title="Your model can't run the import"
+          body={`${ai.model} has no provider with structured output. Pick a model with the JSON badge.`}
+          action={
+            <Button variant="solid" asChild>
+              <Link href="/settings/ai">Change model</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <MdImportFlow today={today} />
+      )}
     </Page>
   );
 }

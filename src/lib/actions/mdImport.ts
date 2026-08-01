@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { parseISO } from "date-fns";
 
-import { hasAi } from "@/lib/ai/provider";
+import { userModelRef } from "@/lib/ai/providers";
 import {
   extractFromMarkdown,
   mdExtraction,
@@ -23,11 +23,12 @@ const {
 } = schema;
 
 export async function extractMdImport(text: string): Promise<MdExtraction> {
-  await requireUser();
-  if (!hasAi()) throw new Error("OPENROUTER_API_KEY or AI_MODEL not set; MD import needs AI");
+  const user = await requireUser();
+  const ref = await userModelRef(user.id);
+  if (!ref) throw new Error("Add your OpenRouter API key in Settings > AI; MD import needs AI");
   const trimmed = text.trim();
   if (!trimmed) throw new Error("Empty markdown");
-  return extractFromMarkdown(trimmed);
+  return extractFromMarkdown(ref, trimmed);
 }
 
 export async function commitMdImport(payload: unknown) {
