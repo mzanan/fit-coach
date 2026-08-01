@@ -85,18 +85,30 @@ async function fetchEndpoints(model: string): Promise<ModelEndpoint[]> {
   return body.data?.endpoints ?? [];
 }
 
+function endpointsWithParameter(
+  endpoints: ModelEndpoint[],
+  parameter: string,
+): string[] | null {
+  const tags = endpoints
+    .filter((endpoint) =>
+      (endpoint.supported_parameters ?? []).includes(parameter),
+    )
+    .map(providerTag)
+    .filter((tag): tag is string => Boolean(tag));
+  return tags.length ? tags : null;
+}
+
 export const structuredRouteOnly = unstable_cache(
-  async (model: string): Promise<string[] | null> => {
-    const endpoints = await fetchEndpoints(model);
-    const tags = endpoints
-      .filter((endpoint) =>
-        (endpoint.supported_parameters ?? []).includes("structured_outputs"),
-      )
-      .map(providerTag)
-      .filter((tag): tag is string => Boolean(tag));
-    return tags.length ? tags : null;
-  },
+  async (model: string): Promise<string[] | null> =>
+    endpointsWithParameter(await fetchEndpoints(model), "structured_outputs"),
   ["openrouter-endpoints"],
+  { revalidate: CACHE_SECONDS },
+);
+
+export const toolsRouteOnly = unstable_cache(
+  async (model: string): Promise<string[] | null> =>
+    endpointsWithParameter(await fetchEndpoints(model), "tools"),
+  ["openrouter-endpoints-tools"],
   { revalidate: CACHE_SECONDS },
 );
 

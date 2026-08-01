@@ -1,6 +1,6 @@
 import "server-only";
 
-import { generateObject, generateText } from "ai";
+import { generateObject, generateText, isStepCount, type ToolSet } from "ai";
 
 import { resolveModel, type ModelRef } from "@/lib/ai/providers";
 import { structuredRouteOnly } from "@/lib/ai/registry";
@@ -38,6 +38,27 @@ export async function chat(
     instructions,
     messages: turns,
     maxOutputTokens: maxTokens,
+  });
+  return text.trim();
+}
+
+export async function chatTools(
+  ref: ModelRef,
+  options: {
+    instructions: string;
+    prompt: string;
+    tools: ToolSet;
+    maxSteps?: number;
+    maxTokens?: number;
+  },
+): Promise<string> {
+  const { text } = await generateText({
+    model: resolveModel(ref),
+    instructions: options.instructions,
+    prompt: options.prompt,
+    tools: options.tools,
+    stopWhen: isStepCount(options.maxSteps ?? 5),
+    maxOutputTokens: options.maxTokens ?? 600,
   });
   return text.trim();
 }
