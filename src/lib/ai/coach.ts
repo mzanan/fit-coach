@@ -11,7 +11,7 @@ import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
 import { chat, chatTools } from "@/lib/ai/provider";
 import { buildCoachTools } from "@/lib/ai/coachTools";
 import { userModelRef, type ModelRef } from "@/lib/ai/providers";
-import { toolsRouteOnly } from "@/lib/ai/registry";
+import { toolsRouting } from "@/lib/ai/registry";
 import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
 import { categoryLabel } from "@/lib/constants";
@@ -249,7 +249,7 @@ async function learn(
 
 async function toolReply(
   ref: ModelRef,
-  routeOnly: string[],
+  routeOnly: string[] | undefined,
   userId: string,
   profile: Profile,
   question?: string,
@@ -261,7 +261,7 @@ async function toolReply(
 
   try {
     const { text, toolLog } = await chatTools(
-      { ...ref, routeOnly },
+      routeOnly ? { ...ref, routeOnly } : ref,
       {
         instructions: SYSTEM + TOOLS_ADDENDUM,
         prompt: [...parts, ask].join("\n"),
@@ -334,14 +334,14 @@ export async function coachReply(
     return { text: deterministicReply(ctx), generated: false };
   }
 
-  let toolPin: string[] | null = null;
+  let toolPin: string[] | null | undefined = null;
   try {
-    toolPin = await toolsRouteOnly(ref.model);
+    toolPin = await toolsRouting(ref.provider, ref.model);
   } catch {
     toolPin = null;
   }
 
-  if (toolPin) {
+  if (toolPin !== null) {
     return toolReply(ref, toolPin, userId, profile, question);
   }
   return contextReply(ref, userId, profile, question);

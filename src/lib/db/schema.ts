@@ -178,6 +178,7 @@ export const ai_settings = sqliteTable("ai_settings", {
   user_id: text("user_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull().default("openrouter"),
   api_key_enc: text("api_key_enc").notNull(),
   model: text("model").notNull(),
   created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),

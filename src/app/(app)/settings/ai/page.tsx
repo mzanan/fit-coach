@@ -16,10 +16,11 @@ export default async function AiSettingsPage() {
       backHref="/settings"
       backLabel="Back to settings"
       title="AI"
-      description="Bring your own OpenRouter key and pick the model behind the coach."
+      description="Bring your own API key and pick the provider and model behind the coach."
     >
       <AiCard
         configured={Boolean(settings)}
+        currentProvider={settings?.provider ?? "openrouter"}
         currentModel={settings?.model ?? null}
         models={models}
       />

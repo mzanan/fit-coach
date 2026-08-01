@@ -3,7 +3,7 @@ import "server-only";
 import { generateObject, generateText, isStepCount, type ToolSet } from "ai";
 
 import { resolveModel, type ModelRef } from "@/lib/ai/providers";
-import { structuredRouteOnly } from "@/lib/ai/registry";
+import { structuredRouting } from "@/lib/ai/registry";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -89,9 +89,9 @@ export async function chatJson<T>(
   messages: ChatMessage[],
   maxTokens = 4000,
 ): Promise<T> {
-  let routeOnly: string[] | null;
+  let routeOnly: string[] | null | undefined;
   try {
-    routeOnly = await structuredRouteOnly(ref.model);
+    routeOnly = await structuredRouting(ref.provider, ref.model);
   } catch {
     throw new Error(
       `Could not verify structured output support for ${ref.model}. Try again.`,
@@ -102,7 +102,7 @@ export async function chatJson<T>(
   }
   const { instructions, turns } = split(messages);
   const { object } = await generateObject({
-    model: resolveModel({ ...ref, routeOnly }),
+    model: resolveModel(routeOnly ? { ...ref, routeOnly } : ref),
     instructions,
     messages: turns,
     maxOutputTokens: maxTokens,
