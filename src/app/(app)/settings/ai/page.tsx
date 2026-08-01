@@ -17,11 +17,13 @@ export default async function AiSettingsPage() {
   const user = await requireUser();
   await ensureProfile(user.id);
   const setup = await getAiSetup(user.id);
-  const needsGroqList = setup.active?.provider === "groq";
+  const hasGroq = setup.saved.some(
+    (credential) => credential.provider === "groq",
+  );
 
   const [openrouterModels, groqList] = await Promise.all([
     listModels().catch(() => null),
-    needsGroqList ? savedGroqModels(user.id) : Promise.resolve(null),
+    hasGroq ? savedGroqModels(user.id) : Promise.resolve(null),
   ]);
 
   return (
@@ -36,7 +38,7 @@ export default async function AiSettingsPage() {
         openrouterModels={openrouterModels ?? []}
         openrouterFailed={openrouterModels === null}
         groqModels={groqList}
-        groqFailed={needsGroqList && groqList === null}
+        groqFailed={hasGroq && groqList === null}
       />
     </Page>
   );
