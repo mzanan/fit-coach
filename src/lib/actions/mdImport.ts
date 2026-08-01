@@ -25,7 +25,7 @@ const {
 export async function extractMdImport(text: string): Promise<MdExtraction> {
   const user = await requireUser();
   const ref = await userModelRef(user.id);
-  if (!ref) throw new Error("Add your OpenRouter API key in Settings > AI; MD import needs AI");
+  if (!ref) throw new Error("Add your AI provider key in Settings > AI; MD import needs AI");
   const trimmed = text.trim();
   if (!trimmed) throw new Error("Empty markdown");
   return extractFromMarkdown(ref, trimmed);

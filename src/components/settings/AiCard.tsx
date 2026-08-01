@@ -9,7 +9,7 @@ import { Pill } from "@/components/ui/Pill";
 import { SearchField } from "@/components/ui/SearchField";
 import { Segmented } from "@/components/ui/Segmented";
 import { Surface } from "@/components/ui/Surface";
-import { useAiSettings, type PickerModel } from "@/components/settings/useAiSettings";
+import { useAiSettings } from "@/components/settings/useAiSettings";
 import type { AiProvider } from "@/lib/ai/providers";
 import type { ModelInfo } from "@/lib/ai/registry";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,7 @@ interface AiCardProps {
   currentProvider: AiProvider;
   currentModel: string | null;
   models: ModelInfo[];
+  modelsFailed: boolean;
 }
 
 function ModelRow({
@@ -37,7 +38,7 @@ function ModelRow({
   disabled,
   onPick,
 }: {
-  model: PickerModel;
+  model: ModelInfo;
   active: boolean;
   disabled: boolean;
   onPick: () => void;
@@ -49,9 +50,7 @@ function ModelRow({
       onClick={onPick}
       className={cn(
         "flex w-full items-center gap-2 rounded-control border px-3.5 py-3 text-left transition-colors duration-(--dur-fast) ease-(--ease-out-soft)",
-        active
-          ? "border-ring bg-well"
-          : "border-transparent hover:bg-overlay",
+        active ? "border-ring bg-well" : "border-transparent hover:bg-overlay",
       )}
     >
       <span className="min-w-0 flex-1">
@@ -63,6 +62,7 @@ function ModelRow({
       {model.free ? <Pill tone="brand">Free</Pill> : null}
       {model.structured ? <Pill>JSON</Pill> : null}
       {model.tools ? <Pill>Tools</Pill> : null}
+      {!model.structured && !model.tools ? <Pill>Basic</Pill> : null}
       {active ? <Check className="size-4 shrink-0" strokeWidth={1.5} /> : null}
     </button>
   );
@@ -73,8 +73,10 @@ export function AiCard({
   currentProvider,
   currentModel,
   models,
+  modelsFailed,
 }: AiCardProps) {
   const ai = useAiSettings(configured, currentProvider, currentModel, models);
+  const limited = ai.selectedModel && !ai.selectedModel.tools;
 
   return (
     <div className="space-y-block">
@@ -117,9 +119,7 @@ export function AiCard({
             />
           </div>
           <div>
-            <Label htmlFor="ai-key">
-              {PROVIDER_LABEL[ai.provider]} API key
-            </Label>
+            <Label htmlFor="ai-key">{PROVIDER_LABEL[ai.provider]} API key</Label>
             <Input
               id="ai-key"
               type="password"
@@ -134,12 +134,12 @@ export function AiCard({
 
       <div>
         <Label htmlFor="model-search">Model</Label>
-        {ai.groqNeedsModels ? (
+        {ai.needsKeyToList ? (
           <Button
             variant="outline"
             className="w-full"
             disabled={ai.pending}
-            onClick={ai.loadGroqModels}
+            onClick={ai.loadModels}
           >
             <ListRestart className="size-4" />
             {ai.pending ? "Loading..." : "Load models with this key"}
@@ -152,7 +152,10 @@ export function AiCard({
               placeholder="Search models"
               aria-label="Search models"
             />
-            <Surface level="sunken" className="mt-2 max-h-96 overflow-y-auto p-1.5">
+            <Surface
+              level="sunken"
+              className="mt-2 max-h-96 overflow-y-auto p-1.5"
+            >
               {ai.visible.length ? (
                 <div className="space-y-0.5">
                   {ai.visible.map((model) => (
@@ -167,7 +170,9 @@ export function AiCard({
                 </div>
               ) : (
                 <p className="px-3.5 py-6 text-center text-meta text-muted-foreground">
-                  No models match your search.
+                  {modelsFailed
+                    ? "Could not load the model list. Reload to retry."
+                    : "No models match your search."}
                 </p>
               )}
               {ai.hiddenCount > 0 ? (
@@ -177,7 +182,9 @@ export function AiCard({
               ) : null}
             </Surface>
             <p className="mt-1.5 text-meta text-muted-foreground">
-              Markdown import needs a model with the JSON badge.
+              {limited
+                ? `${ai.selectedModel?.id} has no verified tool support here: the coach answers from a fixed snapshot and Markdown import stays off.`
+                : "Tools let the coach query your data. Markdown import needs the JSON badge."}
             </p>
           </>
         )}

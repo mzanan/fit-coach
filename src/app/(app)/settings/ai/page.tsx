@@ -1,15 +1,24 @@
 import { AiCard } from "@/components/settings/AiCard";
 import { Page } from "@/components/ui/Page";
-import { getAiSettings } from "@/lib/ai/providers";
+import { groqModels } from "@/lib/ai/groq";
+import { getAiSettings, userModelRef } from "@/lib/ai/providers";
 import { listModels, type ModelInfo } from "@/lib/ai/registry";
 import { requireUser } from "@/lib/session";
 
+async function savedGroqModels(userId: string): Promise<ModelInfo[] | null> {
+  const ref = await userModelRef(userId);
+  if (!ref) return null;
+  const result = await groqModels(ref.apiKey);
+  return result.status === "ok" ? result.models : null;
+}
+
 export default async function AiSettingsPage() {
   const user = await requireUser();
-  const [settings, models] = await Promise.all([
-    getAiSettings(user.id),
-    listModels().catch((): ModelInfo[] => []),
-  ]);
+  const settings = await getAiSettings(user.id);
+  const models =
+    settings?.provider === "groq"
+      ? await savedGroqModels(user.id)
+      : await listModels().catch(() => null);
 
   return (
     <Page
@@ -22,7 +31,8 @@ export default async function AiSettingsPage() {
         configured={Boolean(settings)}
         currentProvider={settings?.provider ?? "openrouter"}
         currentModel={settings?.model ?? null}
-        models={models}
+        models={models ?? []}
+        modelsFailed={models === null}
       />
     </Page>
   );

@@ -180,29 +180,33 @@ async function buildWhoopLines(userId: string): Promise<string[]> {
 }
 
 function deterministicReply(ctx: CoachContext): string {
-  return `Add your OpenRouter API key in Settings > AI to enable coaching. Snapshot:\n${ctx.lines.join("\n")}`;
+  return `Add your AI provider key in Settings > AI to enable coaching. Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
 function aiErrorReply(ctx: CoachContext): string {
   return `The coach could not reach your AI model. Check your key and model in Settings > AI, or try again. Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
-function quotaReply(ctx: CoachContext): string {
-  return `Your model's free daily quota on OpenRouter is used up. It resets daily; try again later or add your own credits. Snapshot:\n${ctx.lines.join("\n")}`;
-}
+const PROVIDER_LABEL: Record<ModelRef["provider"], string> = {
+  openrouter: "OpenRouter",
+  groq: "Groq",
+};
 
-function throttleReply(ctx: CoachContext): string {
-  return `OpenRouter is rate limiting your model right now (free tier per-minute cap). Wait a minute and ask again. Snapshot:\n${ctx.lines.join("\n")}`;
-}
-
-function limitErrorReply(error: unknown, ctx: CoachContext): string | null {
+function limitErrorReply(
+  provider: ModelRef["provider"],
+  error: unknown,
+  ctx: CoachContext,
+): string | null {
   const status = (error as { statusCode?: number })?.statusCode;
   const message = error instanceof Error ? error.message : "";
-  const isLimit = status === 429 || /rate limit|quota/i.test(message);
-  if (!isLimit) return null;
-  return /per-day|free-models-per-day/i.test(message)
-    ? quotaReply(ctx)
-    : throttleReply(ctx);
+  if (status !== 429 && !/rate limit|quota/i.test(message)) return null;
+
+  const label = PROVIDER_LABEL[provider];
+  const daily = /per[- ]day|RPD/i.test(message);
+  const detail = daily
+    ? "Your daily quota on the free tier is used up. It resets tomorrow, or add credits to your account."
+    : "You are being rate limited right now. Wait a minute and ask again.";
+  return `${label}: ${detail} Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
 const TOOLS_ADDENDUM = `
@@ -282,7 +286,7 @@ async function toolReply(
   } catch (error) {
     const ctx = await buildContext(userId, profile);
     return {
-      text: limitErrorReply(error, ctx) ?? aiErrorReply(ctx),
+      text: limitErrorReply(ref.provider, error, ctx) ?? aiErrorReply(ctx),
       generated: false,
     };
   }
@@ -317,7 +321,7 @@ async function contextReply(
     return { text: text || aiErrorReply(ctx), generated: Boolean(text) };
   } catch (error) {
     return {
-      text: limitErrorReply(error, ctx) ?? aiErrorReply(ctx),
+      text: limitErrorReply(ref.provider, error, ctx) ?? aiErrorReply(ctx),
       generated: false,
     };
   }

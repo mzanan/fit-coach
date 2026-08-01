@@ -11,24 +11,15 @@ import {
   saveAiSettingsAction,
   updateAiModelAction,
   type AiActionResult,
-  type GroqModelInfo,
 } from "@/lib/actions/aiSettings";
 
 const VISIBLE_LIMIT = 30;
-
-export interface PickerModel {
-  id: string;
-  name: string;
-  tools: boolean;
-  structured: boolean;
-  free: boolean;
-}
 
 export function useAiSettings(
   configured: boolean,
   currentProvider: AiProvider,
   currentModel: string | null,
-  openrouterModels: ModelInfo[],
+  savedModels: ModelInfo[],
 ) {
   const [pending, startTransition] = useTransition();
   const [provider, setProvider] = useState<AiProvider>(currentProvider);
@@ -36,7 +27,9 @@ export function useAiSettings(
   const [selected, setSelected] = useState<string | null>(currentModel);
   const [search, setSearch] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [groqModels, setGroqModels] = useState<GroqModelInfo[] | null>(null);
+  const [typedGroqModels, setTypedGroqModels] = useState<ModelInfo[] | null>(
+    null,
+  );
 
   function exec(
     fn: () => Promise<AiActionResult>,
@@ -58,18 +51,11 @@ export function useAiSettings(
     });
   }
 
-  const models = useMemo<PickerModel[]>(() => {
-    if (provider === "groq") {
-      return (groqModels ?? []).map((model) => ({
-        id: model.id,
-        name: model.id,
-        tools: model.tools,
-        structured: model.structured,
-        free: false,
-      }));
-    }
-    return openrouterModels;
-  }, [provider, groqModels, openrouterModels]);
+  const usesTypedKey = !configured && provider !== currentProvider;
+  const models = useMemo(
+    () => (usesTypedKey ? (typedGroqModels ?? []) : savedModels),
+    [usesTypedKey, typedGroqModels, savedModels],
+  );
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -83,8 +69,9 @@ export function useAiSettings(
 
   const visible = filtered.slice(0, VISIBLE_LIMIT);
   const hiddenCount = filtered.length - visible.length;
-  const groqNeedsModels = provider === "groq" && groqModels === null;
+  const needsKeyToList = usesTypedKey && typedGroqModels === null;
   const canSave = Boolean(apiKey.trim() && selected);
+  const selectedModel = models.find((model) => model.id === selected) ?? null;
 
   function switchProvider(next: string) {
     if (pending || configured) return;
@@ -92,20 +79,25 @@ export function useAiSettings(
     setProvider(next);
     setSelected(null);
     setSearch("");
+    setTypedGroqModels(null);
   }
 
-  function loadGroqModels() {
+  function loadModels() {
     if (!apiKey.trim()) {
-      toast.error("Enter your Groq API key first.");
+      toast.error("Enter your API key first.");
       return;
     }
     startTransition(async () => {
-      const result = await listGroqModelsAction(apiKey.trim());
-      if (result.error) {
-        toast.error(result.error);
-        return;
+      try {
+        const result = await listGroqModelsAction(apiKey.trim());
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        setTypedGroqModels(result.models ?? []);
+      } catch {
+        toast.error("Could not load the model list. Try again.");
       }
-      setGroqModels(result.models ?? []);
     });
   }
 
@@ -146,14 +138,15 @@ export function useAiSettings(
     apiKey,
     setApiKey,
     selected,
+    selectedModel,
     search,
     setSearch,
     confirmOpen,
     setConfirmOpen,
     visible,
     hiddenCount,
-    groqNeedsModels,
-    loadGroqModels,
+    needsKeyToList,
+    loadModels,
     canSave,
     pick,
     save,
