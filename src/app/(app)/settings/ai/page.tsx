@@ -1,14 +1,29 @@
 import { AiCard } from "@/components/settings/AiCard";
 import { Page } from "@/components/ui/Page";
-import { getAiSettings } from "@/lib/ai/providers";
+import { groqModels } from "@/lib/ai/groq";
+import { getAiSetup, providerApiKey } from "@/lib/ai/providers";
 import { listModels, type ModelInfo } from "@/lib/ai/registry";
+import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
+
+async function savedGroqModels(userId: string): Promise<ModelInfo[] | null> {
+  const apiKey = await providerApiKey(userId, "groq");
+  if (!apiKey) return null;
+  const result = await groqModels(apiKey);
+  return result.status === "ok" ? result.models : null;
+}
 
 export default async function AiSettingsPage() {
   const user = await requireUser();
-  const [settings, models] = await Promise.all([
-    getAiSettings(user.id),
-    listModels().catch((): ModelInfo[] => []),
+  await ensureProfile(user.id);
+  const setup = await getAiSetup(user.id);
+  const hasGroq = setup.saved.some(
+    (credential) => credential.provider === "groq",
+  );
+
+  const [openrouterModels, groqList] = await Promise.all([
+    listModels().catch(() => null),
+    hasGroq ? savedGroqModels(user.id) : Promise.resolve(null),
   ]);
 
   return (
@@ -16,12 +31,14 @@ export default async function AiSettingsPage() {
       backHref="/settings"
       backLabel="Back to settings"
       title="AI"
-      description="Bring your own OpenRouter key and pick the model behind the coach."
+      description="Bring your own API key and pick the provider and model behind the coach."
     >
       <AiCard
-        configured={Boolean(settings)}
-        currentModel={settings?.model ?? null}
-        models={models}
+        setup={setup}
+        openrouterModels={openrouterModels ?? []}
+        openrouterFailed={openrouterModels === null}
+        groqModels={groqList}
+        groqFailed={hasGroq && groqList === null}
       />
     </Page>
   );

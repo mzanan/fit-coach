@@ -3,7 +3,7 @@ import "server-only";
 import { generateObject, generateText, isStepCount, type ToolSet } from "ai";
 
 import { resolveModel, type ModelRef } from "@/lib/ai/providers";
-import { structuredRouteOnly } from "@/lib/ai/registry";
+import { structuredRouting } from "@/lib/ai/registry";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -52,16 +52,15 @@ export async function chatTools(
     maxTokens?: number;
   },
 ): Promise<{ text: string; toolLog: string[] }> {
-  const maxSteps = options.maxSteps ?? 5;
+  const model = resolveModel(ref);
+  const maxTokens = options.maxTokens ?? 1200;
   const result = await generateText({
-    model: resolveModel(ref),
+    model,
     instructions: options.instructions,
     prompt: options.prompt,
     tools: options.tools,
-    stopWhen: isStepCount(maxSteps),
-    maxOutputTokens: options.maxTokens ?? 1200,
-    prepareStep: ({ stepNumber }) =>
-      stepNumber >= maxSteps - 1 ? { toolChoice: "none" } : {},
+    stopWhen: isStepCount(options.maxSteps ?? 5),
+    maxOutputTokens: maxTokens,
   });
   const toolLog = result.steps.flatMap((step) =>
     step.toolResults.map(
@@ -69,7 +68,21 @@ export async function chatTools(
         `${tool.toolName}(${JSON.stringify(tool.input)}) -> ${JSON.stringify(tool.output).slice(0, 400)}`,
     ),
   );
-  return { text: result.text.trim(), toolLog };
+
+  let text = result.text.trim();
+  if (!text) {
+    const closing = await generateText({
+      model,
+      instructions: `${options.instructions}\n\nAnswer the user now from the tool results already gathered. Do not ask for more data.`,
+      messages: [
+        { role: "user", content: options.prompt },
+        ...result.response.messages,
+      ],
+      maxOutputTokens: maxTokens,
+    });
+    text = closing.text.trim();
+  }
+  return { text, toolLog };
 }
 
 function unwrapJson({ text }: { text: string }): string | null {
@@ -89,9 +102,9 @@ export async function chatJson<T>(
   messages: ChatMessage[],
   maxTokens = 4000,
 ): Promise<T> {
-  let routeOnly: string[] | null;
+  let routeOnly: string[] | null | undefined;
   try {
-    routeOnly = await structuredRouteOnly(ref.model);
+    routeOnly = await structuredRouting(ref.provider, ref.model);
   } catch {
     throw new Error(
       `Could not verify structured output support for ${ref.model}. Try again.`,
@@ -102,7 +115,7 @@ export async function chatJson<T>(
   }
   const { instructions, turns } = split(messages);
   const { object } = await generateObject({
-    model: resolveModel({ ...ref, routeOnly }),
+    model: resolveModel(routeOnly ? { ...ref, routeOnly } : ref),
     instructions,
     messages: turns,
     maxOutputTokens: maxTokens,

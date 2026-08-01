@@ -1,6 +1,6 @@
 import "server-only";
 
-import { desc, eq } from "drizzle-orm";
+import { count, desc, eq } from "drizzle-orm";
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 
@@ -12,11 +12,37 @@ import type { Profile } from "@/lib/db/schema";
 import { normalizeSearch } from "@/lib/search";
 import { round } from "@/lib/utils";
 
-const { body_scans } = schema;
+const { body_scans, meals } = schema;
 
 const HYDRATED_WORKOUTS = 3;
 const CATALOG_RESULTS = 8;
 const SCAN_LIMIT = 2;
+const MAX_QUERY_TERMS = 12;
+
+async function mostEaten<T extends { id: string }>(
+  userId: string,
+  items: T[],
+  limit: number,
+): Promise<T[]> {
+  const rows = await db
+    .select({ id: meals.catalog_item_id, uses: count() })
+    .from(meals)
+    .where(eq(meals.user_id, userId))
+    .groupBy(meals.catalog_item_id)
+    .orderBy(desc(count()))
+    .limit(limit);
+
+  const ranking = new Map(
+    rows
+      .filter((row): row is { id: string; uses: number } => Boolean(row.id))
+      .map((row, index) => [row.id, index]),
+  );
+  return [...items].sort(
+    (a, b) =>
+      (ranking.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+      (ranking.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+  );
+}
 
 const TOOL_FAILURE = {
   error: "The app data is temporarily unavailable. Tell the user to try again.",
@@ -78,22 +104,38 @@ export function buildCoachTools(
     }),
     search_catalog: tool({
       description:
-        "Search the user's saved food catalog by name or place. Returns items with exact macros.",
-      inputSchema: z.object({ query: z.string().trim().min(1) }),
-      execute: safe("search_catalog", async ({ query }: { query: string }) => {
-        const q = normalizeSearch(query);
-        if (!q) return { items: [] };
-        const items = await getCatalog(userId);
-        return {
-          items: items
-            .filter(
-              (item) =>
-                !item.archived &&
-                (normalizeSearch(item.name).includes(q) ||
-                  (item.place ? normalizeSearch(item.place).includes(q) : false)),
-            )
-            .slice(0, CATALOG_RESULTS)
-            .map((item) => ({
+        "Search the user's saved food catalog by name or place. Pass every term worth trying in one call: they are searched together. The catalog is stored in the words the user typed, often English even when they ask in another language, so include the English translation of each term alongside the original. Returns the user's most eaten items when nothing matches.",
+      inputSchema: z.object({
+        queries: z.array(z.string().trim().min(1)).min(1),
+      }),
+      execute: safe(
+        "search_catalog",
+        async ({ queries }: { queries: string[] }) => {
+          const terms = queries
+            .slice(0, MAX_QUERY_TERMS)
+            .map(normalizeSearch)
+            .filter(Boolean);
+          const items = (await getCatalog(userId)).filter(
+            (item) => !item.archived,
+          );
+          const hits = terms.length
+            ? items.filter((item) =>
+                terms.some(
+                  (term) =>
+                    normalizeSearch(item.name).includes(term) ||
+                    (item.place
+                      ? normalizeSearch(item.place).includes(term)
+                      : false),
+                ),
+              )
+            : [];
+          const matched = hits.length > 0;
+          const chosen = matched
+            ? hits
+            : await mostEaten(userId, items, CATALOG_RESULTS);
+          return {
+            matched,
+            items: chosen.slice(0, CATALOG_RESULTS).map((item) => ({
               name: item.name,
               place: item.place,
               protein_g: item.protein_g,
@@ -101,8 +143,9 @@ export function buildCoachTools(
               carbs_g: item.carbs_g,
               fat_quality: item.fat_quality,
             })),
-        };
-      }),
+          };
+        },
+      ),
     }),
     get_workouts: tool({
       description:

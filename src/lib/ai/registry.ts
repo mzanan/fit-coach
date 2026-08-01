@@ -2,6 +2,9 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 
+import { groqCapability } from "@/lib/ai/groqCaps";
+import type { AiProvider } from "@/lib/ai/providers";
+
 const OPENROUTER_API = "https://openrouter.ai/api/v1";
 const FETCH_TIMEOUT_MS = 10_000;
 const CACHE_SECONDS = 3600;
@@ -112,6 +115,29 @@ export const toolsRouteOnly = unstable_cache(
   { revalidate: CACHE_SECONDS },
 );
 
-export async function canStructured(model: string): Promise<boolean> {
-  return (await structuredRouteOnly(model)) !== null;
+export async function structuredRouting(
+  provider: AiProvider,
+  model: string,
+): Promise<string[] | null | undefined> {
+  if (provider === "groq") {
+    return groqCapability(model).structured ? undefined : null;
+  }
+  return structuredRouteOnly(model);
+}
+
+export async function toolsRouting(
+  provider: AiProvider,
+  model: string,
+): Promise<string[] | null | undefined> {
+  if (provider === "groq") {
+    return groqCapability(model).tools ? undefined : null;
+  }
+  return toolsRouteOnly(model);
+}
+
+export async function canStructured(
+  provider: AiProvider,
+  model: string,
+): Promise<boolean> {
+  return (await structuredRouting(provider, model)) !== null;
 }

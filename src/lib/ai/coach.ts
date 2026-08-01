@@ -11,7 +11,7 @@ import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
 import { chat, chatTools } from "@/lib/ai/provider";
 import { buildCoachTools } from "@/lib/ai/coachTools";
 import { userModelRef, type ModelRef } from "@/lib/ai/providers";
-import { toolsRouteOnly } from "@/lib/ai/registry";
+import { toolsRouting } from "@/lib/ai/registry";
 import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
 import { categoryLabel } from "@/lib/constants";
@@ -180,34 +180,40 @@ async function buildWhoopLines(userId: string): Promise<string[]> {
 }
 
 function deterministicReply(ctx: CoachContext): string {
-  return `Add your OpenRouter API key in Settings > AI to enable coaching. Snapshot:\n${ctx.lines.join("\n")}`;
+  return `Add your AI provider key in Settings > AI to enable coaching. Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
 function aiErrorReply(ctx: CoachContext): string {
   return `The coach could not reach your AI model. Check your key and model in Settings > AI, or try again. Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
-function quotaReply(ctx: CoachContext): string {
-  return `Your model's free daily quota on OpenRouter is used up. It resets daily; try again later or add your own credits. Snapshot:\n${ctx.lines.join("\n")}`;
-}
+const PROVIDER_LABEL: Record<ModelRef["provider"], string> = {
+  openrouter: "OpenRouter",
+  groq: "Groq",
+};
 
-function throttleReply(ctx: CoachContext): string {
-  return `OpenRouter is rate limiting your model right now (free tier per-minute cap). Wait a minute and ask again. Snapshot:\n${ctx.lines.join("\n")}`;
-}
-
-function limitErrorReply(error: unknown, ctx: CoachContext): string | null {
+function limitErrorReply(
+  provider: ModelRef["provider"],
+  error: unknown,
+  ctx: CoachContext,
+): string | null {
   const status = (error as { statusCode?: number })?.statusCode;
   const message = error instanceof Error ? error.message : "";
-  const isLimit = status === 429 || /rate limit|quota/i.test(message);
-  if (!isLimit) return null;
-  return /per-day|free-models-per-day/i.test(message)
-    ? quotaReply(ctx)
-    : throttleReply(ctx);
+  if (status !== 429 && !/rate limit|quota/i.test(message)) return null;
+
+  const label = PROVIDER_LABEL[provider];
+  const daily = /per[- ]day|RPD/i.test(message);
+  const detail = daily
+    ? "Your daily quota on the free tier is used up. It resets tomorrow, or add credits to your account."
+    : "You are being rate limited right now. Wait a minute and ask again.";
+  return `${label}: ${detail} Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
 const TOOLS_ADDENDUM = `
 
-Data access: you have tools that read the user's live data (today's meals and targets, the food catalog, recent workouts, body scans). Call only the tools the question actually needs, then answer that question directly and concretely. Never invent data you did not read from a tool.`;
+Data access: you have tools that read the user's live data (today's meals and targets, the food catalog, recent workouts, body scans). Call only the tools the question actually needs, then answer that question directly and concretely. Never invent data you did not read from a tool.
+
+Whenever you suggest what to eat, search the catalog first and build the suggestion from the user's own saved items and their exact macros. One search call is enough: pass every term worth trying at once. When the search reports it found no match and returned the user's most eaten items instead, say so before suggesting anything else.`;
 
 async function memoryAndFacts(
   userId: string,
@@ -249,7 +255,7 @@ async function learn(
 
 async function toolReply(
   ref: ModelRef,
-  routeOnly: string[],
+  routeOnly: string[] | undefined,
   userId: string,
   profile: Profile,
   question?: string,
@@ -261,7 +267,7 @@ async function toolReply(
 
   try {
     const { text, toolLog } = await chatTools(
-      { ...ref, routeOnly },
+      routeOnly ? { ...ref, routeOnly } : ref,
       {
         instructions: SYSTEM + TOOLS_ADDENDUM,
         prompt: [...parts, ask].join("\n"),
@@ -282,7 +288,7 @@ async function toolReply(
   } catch (error) {
     const ctx = await buildContext(userId, profile);
     return {
-      text: limitErrorReply(error, ctx) ?? aiErrorReply(ctx),
+      text: limitErrorReply(ref.provider, error, ctx) ?? aiErrorReply(ctx),
       generated: false,
     };
   }
@@ -317,7 +323,7 @@ async function contextReply(
     return { text: text || aiErrorReply(ctx), generated: Boolean(text) };
   } catch (error) {
     return {
-      text: limitErrorReply(error, ctx) ?? aiErrorReply(ctx),
+      text: limitErrorReply(ref.provider, error, ctx) ?? aiErrorReply(ctx),
       generated: false,
     };
   }
@@ -334,14 +340,14 @@ export async function coachReply(
     return { text: deterministicReply(ctx), generated: false };
   }
 
-  let toolPin: string[] | null = null;
+  let toolPin: string[] | null | undefined = null;
   try {
-    toolPin = await toolsRouteOnly(ref.model);
+    toolPin = await toolsRouting(ref.provider, ref.model);
   } catch {
     toolPin = null;
   }
 
-  if (toolPin) {
+  if (toolPin !== null) {
     return toolReply(ref, toolPin, userId, profile, question);
   }
   return contextReply(ref, userId, profile, question);

@@ -20,7 +20,7 @@ export default async function MdImportPage() {
   let structuredOk: boolean | null = false;
   if (ai) {
     try {
-      structuredOk = await canStructured(ai.model);
+      structuredOk = await canStructured(ai.provider, ai.model);
     } catch {
       structuredOk = null;
     }
