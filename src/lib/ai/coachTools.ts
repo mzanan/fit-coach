@@ -61,10 +61,11 @@ export function buildCoachTools(
     search_catalog: tool({
       description:
         "Search the user's saved food catalog by name or place. Returns items with exact macros.",
-      inputSchema: z.object({ query: z.string().min(1) }),
+      inputSchema: z.object({ query: z.string().trim().min(1) }),
       execute: async ({ query }) => {
-        const items = await getCatalog(userId);
         const q = normalizeSearch(query);
+        if (!q) return { items: [] };
+        const items = await getCatalog(userId);
         return {
           items: items
             .filter(

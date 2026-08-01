@@ -191,10 +191,18 @@ function quotaReply(ctx: CoachContext): string {
   return `Your model's free daily quota on OpenRouter is used up. It resets daily; try again later or add your own credits. Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
-function isQuotaError(error: unknown): boolean {
+function throttleReply(ctx: CoachContext): string {
+  return `OpenRouter is rate limiting your model right now (free tier per-minute cap). Wait a minute and ask again. Snapshot:\n${ctx.lines.join("\n")}`;
+}
+
+function limitErrorReply(error: unknown, ctx: CoachContext): string | null {
   const status = (error as { statusCode?: number })?.statusCode;
-  if (status === 429) return true;
-  return error instanceof Error && /rate limit|quota/i.test(error.message);
+  const message = error instanceof Error ? error.message : "";
+  const isLimit = status === 429 || /rate limit|quota/i.test(message);
+  if (!isLimit) return null;
+  return /per-day|free-models-per-day/i.test(message)
+    ? quotaReply(ctx)
+    : throttleReply(ctx);
 }
 
 const TOOLS_ADDENDUM = `
@@ -270,7 +278,7 @@ async function toolReply(
   } catch (error) {
     const ctx = await buildContext(userId, profile);
     return {
-      text: isQuotaError(error) ? quotaReply(ctx) : aiErrorReply(ctx),
+      text: limitErrorReply(error, ctx) ?? aiErrorReply(ctx),
       generated: false,
     };
   }
@@ -305,7 +313,7 @@ async function contextReply(
     return { text: text || aiErrorReply(ctx), generated: Boolean(text) };
   } catch (error) {
     return {
-      text: isQuotaError(error) ? quotaReply(ctx) : aiErrorReply(ctx),
+      text: limitErrorReply(error, ctx) ?? aiErrorReply(ctx),
       generated: false,
     };
   }

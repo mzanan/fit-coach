@@ -52,13 +52,16 @@ export async function chatTools(
     maxTokens?: number;
   },
 ): Promise<string> {
+  const maxSteps = options.maxSteps ?? 5;
   const { text } = await generateText({
     model: resolveModel(ref),
     instructions: options.instructions,
     prompt: options.prompt,
     tools: options.tools,
-    stopWhen: isStepCount(options.maxSteps ?? 5),
-    maxOutputTokens: options.maxTokens ?? 600,
+    stopWhen: isStepCount(maxSteps),
+    maxOutputTokens: options.maxTokens ?? 1200,
+    prepareStep: ({ stepNumber }) =>
+      stepNumber >= maxSteps - 1 ? { toolChoice: "none" } : {},
   });
   return text.trim();
 }
