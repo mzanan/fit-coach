@@ -87,8 +87,18 @@ export function useAiSettings(
     );
   }, [models, search]);
 
-  const visible = filtered.slice(0, VISIBLE_LIMIT);
-  const hiddenCount = filtered.length - visible.length;
+  const ordered = useMemo(() => {
+    const index = selected
+      ? filtered.findIndex((model) => model.id === selected)
+      : -1;
+    if (index <= 0) return filtered;
+    const rest = [...filtered];
+    const [current] = rest.splice(index, 1);
+    return [current, ...rest];
+  }, [filtered, selected]);
+
+  const visible = ordered.slice(0, VISIBLE_LIMIT);
+  const hiddenCount = ordered.length - visible.length;
   const listFailed =
     provider === "groq" ? Boolean(saved) && groqListFailed : false;
   const needsKeyToList =
