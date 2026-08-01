@@ -59,13 +59,20 @@ export async function chatJson<T>(
   messages: ChatMessage[],
   maxTokens = 4000,
 ): Promise<T> {
-  const routeOnly = await structuredRouteOnly(ref.model);
+  let routeOnly: string[] | null;
+  try {
+    routeOnly = await structuredRouteOnly(ref.model);
+  } catch {
+    throw new Error(
+      `Could not verify structured output support for ${ref.model}. Try again.`,
+    );
+  }
   if (routeOnly === null) {
     throw new Error(`Model ${ref.model} has no provider with structured output`);
   }
   const { instructions, turns } = split(messages);
   const { object } = await generateObject({
-    model: resolveModel({ ...ref, routeOnly: routeOnly ?? ref.routeOnly }),
+    model: resolveModel({ ...ref, routeOnly }),
     instructions,
     messages: turns,
     maxOutputTokens: maxTokens,

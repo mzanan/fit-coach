@@ -45,7 +45,15 @@ export async function userModelRef(userId: string): Promise<ModelRef | null> {
     .limit(1);
   const row = rows[0];
   if (!row) return null;
-  return { model: row.model, apiKey: decryptSecret(row.api_key_enc, aad(userId)) };
+  try {
+    return {
+      model: row.model,
+      apiKey: decryptSecret(row.api_key_enc, aad(userId)),
+    };
+  } catch (err) {
+    console.error("ai settings: stored key cannot be decrypted", err);
+    return null;
+  }
 }
 
 export async function saveAiSettings(

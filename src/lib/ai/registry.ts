@@ -86,13 +86,8 @@ async function fetchEndpoints(model: string): Promise<ModelEndpoint[]> {
 }
 
 export const structuredRouteOnly = unstable_cache(
-  async (model: string): Promise<string[] | null | undefined> => {
-    let endpoints: ModelEndpoint[];
-    try {
-      endpoints = await fetchEndpoints(model);
-    } catch {
-      return undefined;
-    }
+  async (model: string): Promise<string[] | null> => {
+    const endpoints = await fetchEndpoints(model);
     const tags = endpoints
       .filter((endpoint) =>
         (endpoint.supported_parameters ?? []).includes("structured_outputs"),

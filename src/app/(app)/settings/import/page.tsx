@@ -17,7 +17,14 @@ export default async function MdImportPage() {
     getAiSettings(user.id),
   ]);
   const today = todayLogicalDay(dayConfig(profile));
-  const structuredOk = ai ? await canStructured(ai.model) : false;
+  let structuredOk: boolean | null = false;
+  if (ai) {
+    try {
+      structuredOk = await canStructured(ai.model);
+    } catch {
+      structuredOk = null;
+    }
+  }
 
   return (
     <Page
@@ -35,6 +42,11 @@ export default async function MdImportPage() {
               <Link href="/settings/ai">Set up AI</Link>
             </Button>
           }
+        />
+      ) : structuredOk === null ? (
+        <EmptyState
+          title="Could not check your model"
+          body="OpenRouter did not answer the capability check. Reload to retry."
         />
       ) : !structuredOk ? (
         <EmptyState

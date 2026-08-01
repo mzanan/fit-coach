@@ -181,6 +181,10 @@ function deterministicReply(ctx: CoachContext): string {
   return `Add your OpenRouter API key in Settings > AI to enable coaching. Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
+function aiErrorReply(ctx: CoachContext): string {
+  return `The coach could not reach your AI model. Check your key and model in Settings > AI, or try again. Snapshot:\n${ctx.lines.join("\n")}`;
+}
+
 export async function coachReply(
   userId: string,
   profile: Profile,
@@ -225,8 +229,8 @@ export async function coachReply(
         await learnFromExchange(ref, userId, exchange, "coach");
       }
     }
-    return { text: text || deterministicReply(ctx), generated: Boolean(text) };
+    return { text: text || aiErrorReply(ctx), generated: Boolean(text) };
   } catch {
-    return { text: deterministicReply(ctx), generated: false };
+    return { text: aiErrorReply(ctx), generated: false };
   }
 }

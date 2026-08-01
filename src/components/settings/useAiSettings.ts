@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
 
-import { useAction } from "@/hooks/useAction";
 import type { ModelInfo } from "@/lib/ai/registry";
 import {
   removeAiSettingsAction,
   saveAiSettingsAction,
   updateAiModelAction,
+  type AiActionResult,
 } from "@/lib/actions/aiSettings";
 
 const VISIBLE_LIMIT = 30;
@@ -17,11 +18,31 @@ export function useAiSettings(
   currentModel: string | null,
   models: ModelInfo[],
 ) {
-  const { pending, run } = useAction();
+  const [pending, startTransition] = useTransition();
   const [apiKey, setApiKey] = useState("");
   const [selected, setSelected] = useState<string | null>(currentModel);
   const [search, setSearch] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  function exec(
+    fn: () => Promise<AiActionResult>,
+    success: string,
+    onDone?: () => void,
+  ) {
+    startTransition(async () => {
+      try {
+        const result = await fn();
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success(success);
+        onDone?.();
+      } catch {
+        toast.error("Something went wrong. Try again.");
+      }
+    });
+  }
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -39,10 +60,9 @@ export function useAiSettings(
 
   function pick(model: string) {
     if (configured) {
-      run(() => updateAiModelAction(model), {
-        success: "Model updated",
-        onDone: () => setSelected(model),
-      });
+      exec(() => updateAiModelAction(model), "Model updated", () =>
+        setSelected(model),
+      );
       return;
     }
     setSelected(model);
@@ -50,17 +70,17 @@ export function useAiSettings(
 
   function save() {
     if (!canSave) return;
-    run(() => saveAiSettingsAction({ apiKey: apiKey.trim(), model: selected }), {
-      success: "AI enabled",
-      onDone: () => setApiKey(""),
-    });
+    exec(
+      () => saveAiSettingsAction({ apiKey: apiKey.trim(), model: selected }),
+      "AI enabled",
+      () => setApiKey(""),
+    );
   }
 
   function removeKey() {
-    run(() => removeAiSettingsAction(), {
-      success: "AI key removed",
-      onDone: () => setConfirmOpen(false),
-    });
+    exec(() => removeAiSettingsAction(), "AI key removed", () =>
+      setConfirmOpen(false),
+    );
   }
 
   return {
