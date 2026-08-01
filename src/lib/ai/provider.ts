@@ -51,9 +51,9 @@ export async function chatTools(
     maxSteps?: number;
     maxTokens?: number;
   },
-): Promise<string> {
+): Promise<{ text: string; toolLog: string[] }> {
   const maxSteps = options.maxSteps ?? 5;
-  const { text } = await generateText({
+  const result = await generateText({
     model: resolveModel(ref),
     instructions: options.instructions,
     prompt: options.prompt,
@@ -63,7 +63,13 @@ export async function chatTools(
     prepareStep: ({ stepNumber }) =>
       stepNumber >= maxSteps - 1 ? { toolChoice: "none" } : {},
   });
-  return text.trim();
+  const toolLog = result.steps.flatMap((step) =>
+    step.toolResults.map(
+      (tool) =>
+        `${tool.toolName}(${JSON.stringify(tool.input)}) -> ${JSON.stringify(tool.output).slice(0, 400)}`,
+    ),
+  );
+  return { text: result.text.trim(), toolLog };
 }
 
 function unwrapJson({ text }: { text: string }): string | null {

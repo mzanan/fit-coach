@@ -260,7 +260,7 @@ async function toolReply(
     : "Give a short read on how today and the week are going, and the next action.";
 
   try {
-    const text = await chatTools(
+    const { text, toolLog } = await chatTools(
       { ...ref, routeOnly },
       {
         instructions: SYSTEM + TOOLS_ADDENDUM,
@@ -269,7 +269,11 @@ async function toolReply(
       },
     );
     if (text) {
-      const exchange = `User: ${question?.trim() || "(daily check-in)"}\nCoach: ${text}`;
+      const exchange = [
+        ...(toolLog.length ? ["Data the coach read from the app:", ...toolLog] : []),
+        `User: ${question?.trim() || "(daily check-in)"}`,
+        `Coach: ${text}`,
+      ].join("\n");
       await learn(ref, userId, memory, exchange, Boolean(question?.trim()));
       return { text, generated: true };
     }

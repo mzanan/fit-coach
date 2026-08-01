@@ -18,6 +18,24 @@ const HYDRATED_WORKOUTS = 3;
 const CATALOG_RESULTS = 8;
 const SCAN_LIMIT = 2;
 
+const TOOL_FAILURE = {
+  error: "The app data is temporarily unavailable. Tell the user to try again.",
+};
+
+function safe<Input, Output>(
+  name: string,
+  fn: (input: Input) => Promise<Output>,
+): (input: Input) => Promise<Output | typeof TOOL_FAILURE> {
+  return async (input) => {
+    try {
+      return await fn(input);
+    } catch (error) {
+      console.error(`coach tool ${name} failed`, error);
+      return TOOL_FAILURE;
+    }
+  };
+}
+
 export function buildCoachTools(
   userId: string,
   profile: Profile,
@@ -28,7 +46,7 @@ export function buildCoachTools(
       description:
         "Get today's logged meals, running macro totals and the user's daily targets, plus whether today is a gym day.",
       inputSchema: z.object({}),
-      execute: async () => {
+      execute: safe("get_today", async () => {
         const day = await getDayData(userId, profile, today);
         return {
           day: day.day,
@@ -56,13 +74,13 @@ export function buildCoachTools(
             fat_quality: meal.fat_quality,
           })),
         };
-      },
+      }),
     }),
     search_catalog: tool({
       description:
         "Search the user's saved food catalog by name or place. Returns items with exact macros.",
       inputSchema: z.object({ query: z.string().trim().min(1) }),
-      execute: async ({ query }) => {
+      execute: safe("search_catalog", async ({ query }: { query: string }) => {
         const q = normalizeSearch(query);
         if (!q) return { items: [] };
         const items = await getCatalog(userId);
@@ -84,7 +102,7 @@ export function buildCoachTools(
               fat_quality: item.fat_quality,
             })),
         };
-      },
+      }),
     }),
     get_workouts: tool({
       description:
@@ -92,7 +110,7 @@ export function buildCoachTools(
       inputSchema: z.object({
         limit: z.number().int().min(1).max(10).describe("How many recent sessions"),
       }),
-      execute: async ({ limit }) => {
+      execute: safe("get_workouts", async ({ limit }: { limit: number }) => {
         const recent = await getRecentWorkouts(userId, limit);
         const hydrated = await Promise.all(
           recent.slice(0, HYDRATED_WORKOUTS).map((workout) => hydrateWorkout(userId, workout)),
@@ -116,13 +134,13 @@ export function buildCoachTools(
             label: workout.label,
           })),
         };
-      },
+      }),
     }),
     get_body_scans: tool({
       description:
         "Get the user's latest InBody body scans (weight, skeletal muscle, body fat, visceral fat).",
       inputSchema: z.object({}),
-      execute: async () => {
+      execute: safe("get_body_scans", async () => {
         const scans = await db
           .select()
           .from(body_scans)
@@ -138,7 +156,7 @@ export function buildCoachTools(
             visceral_fat_level: scan.visceral_fat_level,
           })),
         };
-      },
+      }),
     }),
   };
 }
