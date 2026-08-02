@@ -72,13 +72,20 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
         ) : null}
       </div>
 
-      {chat.bubbles.length || chat.loading ? (
+      {chat.bubbles.length || chat.loading || chat.streaming ? (
         <div className="scroll-slim min-h-0 flex-1 space-y-8 overflow-y-auto pt-block pr-1">
           {chat.bubbles.map((bubble) => (
             <Turn key={bubble.id} bubble={bubble} />
           ))}
-          {chat.loading ? (
-            <p className="text-body text-muted-foreground">Thinking...</p>
+          {chat.streaming ? (
+            <p className="whitespace-pre-wrap text-body leading-relaxed">
+              {chat.streaming}
+            </p>
+          ) : null}
+          {chat.status ? (
+            <p className="animate-pulse text-body text-muted-foreground">
+              {chat.status}...
+            </p>
           ) : null}
           <div ref={setAnchor} />
         </div>

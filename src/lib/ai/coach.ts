@@ -8,7 +8,7 @@ import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
 import { getWhoopConnection } from "@/lib/integrations/whoop";
 import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
-import { chat, chatTools } from "@/lib/ai/provider";
+import { chat, chatToolsStream, type CoachEvent } from "@/lib/ai/provider";
 import {
   appendExchange,
   getConversation,
@@ -267,6 +267,7 @@ async function toolReply(
   profile: Profile,
   history: CoachMessage[],
   question?: string,
+  onEvent?: (event: CoachEvent) => void,
 ): Promise<{ text: string; generated: boolean }> {
   const { memory, parts } = await memoryAndFacts(userId, question);
   const ask = question?.trim()
@@ -274,7 +275,7 @@ async function toolReply(
     : "Give a short read on how today and the week are going, and the next action.";
 
   try {
-    const { text, toolLog } = await chatTools(
+    const { text, toolLog } = await chatToolsStream(
       routeOnly ? { ...ref, routeOnly } : ref,
       {
         instructions: [SYSTEM + TOOLS_ADDENDUM, ...parts].join("\n\n"),
@@ -286,6 +287,7 @@ async function toolReply(
           { role: "user" as const, content: ask },
         ],
         tools: buildCoachTools(userId, profile, todayLogicalDay(dayConfig(profile))),
+        onEvent: onEvent ?? (() => {}),
       },
     );
     if (text) {
@@ -351,6 +353,7 @@ export async function coachReply(
   userId: string,
   profile: Profile,
   question?: string,
+  onEvent?: (event: CoachEvent) => void,
 ): Promise<{ text: string; generated: boolean }> {
   const ref = await userModelRef(userId);
   if (!ref) {
@@ -371,7 +374,15 @@ export async function coachReply(
 
   const result =
     toolPin !== null
-      ? await toolReply(ref, toolPin, userId, profile, history, question)
+      ? await toolReply(
+          ref,
+          toolPin,
+          userId,
+          profile,
+          history,
+          question,
+          onEvent,
+        )
       : await contextReply(ref, userId, profile, history, question);
 
   await appendExchange(

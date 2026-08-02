@@ -13,6 +13,20 @@ export interface ChatBubble {
   generated: boolean;
 }
 
+type CoachStreamEvent =
+  | { type: "status"; tool: string }
+  | { type: "delta"; text: string }
+  | { type: "done"; text: string; generated: boolean }
+  | { type: "error" };
+
+const STATUS: Record<string, string> = {
+  thinking: "Thinking",
+  get_today: "Reading today's meals and targets",
+  search_catalog: "Searching your catalog",
+  get_workouts: "Reading your recent workouts",
+  get_body_scans: "Reading your body scans",
+};
+
 function toBubbles(messages: CoachMessage[]): ChatBubble[] {
   return messages.map((message) => ({
     id: message.id,
@@ -27,11 +41,13 @@ export function useCoachChat(initial: CoachMessage[]) {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [streaming, setStreaming] = useState("");
   const [anchor, setAnchor] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     anchor?.scrollIntoView({ block: "end", behavior: "smooth" });
-  }, [anchor, bubbles, loading]);
+  }, [anchor, bubbles, loading, streaming]);
 
   const ask = useCallback(
     async (text?: string) => {
@@ -45,26 +61,61 @@ export function useCoachChat(initial: CoachMessage[]) {
         ]);
       }
       setLoading(true);
+      setStatus(STATUS.thinking);
+      setStreaming("");
+
       try {
         const res = await fetch("/api/coach", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ question: asked || undefined }),
         });
-        if (!res.ok) throw new Error("Coach unavailable");
-        const data = (await res.json()) as { text: string; generated: boolean };
+        if (!res.ok || !res.body) throw new Error("Coach unavailable");
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let answer = "";
+        let generated = true;
+
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            const event = JSON.parse(line) as CoachStreamEvent;
+            if (event.type === "status") {
+              setStatus(STATUS[event.tool] ?? STATUS.thinking);
+            } else if (event.type === "delta") {
+              answer += event.text;
+              setStatus(null);
+              setStreaming(answer);
+            } else if (event.type === "done") {
+              answer = event.text;
+              generated = event.generated;
+            } else {
+              throw new Error("Coach failed");
+            }
+          }
+        }
+
         setBubbles((current) => [
           ...current,
           {
             id: `local-${Date.now()}-a`,
             role: "assistant",
-            content: data.text,
-            generated: data.generated,
+            content: answer,
+            generated,
           },
         ]);
       } catch {
         toast.error("Could not reach the coach");
       } finally {
+        setStreaming("");
+        setStatus(null);
         setLoading(false);
       }
     },
@@ -82,6 +133,8 @@ export function useCoachChat(initial: CoachMessage[]) {
     question,
     setQuestion,
     loading,
+    status,
+    streaming,
     ask,
     setAnchor,
     confirmOpen,
