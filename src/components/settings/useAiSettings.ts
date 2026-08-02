@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { isReasoningEffort, type AiProvider } from "@/lib/ai/options";
+import type { AiProvider } from "@/lib/ai/options";
 import type { AiSetup } from "@/lib/ai/providers";
 import type { ModelInfo } from "@/lib/ai/registry";
 import {
@@ -12,7 +12,6 @@ import {
   removeAiSettingsAction,
   saveAiSettingsAction,
   updateAiModelAction,
-  updateReasoningEffortAction,
   type AiActionResult,
 } from "@/lib/actions/aiSettings";
 
@@ -179,16 +178,6 @@ export function useAiSettings(
     );
   }
 
-  function setEffort(effort: string) {
-    if (!saved || !isReasoningEffort(effort) || effort === saved.reasoningEffort) {
-      return;
-    }
-    exec(
-      () => updateReasoningEffortAction({ provider, effort }),
-      "Reasoning updated",
-    );
-  }
-
   function removeKey() {
     exec(() => removeAiSettingsAction(provider), "AI key removed", () => {
       setConfirmOpen(false);
@@ -219,7 +208,6 @@ export function useAiSettings(
     canSave,
     pick,
     save,
-    setEffort,
     removeKey,
   };
 }

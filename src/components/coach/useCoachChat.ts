@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { clearCoachChat } from "@/lib/actions/coach";
+import { clearCoachChat, updateReasoningEffortAction } from "@/lib/actions/coach";
+import type { ReasoningEffort } from "@/lib/ai/options";
 import type { CoachMessage } from "@/lib/data/coachMessages";
 
 export interface ChatBubble {
@@ -38,7 +39,11 @@ function toBubbles(messages: CoachMessage[]): ChatBubble[] {
   }));
 }
 
-export function useCoachChat(initial: CoachMessage[]) {
+export function useCoachChat(
+  initial: CoachMessage[],
+  initialEffort: ReasoningEffort | null,
+) {
+  const [effort, setEffortState] = useState(initialEffort);
   const [bubbles, setBubbles] = useState<ChatBubble[]>(() => toBubbles(initial));
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
@@ -131,6 +136,22 @@ export function useCoachChat(initial: CoachMessage[]) {
     [question, loading],
   );
 
+  function setEffort(next: ReasoningEffort) {
+    const previous = effort;
+    setEffortState(next);
+    void updateReasoningEffortAction(next)
+      .then((result) => {
+        if (result.error) {
+          toast.error(result.error);
+          setEffortState(previous);
+        }
+      })
+      .catch(() => {
+        toast.error("Could not change the effort");
+        setEffortState(previous);
+      });
+  }
+
   function clear() {
     setBubbles([]);
     setConfirmOpen(false);
@@ -149,6 +170,8 @@ export function useCoachChat(initial: CoachMessage[]) {
     setAnchor,
     confirmOpen,
     setConfirmOpen,
+    effort,
+    setEffort,
     clear,
   };
 }

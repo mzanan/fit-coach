@@ -34,7 +34,7 @@ export default async function CoachPage() {
             }
           />
         ) : null}
-        <CoachPanel initial={history} />
+        <CoachPanel initial={history} effort={ai?.reasoningEffort ?? null} />
       </div>
     </Page>
   );

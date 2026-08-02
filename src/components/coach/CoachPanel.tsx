@@ -9,7 +9,9 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Pill } from "@/components/ui/Pill";
 import { Surface } from "@/components/ui/Surface";
 import { cn } from "@/lib/utils";
+import { EffortMenu } from "@/components/coach/EffortMenu";
 import { useCoachChat, type ChatBubble } from "@/components/coach/useCoachChat";
+import type { ReasoningEffort } from "@/lib/ai/options";
 import type { CoachMessage } from "@/lib/data/coachMessages";
 
 const QUICK = [
@@ -70,8 +72,14 @@ function Turn({ bubble }: { bubble: ChatBubble }) {
   );
 }
 
-export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
-  const { setAnchor, ...chat } = useCoachChat(initial);
+export function CoachPanel({
+  initial,
+  effort,
+}: {
+  initial: CoachMessage[];
+  effort: ReasoningEffort | null;
+}) {
+  const { setAnchor, ...chat } = useCoachChat(initial, effort);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -157,6 +165,13 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
               aria-label="Write a message"
               className="scroll-slim max-h-40 min-w-0 flex-1 resize-none self-center bg-transparent px-2.5 py-1.5 text-body outline-none field-sizing-content placeholder:text-faint"
             />
+            {chat.effort ? (
+              <EffortMenu
+                effort={chat.effort}
+                disabled={chat.loading}
+                onChange={chat.setEffort}
+              />
+            ) : null}
             <Button
               type="submit"
               size="sm"

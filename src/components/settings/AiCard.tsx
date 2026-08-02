@@ -20,13 +20,6 @@ const PROVIDER_OPTIONS = [
   { value: "groq", label: "Groq" },
 ] as const;
 
-const EFFORT_OPTIONS = [
-  { value: "none", label: "Off" },
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-] as const;
-
 const PROVIDER_LABEL: Record<AiProvider, string> = {
   openrouter: "OpenRouter",
   groq: "Groq",
@@ -137,22 +130,6 @@ export function AiCard({
           />
         </div>
       )}
-
-      {ai.saved && ai.provider === "groq" ? (
-        <div>
-          <Label>Reasoning</Label>
-          <Segmented
-            options={EFFORT_OPTIONS}
-            value={ai.saved.reasoningEffort}
-            onChange={ai.setEffort}
-            ariaLabel="Reasoning effort"
-          />
-          <p className="mt-1.5 text-meta text-muted-foreground">
-            More reasoning gives better answers and spends the same output
-            budget, so a long answer can end up cut short.
-          </p>
-        </div>
-      ) : null}
 
       <div>
         <Label htmlFor="model-search">Model</Label>
