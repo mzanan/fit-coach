@@ -42,7 +42,7 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
   const { setAnchor, ...chat } = useCoachChat(initial);
 
   return (
-    <div className="flex h-[calc(100dvh-var(--nav-h)-9rem)] flex-col overflow-hidden md:h-[calc(100dvh-11rem)]">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex flex-wrap items-center gap-2">
         {QUICK.map((q) => (
           <Button
@@ -73,7 +73,7 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
       </div>
 
       {chat.bubbles.length || chat.loading ? (
-        <div className="min-h-0 flex-1 space-y-8 overflow-y-auto pt-block">
+        <div className="scroll-slim min-h-0 flex-1 space-y-8 overflow-y-auto pt-block pr-1">
           {chat.bubbles.map((bubble) => (
             <Turn key={bubble.id} bubble={bubble} />
           ))}
@@ -102,12 +102,19 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
               void chat.ask();
             }}
           >
-            <input
+            <textarea
               value={chat.question}
               onChange={(e) => chat.setQuestion(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void chat.ask();
+                }
+              }}
+              rows={1}
               placeholder="Write a message..."
               aria-label="Write a message"
-              className="w-full bg-transparent px-2.5 pt-2 pb-3 text-body outline-none placeholder:text-faint"
+              className="scroll-slim max-h-40 w-full resize-none bg-transparent px-2.5 pt-1.5 text-body outline-none field-sizing-content placeholder:text-faint"
             />
             <div className="flex justify-end">
               <Button type="submit" size="sm" disabled={chat.loading}>

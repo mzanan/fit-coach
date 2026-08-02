@@ -16,8 +16,12 @@ export default async function CoachPage() {
   ]);
 
   return (
-    <Page title="Coach" description="Answers based on what you have logged.">
-      <div className="space-y-block">
+    <Page
+      title="Coach"
+      description="Answers based on what you have logged."
+      className="flex h-full flex-col"
+    >
+      <div className="flex min-h-0 flex-1 flex-col gap-block">
         {!ai ? (
           <EmptyState
             size="sm"

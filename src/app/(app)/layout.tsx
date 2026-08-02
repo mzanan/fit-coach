@@ -18,13 +18,13 @@ export default async function AppLayout({
       >
         Skip to content
       </a>
-      <div className="flex min-h-dvh w-full">
+      <div className="flex h-dvh w-full overflow-hidden">
         <SideNav user={user} />
         <div className="flex w-full min-w-0 flex-1 flex-col">
           <AppHeader className="md:hidden" />
           <main
             id="main"
-            className="flex-1 pt-2 pb-28 md:pt-gutter md:pb-gutter"
+            className="scroll-slim min-h-0 flex-1 overflow-y-auto pt-2 pb-28 md:pt-gutter md:pb-gutter"
           >
             {children}
           </main>
