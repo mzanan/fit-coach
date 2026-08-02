@@ -4,14 +4,15 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { groqModels } from "@/lib/ai/groq";
+import { AI_PROVIDERS, REASONING_EFFORTS } from "@/lib/ai/options";
 import {
   activateProvider,
-  AI_PROVIDERS,
   deleteAiCredential,
   getAiSetup,
   providerApiKey,
   saveAiCredential,
   updateAiModel,
+  updateReasoningEffort,
 } from "@/lib/ai/providers";
 import { getModelInfo, type ModelInfo } from "@/lib/ai/registry";
 import { requireUser } from "@/lib/session";
@@ -172,6 +173,27 @@ export async function updateAiModelAction(
   }
 
   await updateAiModel(user.id, provider, model);
+  revalidateAi();
+  return {};
+}
+
+const reasoningSchema = z.object({
+  provider: providerSchema,
+  effort: z.enum(REASONING_EFFORTS),
+});
+
+export async function updateReasoningEffortAction(
+  input: unknown,
+): Promise<AiActionResult> {
+  const user = await requireUser();
+  const parsed = reasoningSchema.safeParse(input);
+  if (!parsed.success) return { error: "Unknown reasoning setting." };
+
+  const { saved } = await getAiSetup(user.id);
+  if (!saved.some((c) => c.provider === parsed.data.provider)) {
+    return { error: "Save a key for that provider first." };
+  }
+  await updateReasoningEffort(user.id, parsed.data.provider, parsed.data.effort);
   revalidateAi();
   return {};
 }

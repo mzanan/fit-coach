@@ -48,6 +48,12 @@ export async function chat(
   return text.trim();
 }
 
+
+function reasoningOptions(ref: ModelRef) {
+  if (ref.provider !== "groq") return undefined;
+  return { groq: { reasoningEffort: ref.reasoningEffort } };
+}
+
 export type CoachEvent =
   | { type: "status"; tool: string }
   | { type: "reasoning"; text: string }
@@ -73,10 +79,7 @@ export async function chatToolsStream(
     tools: options.tools,
     stopWhen: isStepCount(options.maxSteps ?? 5),
     maxOutputTokens: maxTokens,
-    providerOptions:
-      ref.provider === "groq"
-        ? { groq: { reasoningEffort: "low" as const } }
-        : undefined,
+    providerOptions: reasoningOptions(ref),
   });
 
   const toolLog: string[] = [];
@@ -106,10 +109,7 @@ export async function chatToolsStream(
     instructions: `${options.instructions}\n\nAnswer the user now from the data below. Do not ask for more data.`,
     messages: [...options.messages, { role: "user", content: gathered }],
     maxOutputTokens: maxTokens,
-    providerOptions:
-      ref.provider === "groq"
-        ? { groq: { reasoningEffort: "low" as const } }
-        : undefined,
+    providerOptions: reasoningOptions(ref),
   });
   for await (const delta of closing.textStream) {
     text += delta;
@@ -130,10 +130,7 @@ export async function chatTools(
 ): Promise<{ text: string; toolLog: string[] }> {
   const model = resolveModel(ref);
   const maxTokens = options.maxTokens ?? 3000;
-  const providerOptions =
-    ref.provider === "groq"
-      ? { groq: { reasoningEffort: "low" as const } }
-      : undefined;
+  const providerOptions = reasoningOptions(ref);
   const result = await generateText({
     model,
     instructions: options.instructions,

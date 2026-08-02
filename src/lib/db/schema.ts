@@ -196,6 +196,7 @@ export const ai_credentials = sqliteTable(
     provider: text("provider").notNull(),
     api_key_enc: text("api_key_enc").notNull(),
     model: text("model").notNull(),
+    reasoning_effort: text("reasoning_effort").notNull().default("low"),
     created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },

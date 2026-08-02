@@ -10,13 +10,21 @@ import { SearchField } from "@/components/ui/SearchField";
 import { Segmented } from "@/components/ui/Segmented";
 import { Surface } from "@/components/ui/Surface";
 import { useAiSettings } from "@/components/settings/useAiSettings";
-import type { AiProvider, AiSetup } from "@/lib/ai/providers";
+import type { AiProvider } from "@/lib/ai/options";
+import type { AiSetup } from "@/lib/ai/providers";
 import type { ModelInfo } from "@/lib/ai/registry";
 import { cn } from "@/lib/utils";
 
 const PROVIDER_OPTIONS = [
   { value: "openrouter", label: "OpenRouter" },
   { value: "groq", label: "Groq" },
+] as const;
+
+const EFFORT_OPTIONS = [
+  { value: "none", label: "Off" },
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
 ] as const;
 
 const PROVIDER_LABEL: Record<AiProvider, string> = {
@@ -129,6 +137,22 @@ export function AiCard({
           />
         </div>
       )}
+
+      {ai.saved && ai.provider === "groq" ? (
+        <div>
+          <Label>Reasoning</Label>
+          <Segmented
+            options={EFFORT_OPTIONS}
+            value={ai.saved.reasoningEffort}
+            onChange={ai.setEffort}
+            ariaLabel="Reasoning effort"
+          />
+          <p className="mt-1.5 text-meta text-muted-foreground">
+            More reasoning gives better answers and spends the same output
+            budget, so a long answer can end up cut short.
+          </p>
+        </div>
+      ) : null}
 
       <div>
         <Label htmlFor="model-search">Model</Label>
