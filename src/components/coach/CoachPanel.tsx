@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Input } from "@/components/ui/Input";
 import { Pill } from "@/components/ui/Pill";
+import { StickyActions } from "@/components/ui/StickyActions";
 import { Surface } from "@/components/ui/Surface";
 import { useCoachChat, type ChatBubble } from "@/components/coach/useCoachChat";
 import type { CoachMessage } from "@/lib/data/coachMessages";
@@ -92,23 +93,25 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
         </Surface>
       )}
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void chat.ask();
-        }}
-        className="flex gap-2"
-      >
-        <Input
-          value={chat.question}
-          onChange={(e) => chat.setQuestion(e.target.value)}
-          placeholder="Ask the coach"
-        />
-        <Button type="submit" disabled={chat.loading}>
-          <Sparkles className="size-4" strokeWidth={1.5} />
-          Ask
-        </Button>
-      </form>
+      <StickyActions className="bg-background">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void chat.ask();
+          }}
+          className="flex gap-2"
+        >
+          <Input
+            value={chat.question}
+            onChange={(e) => chat.setQuestion(e.target.value)}
+            placeholder="Ask the coach"
+          />
+          <Button type="submit" disabled={chat.loading}>
+            <Sparkles className="size-4" strokeWidth={1.5} />
+            Ask
+          </Button>
+        </form>
+      </StickyActions>
 
       <ConfirmDialog
         open={chat.confirmOpen}
