@@ -218,7 +218,9 @@ const TOOLS_ADDENDUM = `
 
 Data access: you have tools that read the user's live data (today's meals and targets, the food catalog, recent workouts, body scans). Call only the tools the question actually needs, then answer that question directly and concretely. Never invent data you did not read from a tool.
 
-Whenever you suggest what to eat, search the catalog first and build the suggestion from the user's own saved items and their exact macros. One search call is enough: pass every term worth trying at once. When the search reports it found no match and returned the user's most eaten items instead, say so before suggesting anything else.`;
+Whenever you suggest what to eat, search the catalog first and build the suggestion from the user's own saved items and their exact macros. One search call is enough: pass every term worth trying at once. When the search reports it found no match and returned the user's most eaten items instead, say so before suggesting anything else.
+
+Suggest ONLY items the catalog returned. The user eats out and logs from that catalog, so a food that is not in it is not something they can order or log. Do not add generic foods (protein powder, quinoa, olive oil, cottage cheese, a fillet of fish) to round the macros: if the catalog cannot reach the target, say which macro is short and by how much, and offer to add the missing food to the catalog. Naming a food the catalog did not return is the one thing that makes this answer useless.`;
 
 async function memoryAndFacts(
   userId: string,

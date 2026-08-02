@@ -19,7 +19,7 @@ function Turn({ bubble }: { bubble: ChatBubble }) {
   if (bubble.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-2xl bg-well px-4 py-3">
+        <div className="max-w-[80%] rounded-control bg-well px-4 py-3">
           <p className="whitespace-pre-wrap text-body leading-relaxed">
             {bubble.content}
           </p>
@@ -94,7 +94,7 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
       <div className="shrink-0 bg-background pt-3">
         <Surface
           level="raised"
-          className="rounded-2xl p-2 focus-within:border-ring"
+          className="rounded-control p-2 focus-within:border-ring"
         >
           <form
             onSubmit={(e) => {
