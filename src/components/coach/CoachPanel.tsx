@@ -42,7 +42,7 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
   const { setAnchor, ...chat } = useCoachChat(initial);
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-[calc(100dvh-var(--nav-h)-11rem)] flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
         {QUICK.map((q) => (
           <Button
@@ -73,7 +73,7 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
       </div>
 
       {chat.bubbles.length || chat.loading ? (
-        <div className="space-y-3">
+        <div className="flex-1 space-y-3">
           {chat.bubbles.map((bubble) => (
             <Bubble key={bubble.id} bubble={bubble} />
           ))}
@@ -87,7 +87,10 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
           <div ref={setAnchor} />
         </div>
       ) : (
-        <Surface level="sunken" className="p-5 text-body text-muted-foreground">
+        <Surface
+          level="sunken"
+          className="flex-1 p-5 text-body text-muted-foreground"
+        >
           Ask anything about today, your week, or what to eat next. The coach
           reads your logged data and remembers this conversation.
         </Surface>

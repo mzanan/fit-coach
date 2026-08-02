@@ -71,10 +71,13 @@ export async function chatTools(
 
   let text = result.text.trim();
   if (!text) {
+    const gathered = toolLog.length
+      ? `Data already read from the app:\n${toolLog.join("\n")}`
+      : "No data could be read from the app.";
     const closing = await generateText({
       model,
-      instructions: `${options.instructions}\n\nAnswer the user now from the tool results already gathered. Do not ask for more data.`,
-      messages: [...options.messages, ...result.response.messages],
+      instructions: `${options.instructions}\n\nAnswer the user now from the data below. Do not ask for more data.`,
+      messages: [...options.messages, { role: "user", content: gathered }],
       maxOutputTokens: maxTokens,
     });
     text = closing.text.trim();
