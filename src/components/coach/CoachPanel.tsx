@@ -42,7 +42,7 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
   const { setAnchor, ...chat } = useCoachChat(initial);
 
   return (
-    <div className="flex min-h-[calc(100dvh-var(--nav-h)-11rem)] flex-col">
+    <div className="flex h-[calc(100dvh-var(--nav-h)-9rem)] flex-col overflow-hidden md:h-[calc(100dvh-11rem)]">
       <div className="flex flex-wrap items-center gap-2">
         {QUICK.map((q) => (
           <Button
@@ -73,7 +73,7 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
       </div>
 
       {chat.bubbles.length || chat.loading ? (
-        <div className="flex-1 space-y-8 pt-block">
+        <div className="min-h-0 flex-1 space-y-8 overflow-y-auto pt-block">
           {chat.bubbles.map((bubble) => (
             <Turn key={bubble.id} bubble={bubble} />
           ))}
@@ -83,7 +83,7 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
           <div ref={setAnchor} />
         </div>
       ) : (
-        <div className="flex flex-1 items-center justify-center py-block">
+        <div className="flex min-h-0 flex-1 items-center justify-center py-block">
           <p className="max-w-[38ch] text-center text-body text-muted-foreground">
             Ask anything about today, your week, or what to eat next. The coach
             reads your logged data and remembers this conversation.
@@ -91,7 +91,7 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
         </div>
       )}
 
-      <div className="sticky bottom-(--nav-h) -mx-gutter bg-background px-gutter pt-3 pb-3 md:bottom-0">
+      <div className="shrink-0 bg-background pt-3">
         <Surface
           level="raised"
           className="rounded-2xl p-2 focus-within:border-ring"

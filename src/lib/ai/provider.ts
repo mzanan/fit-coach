@@ -53,7 +53,11 @@ export async function chatTools(
   },
 ): Promise<{ text: string; toolLog: string[] }> {
   const model = resolveModel(ref);
-  const maxTokens = options.maxTokens ?? 1200;
+  const maxTokens = options.maxTokens ?? 3000;
+  const providerOptions =
+    ref.provider === "groq"
+      ? { groq: { reasoningEffort: "low" as const } }
+      : undefined;
   const result = await generateText({
     model,
     instructions: options.instructions,
@@ -61,6 +65,7 @@ export async function chatTools(
     tools: options.tools,
     stopWhen: isStepCount(options.maxSteps ?? 5),
     maxOutputTokens: maxTokens,
+    providerOptions,
   });
   const toolLog = result.steps.flatMap((step) =>
     step.toolResults.map(
@@ -79,6 +84,7 @@ export async function chatTools(
       instructions: `${options.instructions}\n\nAnswer the user now from the data below. Do not ask for more data.`,
       messages: [...options.messages, { role: "user", content: gathered }],
       maxOutputTokens: maxTokens,
+      providerOptions,
     });
     text = closing.text.trim();
   }
