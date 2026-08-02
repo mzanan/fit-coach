@@ -101,6 +101,7 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
               e.preventDefault();
               void chat.ask();
             }}
+            className="flex items-end gap-2"
           >
             <textarea
               value={chat.question}
@@ -114,14 +115,17 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
               rows={1}
               placeholder="Write a message..."
               aria-label="Write a message"
-              className="scroll-slim max-h-40 w-full resize-none bg-transparent px-2.5 pt-1.5 text-body outline-none field-sizing-content placeholder:text-faint"
+              className="scroll-slim max-h-40 min-w-0 flex-1 resize-none self-center bg-transparent px-2.5 py-1.5 text-body outline-none field-sizing-content placeholder:text-faint"
             />
-            <div className="flex justify-end">
-              <Button type="submit" size="sm" disabled={chat.loading}>
-                <Sparkles className="size-4" strokeWidth={1.5} />
-                Ask
-              </Button>
-            </div>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={chat.loading}
+              className="shrink-0"
+            >
+              <Sparkles className="size-4" strokeWidth={1.5} />
+              Ask
+            </Button>
           </form>
         </Surface>
       </div>
