@@ -24,7 +24,7 @@ export default async function AppLayout({
           <AppHeader className="md:hidden" />
           <main
             id="main"
-            className="scroll-slim min-h-0 flex-1 overflow-y-auto pt-2 pb-28 md:pt-gutter md:pb-gutter"
+            className="scroll-slim min-h-0 flex-1 overflow-y-auto pt-2 pb-6 md:pt-gutter md:pb-gutter"
           >
             {children}
           </main>
