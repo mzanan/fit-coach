@@ -36,6 +36,9 @@ export function useMdImport() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [mdText, setMdText] = useState("");
+  const [loadedFiles, setLoadedFiles] = useState<
+    { name: string; chars: number }[]
+  >([]);
   const [days, setDays] = useState<PreviewDay[] | null>(null);
   const [catalogItems, setCatalogItems] = useState<PreviewCatalogItem[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -69,8 +72,25 @@ export function useMdImport() {
     });
   }
 
-  async function loadFile(file: File) {
-    setMdText(await file.text());
+  async function loadFiles(files: File[]) {
+    const loaded = await Promise.all(
+      files.map(async (file) => ({
+        name: file.name,
+        text: (await file.text()).trim(),
+      })),
+    );
+    const kept = loaded.filter((file) => file.text.length > 0);
+    const skipped = loaded.length - kept.length;
+    if (!kept.length) {
+      toast.error("Those files are empty");
+      return;
+    }
+    if (skipped) toast(`${skipped} empty file(s) skipped`);
+
+    setLoadedFiles(kept.map((file) => ({ name: file.name, chars: file.text.length })));
+    setMdText(
+      kept.map((file) => `# ${file.name}\n\n${file.text}`).join("\n\n---\n\n"),
+    );
   }
 
   function updateMeal(day: string, key: string, values: Partial<ImportedMeal>) {
@@ -177,7 +197,8 @@ export function useMdImport() {
     pending,
     mdText,
     setMdText,
-    loadFile,
+    loadFiles,
+    loadedFiles,
     extract,
     days,
     catalogItems,

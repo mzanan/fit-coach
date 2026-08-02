@@ -21,7 +21,8 @@ export function MdImportFlow({ today }: { today: string }) {
     pending,
     mdText,
     setMdText,
-    loadFile,
+    loadFiles,
+    loadedFiles,
     extract,
     days,
     catalogItems,
@@ -68,22 +69,38 @@ export function MdImportFlow({ today }: { today: string }) {
               onClick={() => fileRef.current?.click()}
             >
               <FileUp className="size-4" />
-              Load .md
+              Load .md files
             </Button>
             <Button disabled={pending || !mdText.trim()} onClick={extract}>
               <Sparkles className="size-4" />
               Extract
             </Button>
           </div>
+          {loadedFiles.length ? (
+            <ul className="mt-card space-y-1">
+              {loadedFiles.map((file) => (
+                <li
+                  key={file.name}
+                  className="flex items-center justify-between gap-3 text-meta text-muted-foreground"
+                >
+                  <span className="truncate">{file.name}</span>
+                  <span className="shrink-0">
+                    {file.chars.toLocaleString()} chars
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <input
             ref={fileRef}
             type="file"
+            multiple
             accept=".md,text/markdown,text/plain"
             className="hidden"
             onChange={async (e) => {
-              const file = e.target.files?.[0];
+              const files = Array.from(e.target.files ?? []);
               e.target.value = "";
-              if (file) await loadFile(file);
+              if (files.length) await loadFiles(files);
             }}
           />
         </Surface>
