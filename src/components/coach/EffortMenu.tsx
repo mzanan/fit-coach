@@ -42,10 +42,6 @@ export function EffortMenu({
           sideOffset={8}
           className="z-50 min-w-56 rounded-xl border border-border bg-popover p-1.5 shadow-raised"
         >
-          <p className="px-3 py-2 text-meta text-muted-foreground">
-            More effort means more thorough answers, and spends the same output
-            budget.
-          </p>
           {REASONING_EFFORTS.map((value) => (
             <DropdownMenu.Item
               key={value}
