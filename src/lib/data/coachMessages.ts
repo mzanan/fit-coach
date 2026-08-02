@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 
 import { db, schema } from "@/lib/db";
 import { newId } from "@/lib/utils";
@@ -28,7 +28,12 @@ export async function getConversation(
   const rows = await db
     .select()
     .from(coach_messages)
-    .where(eq(coach_messages.user_id, userId))
+    .where(
+      and(
+        eq(coach_messages.user_id, userId),
+        eq(coach_messages.generated, true),
+      ),
+    )
     .orderBy(desc(coach_messages.created_at))
     .limit(limit);
 

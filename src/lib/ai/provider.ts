@@ -10,6 +10,7 @@ import {
 
 import type { SharedV4ProviderOptions } from "@ai-sdk/provider";
 
+import { groqCapability } from "@/lib/ai/groqCaps";
 import { resolveModel, type ModelRef } from "@/lib/ai/providers";
 import { structuredRouting } from "@/lib/ai/registry";
 
@@ -51,9 +52,13 @@ export async function chat(
 }
 
 
-function reasoningOptions(ref: ModelRef): SharedV4ProviderOptions {
+function reasoningOptions(ref: ModelRef): SharedV4ProviderOptions | undefined {
   if (ref.provider === "groq") {
-    return { groq: { reasoningEffort: ref.reasoningEffort } };
+    const supported =
+      groqCapability(ref.model).reasoning && ref.reasoningEffort !== "none";
+    return supported
+      ? { groq: { reasoningEffort: ref.reasoningEffort } }
+      : undefined;
   }
   return {
     openrouter: {

@@ -61,6 +61,7 @@ export function useCoachChat(
     async (text?: string) => {
       const asked = (text ?? question).trim();
       if (loading) return;
+      if (!asked && bubbles.length) return;
       setQuestion("");
       if (asked) {
         setBubbles((current) => [
@@ -133,7 +134,7 @@ export function useCoachChat(
         setLoading(false);
       }
     },
-    [question, loading],
+    [question, loading, bubbles.length],
   );
 
   function setEffort(next: ReasoningEffort) {
