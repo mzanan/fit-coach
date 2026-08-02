@@ -50,6 +50,7 @@ export async function chat(
 
 export type CoachEvent =
   | { type: "status"; tool: string }
+  | { type: "reasoning"; text: string }
   | { type: "delta"; text: string };
 
 export async function chatToolsStream(
@@ -87,6 +88,8 @@ export async function chatToolsStream(
       toolLog.push(
         `${part.toolName}(${JSON.stringify(part.input)}) -> ${JSON.stringify(part.output).slice(0, 400)}`,
       );
+    } else if (part.type === "reasoning-delta") {
+      options.onEvent({ type: "reasoning", text: part.text });
     } else if (part.type === "text-delta") {
       text += part.text;
       options.onEvent({ type: "delta", text: part.text });

@@ -1,11 +1,14 @@
 "use client";
 
-import { Eraser, Sparkles } from "lucide-react";
+import { ChevronRight, Eraser, Sparkles } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { Collapse } from "@/components/ui/Collapse";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Pill } from "@/components/ui/Pill";
 import { Surface } from "@/components/ui/Surface";
+import { cn } from "@/lib/utils";
 import { useCoachChat, type ChatBubble } from "@/components/coach/useCoachChat";
 import type { CoachMessage } from "@/lib/data/coachMessages";
 
@@ -14,6 +17,34 @@ const QUICK = [
   "What should I eat next?",
   "Is my fat too high?",
 ];
+
+function Thoughts({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className="flex items-center gap-1 text-meta text-muted-foreground transition-colors duration-(--dur-fast) hover:text-foreground"
+      >
+        <ChevronRight
+          className={cn(
+            "size-3.5 transition-transform duration-(--dur-fast) ease-(--ease-out-soft)",
+            open && "rotate-90",
+          )}
+          strokeWidth={1.5}
+        />
+        Thought process
+      </button>
+      <Collapse open={open}>
+        <p className="mt-2 border-l border-input pl-3 text-meta whitespace-pre-wrap text-muted-foreground">
+          {text}
+        </p>
+      </Collapse>
+    </div>
+  );
+}
 
 function Turn({ bubble }: { bubble: ChatBubble }) {
   if (bubble.role === "user") {
@@ -31,6 +62,7 @@ function Turn({ bubble }: { bubble: ChatBubble }) {
   return (
     <div className="space-y-2">
       {bubble.generated ? null : <Pill tone="muted">Rule-based</Pill>}
+      {bubble.reasoning ? <Thoughts text={bubble.reasoning} /> : null}
       <p className="whitespace-pre-wrap text-body leading-relaxed">
         {bubble.content}
       </p>
@@ -77,6 +109,7 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
           {chat.bubbles.map((bubble) => (
             <Turn key={bubble.id} bubble={bubble} />
           ))}
+          {chat.reasoning ? <Thoughts text={chat.reasoning} /> : null}
           {chat.streaming ? (
             <p className="whitespace-pre-wrap text-body leading-relaxed">
               {chat.streaming}

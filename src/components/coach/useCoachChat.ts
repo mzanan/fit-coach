@@ -11,10 +11,12 @@ export interface ChatBubble {
   role: "user" | "assistant";
   content: string;
   generated: boolean;
+  reasoning?: string;
 }
 
 type CoachStreamEvent =
   | { type: "status"; tool: string }
+  | { type: "reasoning"; text: string }
   | { type: "delta"; text: string }
   | { type: "done"; text: string; generated: boolean }
   | { type: "error" };
@@ -43,6 +45,7 @@ export function useCoachChat(initial: CoachMessage[]) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [streaming, setStreaming] = useState("");
+  const [reasoning, setReasoning] = useState("");
   const [anchor, setAnchor] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -76,6 +79,7 @@ export function useCoachChat(initial: CoachMessage[]) {
         const decoder = new TextDecoder();
         let buffer = "";
         let answer = "";
+        let thoughts = "";
         let generated = true;
 
         for (;;) {
@@ -89,6 +93,9 @@ export function useCoachChat(initial: CoachMessage[]) {
             const event = JSON.parse(line) as CoachStreamEvent;
             if (event.type === "status") {
               setStatus(STATUS[event.tool] ?? STATUS.thinking);
+            } else if (event.type === "reasoning") {
+              thoughts += event.text;
+              setReasoning(thoughts);
             } else if (event.type === "delta") {
               answer += event.text;
               setStatus(null);
@@ -109,12 +116,14 @@ export function useCoachChat(initial: CoachMessage[]) {
             role: "assistant",
             content: answer,
             generated,
+            reasoning: thoughts.trim() || undefined,
           },
         ]);
       } catch {
         toast.error("Could not reach the coach");
       } finally {
         setStreaming("");
+        setReasoning("");
         setStatus(null);
         setLoading(false);
       }
@@ -135,6 +144,7 @@ export function useCoachChat(initial: CoachMessage[]) {
     loading,
     status,
     streaming,
+    reasoning,
     ask,
     setAnchor,
     confirmOpen,
