@@ -18,7 +18,6 @@ import { buildCoachTools } from "@/lib/ai/coachTools";
 import { userModelRef, type ModelRef } from "@/lib/ai/providers";
 import { toolsRouting } from "@/lib/ai/registry";
 import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
-import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
 import { categoryLabel } from "@/lib/constants";
 import { kcalOf } from "@/lib/macros";
 import { round } from "@/lib/utils";
@@ -225,11 +224,8 @@ Suggest ONLY items the catalog returned. The user eats out and logs from that ca
 async function memoryAndFacts(
   userId: string,
   question?: string,
-): Promise<{ memory: string | null; parts: string[] }> {
-  const [memory, facts] = await Promise.all([
-    getCoachMemory(userId),
-    retrieveFacts(userId, question?.trim() ?? ""),
-  ]);
+): Promise<{ parts: string[] }> {
+  const facts = await retrieveFacts(userId, question?.trim() ?? "");
 
   const factLines = facts.length
     ? [
@@ -238,26 +234,17 @@ async function memoryAndFacts(
       ]
     : [];
 
-  return {
-    memory,
-    parts: [
-      ...(memory ? [`Coach memory about this user:\n${memory}`] : []),
-      ...factLines,
-    ],
-  };
+  return { parts: factLines };
 }
 
 async function learn(
   ref: ModelRef,
   userId: string,
-  memory: string | null,
   exchange: string,
   hasQuestion: boolean,
 ): Promise<void> {
-  await refreshCoachMemory(ref, userId, memory, exchange);
-  if (hasQuestion) {
-    await learnFromExchange(ref, userId, exchange, "coach");
-  }
+  if (!hasQuestion) return;
+  await learnFromExchange(ref, userId, exchange, "coach");
 }
 
 async function toolReply(
@@ -269,7 +256,7 @@ async function toolReply(
   question?: string,
   onEvent?: (event: CoachEvent) => void,
 ): Promise<{ text: string; generated: boolean }> {
-  const { memory, parts } = await memoryAndFacts(userId, question);
+  const { parts } = await memoryAndFacts(userId, question);
   const ask = question?.trim()
     ? question.trim()
     : "Give a short read on how today and the week are going, and the next action.";
@@ -296,7 +283,7 @@ async function toolReply(
         `User: ${question?.trim() || "(daily check-in)"}`,
         `Coach: ${text}`,
       ].join("\n");
-      await learn(ref, userId, memory, exchange, Boolean(question?.trim()));
+      await learn(ref, userId, exchange, Boolean(question?.trim()));
       return { text, generated: true };
     }
     const ctx = await buildContext(userId, profile);
@@ -318,7 +305,7 @@ async function contextReply(
   question?: string,
 ): Promise<{ text: string; generated: boolean }> {
   const ctx = await buildContext(userId, profile);
-  const { memory, parts } = await memoryAndFacts(userId, question);
+  const { parts } = await memoryAndFacts(userId, question);
 
   const userMsg = [
     ...ctx.lines,
@@ -338,7 +325,7 @@ async function contextReply(
     ]);
     if (text) {
       const exchange = `${ctx.lines.join("\n")}\nUser: ${question?.trim() || "(daily check-in)"}\nCoach: ${text}`;
-      await learn(ref, userId, memory, exchange, Boolean(question?.trim()));
+      await learn(ref, userId, exchange, Boolean(question?.trim()));
     }
     return { text: text || aiErrorReply(ctx), generated: Boolean(text) };
   } catch (error) {
