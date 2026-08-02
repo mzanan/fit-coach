@@ -4,13 +4,10 @@ import { Eraser, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Input } from "@/components/ui/Input";
 import { Pill } from "@/components/ui/Pill";
-import { StickyActions } from "@/components/ui/StickyActions";
 import { Surface } from "@/components/ui/Surface";
 import { useCoachChat, type ChatBubble } from "@/components/coach/useCoachChat";
 import type { CoachMessage } from "@/lib/data/coachMessages";
-import { cn } from "@/lib/utils";
 
 const QUICK = [
   "How am I doing today?",
@@ -18,22 +15,25 @@ const QUICK = [
   "Is my fat too high?",
 ];
 
-function Bubble({ bubble }: { bubble: ChatBubble }) {
-  const mine = bubble.role === "user";
+function Turn({ bubble }: { bubble: ChatBubble }) {
+  if (bubble.role === "user") {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[80%] rounded-2xl bg-well px-4 py-3">
+          <p className="whitespace-pre-wrap text-body leading-relaxed">
+            {bubble.content}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
-      <Surface
-        level={mine ? "raised" : "sunken"}
-        className={cn(
-          "max-w-[85%] space-y-2 px-4 py-3",
-          mine ? "rounded-control" : "rounded-control",
-        )}
-      >
-        {!mine && !bubble.generated ? <Pill tone="muted">Rule-based</Pill> : null}
-        <p className="whitespace-pre-wrap text-body leading-relaxed">
-          {bubble.content}
-        </p>
-      </Surface>
+    <div className="space-y-2">
+      {bubble.generated ? null : <Pill tone="muted">Rule-based</Pill>}
+      <p className="whitespace-pre-wrap text-body leading-relaxed">
+        {bubble.content}
+      </p>
     </div>
   );
 }
@@ -42,7 +42,7 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
   const { setAnchor, ...chat } = useCoachChat(initial);
 
   return (
-    <div className="flex min-h-[calc(100dvh-var(--nav-h)-11rem)] flex-col gap-4">
+    <div className="flex min-h-[calc(100dvh-var(--nav-h)-11rem)] flex-col">
       <div className="flex flex-wrap items-center gap-2">
         {QUICK.map((q) => (
           <Button
@@ -73,48 +73,51 @@ export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
       </div>
 
       {chat.bubbles.length || chat.loading ? (
-        <div className="flex-1 space-y-3">
+        <div className="flex-1 space-y-8 pt-block">
           {chat.bubbles.map((bubble) => (
-            <Bubble key={bubble.id} bubble={bubble} />
+            <Turn key={bubble.id} bubble={bubble} />
           ))}
           {chat.loading ? (
-            <div className="flex justify-start">
-              <Surface level="sunken" className="px-4 py-3 text-body text-muted-foreground">
-                Thinking...
-              </Surface>
-            </div>
+            <p className="text-body text-muted-foreground">Thinking...</p>
           ) : null}
           <div ref={setAnchor} />
         </div>
       ) : (
-        <Surface
-          level="sunken"
-          className="flex-1 p-5 text-body text-muted-foreground"
-        >
-          Ask anything about today, your week, or what to eat next. The coach
-          reads your logged data and remembers this conversation.
-        </Surface>
+        <div className="flex flex-1 items-center justify-center py-block">
+          <p className="max-w-[38ch] text-center text-body text-muted-foreground">
+            Ask anything about today, your week, or what to eat next. The coach
+            reads your logged data and remembers this conversation.
+          </p>
+        </div>
       )}
 
-      <StickyActions className="bg-background">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void chat.ask();
-          }}
-          className="flex gap-2"
+      <div className="sticky bottom-(--nav-h) -mx-gutter bg-background px-gutter pt-3 pb-3 md:bottom-0">
+        <Surface
+          level="raised"
+          className="rounded-2xl p-2 focus-within:border-ring"
         >
-          <Input
-            value={chat.question}
-            onChange={(e) => chat.setQuestion(e.target.value)}
-            placeholder="Ask the coach"
-          />
-          <Button type="submit" disabled={chat.loading}>
-            <Sparkles className="size-4" strokeWidth={1.5} />
-            Ask
-          </Button>
-        </form>
-      </StickyActions>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void chat.ask();
+            }}
+          >
+            <input
+              value={chat.question}
+              onChange={(e) => chat.setQuestion(e.target.value)}
+              placeholder="Write a message..."
+              aria-label="Write a message"
+              className="w-full bg-transparent px-2.5 pt-2 pb-3 text-body outline-none placeholder:text-faint"
+            />
+            <div className="flex justify-end">
+              <Button type="submit" size="sm" disabled={chat.loading}>
+                <Sparkles className="size-4" strokeWidth={1.5} />
+                Ask
+              </Button>
+            </div>
+          </form>
+        </Surface>
+      </div>
 
       <ConfirmDialog
         open={chat.confirmOpen}
