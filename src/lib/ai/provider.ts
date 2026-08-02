@@ -46,7 +46,7 @@ export async function chatTools(
   ref: ModelRef,
   options: {
     instructions: string;
-    prompt: string;
+    messages: { role: "user" | "assistant"; content: string }[];
     tools: ToolSet;
     maxSteps?: number;
     maxTokens?: number;
@@ -57,7 +57,7 @@ export async function chatTools(
   const result = await generateText({
     model,
     instructions: options.instructions,
-    prompt: options.prompt,
+    messages: options.messages,
     tools: options.tools,
     stopWhen: isStepCount(options.maxSteps ?? 5),
     maxOutputTokens: maxTokens,
@@ -74,10 +74,7 @@ export async function chatTools(
     const closing = await generateText({
       model,
       instructions: `${options.instructions}\n\nAnswer the user now from the tool results already gathered. Do not ask for more data.`,
-      messages: [
-        { role: "user", content: options.prompt },
-        ...result.response.messages,
-      ],
+      messages: [...options.messages, ...result.response.messages],
       maxOutputTokens: maxTokens,
     });
     text = closing.text.trim();

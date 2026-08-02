@@ -5,11 +5,15 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Page } from "@/components/ui/Page";
 import { getAiSettings } from "@/lib/ai/providers";
+import { getFullConversation } from "@/lib/data/coachMessages";
 import { requireUser } from "@/lib/session";
 
 export default async function CoachPage() {
   const user = await requireUser();
-  const ai = await getAiSettings(user.id);
+  const [ai, history] = await Promise.all([
+    getAiSettings(user.id),
+    getFullConversation(user.id),
+  ]);
 
   return (
     <Page title="Coach" description="Answers based on what you have logged.">
@@ -26,7 +30,7 @@ export default async function CoachPage() {
             }
           />
         ) : null}
-        <CoachPanel />
+        <CoachPanel initial={history} />
       </div>
     </Page>
   );

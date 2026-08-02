@@ -1,13 +1,15 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
+import { Eraser, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Input } from "@/components/ui/Input";
 import { Pill } from "@/components/ui/Pill";
 import { Surface } from "@/components/ui/Surface";
+import { useCoachChat, type ChatBubble } from "@/components/coach/useCoachChat";
+import type { CoachMessage } from "@/lib/data/coachMessages";
+import { cn } from "@/lib/utils";
 
 const QUICK = [
   "How am I doing today?",
@@ -15,80 +17,108 @@ const QUICK = [
   "Is my fat too high?",
 ];
 
-export function CoachPanel() {
-  const [question, setQuestion] = useState("");
-  const [reply, setReply] = useState<string | null>(null);
-  const [generated, setGenerated] = useState(false);
-  const [loading, setLoading] = useState(false);
+function Bubble({ bubble }: { bubble: ChatBubble }) {
+  const mine = bubble.role === "user";
+  return (
+    <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
+      <Surface
+        level={mine ? "raised" : "sunken"}
+        className={cn(
+          "max-w-[85%] space-y-2 px-4 py-3",
+          mine ? "rounded-control" : "rounded-control",
+        )}
+      >
+        {!mine && !bubble.generated ? <Pill tone="muted">Rule-based</Pill> : null}
+        <p className="whitespace-pre-wrap text-body leading-relaxed">
+          {bubble.content}
+        </p>
+      </Surface>
+    </div>
+  );
+}
 
-  async function ask(q?: string) {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/coach", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q ?? question }),
-      });
-      if (!res.ok) throw new Error("Coach unavailable");
-      const data = (await res.json()) as { text: string; generated: boolean };
-      setReply(data.text);
-      setGenerated(data.generated);
-    } catch {
-      toast.error("Could not reach the coach");
-    } finally {
-      setLoading(false);
-    }
-  }
+export function CoachPanel({ initial }: { initial: CoachMessage[] }) {
+  const { setAnchor, ...chat } = useCoachChat(initial);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {QUICK.map((q) => (
           <Button
             key={q}
             type="button"
             variant="outline"
             size="sm"
-            disabled={loading}
-            onClick={() => ask(q)}
+            disabled={chat.loading}
+            onClick={() => void chat.ask(q)}
             className="text-muted-foreground hover:text-foreground"
           >
             {q}
           </Button>
         ))}
+        {chat.bubbles.length ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={chat.loading}
+            onClick={() => chat.setConfirmOpen(true)}
+            className="ml-auto text-muted-foreground hover:text-foreground"
+          >
+            <Eraser className="size-4" strokeWidth={1.5} />
+            Clear
+          </Button>
+        ) : null}
       </div>
+
+      {chat.bubbles.length || chat.loading ? (
+        <div className="space-y-3">
+          {chat.bubbles.map((bubble) => (
+            <Bubble key={bubble.id} bubble={bubble} />
+          ))}
+          {chat.loading ? (
+            <div className="flex justify-start">
+              <Surface level="sunken" className="px-4 py-3 text-body text-muted-foreground">
+                Thinking...
+              </Surface>
+            </div>
+          ) : null}
+          <div ref={setAnchor} />
+        </div>
+      ) : (
+        <Surface level="sunken" className="p-5 text-body text-muted-foreground">
+          Ask anything about today, your week, or what to eat next. The coach
+          reads your logged data and remembers this conversation.
+        </Surface>
+      )}
 
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          ask();
+          void chat.ask();
         }}
         className="flex gap-2"
       >
         <Input
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
+          value={chat.question}
+          onChange={(e) => chat.setQuestion(e.target.value)}
           placeholder="Ask the coach"
         />
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" disabled={chat.loading}>
           <Sparkles className="size-4" strokeWidth={1.5} />
           Ask
         </Button>
       </form>
 
-      {loading ? (
-        <Surface className="p-5 text-body text-muted-foreground">Thinking...</Surface>
-      ) : reply ? (
-        <Surface className="space-y-2.5 p-5">
-          {!generated ? <Pill tone="muted">Rule-based</Pill> : null}
-          <p className="whitespace-pre-wrap text-body leading-relaxed">{reply}</p>
-        </Surface>
-      ) : (
-        <Surface level="sunken" className="p-5 text-body text-muted-foreground">
-          Ask anything about today, your week, or what to eat next. The coach
-          reads your logged data.
-        </Surface>
-      )}
+      <ConfirmDialog
+        open={chat.confirmOpen}
+        onOpenChange={chat.setConfirmOpen}
+        title="Clear this conversation?"
+        body="The messages are deleted. What the coach learned about you stays."
+        confirmLabel="Clear"
+        tone="destructive"
+        onConfirm={chat.clear}
+      />
     </div>
   );
 }
