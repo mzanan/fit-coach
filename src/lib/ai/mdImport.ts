@@ -105,7 +105,7 @@ function chunkMarkdown(text: string, maxChars = 12000): string[] {
   return chunks;
 }
 
-function mergeExtractions(parts: MdExtraction[]): MdExtraction {
+export function mergeExtractions(parts: MdExtraction[]): MdExtraction {
   const dayMap = new Map<string, ImportedDay>();
   const catalog = new Map<string, ImportedCatalogItem>();
   const warnings: string[] = [];

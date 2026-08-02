@@ -1,6 +1,6 @@
 "use client";
 
-import { FileUp, Sparkles } from "lucide-react";
+import { FileText, FileUp, Sparkles, X } from "lucide-react";
 import { useRef } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -21,8 +21,9 @@ export function MdImportFlow({ today }: { today: string }) {
     pending,
     mdText,
     setMdText,
-    loadFiles,
-    loadedFiles,
+    attachFiles,
+    attachments,
+    removeAttachment,
     extract,
     days,
     catalogItems,
@@ -59,7 +60,7 @@ export function MdImportFlow({ today }: { today: string }) {
             id="md-text"
             value={mdText}
             onChange={(e) => setMdText(e.target.value)}
-            placeholder="Paste your markdown tracking log here, or load the .md file."
+            placeholder="Paste a log here, or attach .md files below. Each file is read on its own."
             rows={12}
           />
           <div className="mt-card grid grid-cols-2 gap-2">
@@ -69,24 +70,42 @@ export function MdImportFlow({ today }: { today: string }) {
               onClick={() => fileRef.current?.click()}
             >
               <FileUp className="size-4" />
-              Load .md files
+              Attach .md files
             </Button>
-            <Button disabled={pending || !mdText.trim()} onClick={extract}>
+            <Button
+              disabled={pending || (!mdText.trim() && !attachments.length)}
+              onClick={extract}
+            >
               <Sparkles className="size-4" />
               Extract
             </Button>
           </div>
-          {loadedFiles.length ? (
-            <ul className="mt-card space-y-1">
-              {loadedFiles.map((file) => (
+          {attachments.length ? (
+            <ul className="mt-card space-y-1.5">
+              {attachments.map((file) => (
                 <li
-                  key={file.name}
-                  className="flex items-center justify-between gap-3 text-meta text-muted-foreground"
+                  key={file.id}
+                  className="flex items-center gap-2 rounded-control bg-well px-3 py-2"
                 >
-                  <span className="truncate">{file.name}</span>
-                  <span className="shrink-0">
-                    {file.chars.toLocaleString()} chars
+                  <FileText
+                    className="size-4 shrink-0 text-muted-foreground"
+                    strokeWidth={1.5}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-meta">
+                    {file.name}
                   </span>
+                  <span className="shrink-0 text-meta text-muted-foreground">
+                    {file.text.length.toLocaleString()} chars
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Remove ${file.name}`}
+                    disabled={pending}
+                    onClick={() => removeAttachment(file.id)}
+                  >
+                    <X className="size-4" strokeWidth={1.5} />
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -100,7 +119,7 @@ export function MdImportFlow({ today }: { today: string }) {
             onChange={async (e) => {
               const files = Array.from(e.target.files ?? []);
               e.target.value = "";
-              if (files.length) await loadFiles(files);
+              if (files.length) await attachFiles(files);
             }}
           />
         </Surface>

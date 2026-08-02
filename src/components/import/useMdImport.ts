@@ -32,13 +32,17 @@ export interface PreviewCatalogItem extends ImportedCatalogItem {
   include: boolean;
 }
 
+export interface Attachment {
+  id: string;
+  name: string;
+  text: string;
+}
+
 export function useMdImport() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [mdText, setMdText] = useState("");
-  const [loadedFiles, setLoadedFiles] = useState<
-    { name: string; chars: number }[]
-  >([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [days, setDays] = useState<PreviewDay[] | null>(null);
   const [catalogItems, setCatalogItems] = useState<PreviewCatalogItem[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -46,7 +50,10 @@ export function useMdImport() {
   function extract() {
     startTransition(async () => {
       try {
-        const result = await extractMdImport(mdText);
+        const result = await extractMdImport([
+          ...attachments.map((file) => ({ name: file.name, text: file.text })),
+          ...(mdText.trim() ? [{ name: "Pasted text", text: mdText }] : []),
+        ]);
         setDays(
           result.days.map((d, di) => ({
             day: d.day,
@@ -72,25 +79,30 @@ export function useMdImport() {
     });
   }
 
-  async function loadFiles(files: File[]) {
+  async function attachFiles(files: File[]) {
     const loaded = await Promise.all(
       files.map(async (file) => ({
+        id: `${file.name}-${file.size}-${file.lastModified}`,
         name: file.name,
         text: (await file.text()).trim(),
       })),
     );
     const kept = loaded.filter((file) => file.text.length > 0);
-    const skipped = loaded.length - kept.length;
     if (!kept.length) {
       toast.error("Those files are empty");
       return;
     }
-    if (skipped) toast(`${skipped} empty file(s) skipped`);
+    if (kept.length < loaded.length) {
+      toast(`${loaded.length - kept.length} empty file(s) skipped`);
+    }
+    setAttachments((current) => [
+      ...current,
+      ...kept.filter((file) => !current.some((a) => a.id === file.id)),
+    ]);
+  }
 
-    setLoadedFiles(kept.map((file) => ({ name: file.name, chars: file.text.length })));
-    setMdText(
-      kept.map((file) => `# ${file.name}\n\n${file.text}`).join("\n\n---\n\n"),
-    );
+  function removeAttachment(id: string) {
+    setAttachments((current) => current.filter((file) => file.id !== id));
   }
 
   function updateMeal(day: string, key: string, values: Partial<ImportedMeal>) {
@@ -197,8 +209,9 @@ export function useMdImport() {
     pending,
     mdText,
     setMdText,
-    loadFiles,
-    loadedFiles,
+    attachFiles,
+    attachments,
+    removeAttachment,
     extract,
     days,
     catalogItems,

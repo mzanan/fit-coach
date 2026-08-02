@@ -8,6 +8,7 @@ import { userModelRef } from "@/lib/ai/providers";
 import {
   extractFromMarkdown,
   mdExtraction,
+  mergeExtractions,
   type MdExtraction,
 } from "@/lib/ai/mdImport";
 import { db, schema } from "@/lib/db";
@@ -22,13 +23,34 @@ const {
   workout_sets,
 } = schema;
 
-export async function extractMdImport(text: string): Promise<MdExtraction> {
+export interface ImportSource {
+  name: string;
+  text: string;
+}
+
+export async function extractMdImport(
+  sources: ImportSource[],
+): Promise<MdExtraction> {
   const user = await requireUser();
   const ref = await userModelRef(user.id);
-  if (!ref) throw new Error("Add your AI provider key in Settings > AI; MD import needs AI");
-  const trimmed = text.trim();
-  if (!trimmed) throw new Error("Empty markdown");
-  return extractFromMarkdown(ref, trimmed);
+  if (!ref) {
+    throw new Error("Add your AI provider key in Settings > AI; MD import needs AI");
+  }
+
+  const usable = sources
+    .map((source) => ({ name: source.name, text: source.text.trim() }))
+    .filter((source) => source.text.length > 0);
+  if (!usable.length) throw new Error("Nothing to import");
+
+  const parts: MdExtraction[] = [];
+  for (const source of usable) {
+    const part = await extractFromMarkdown(ref, source.text);
+    parts.push({
+      ...part,
+      warnings: part.warnings.map((warning) => `${source.name}: ${warning}`),
+    });
+  }
+  return mergeExtractions(parts);
 }
 
 export async function commitMdImport(payload: unknown) {
