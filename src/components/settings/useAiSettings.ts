@@ -3,7 +3,8 @@
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import type { AiProvider, AiSetup } from "@/lib/ai/providers";
+import type { AiProvider } from "@/lib/ai/options";
+import type { AiSetup } from "@/lib/ai/providers";
 import type { ModelInfo } from "@/lib/ai/registry";
 import {
   activateProviderAction,

@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { groqModels } from "@/lib/ai/groq";
+import { AI_PROVIDERS } from "@/lib/ai/options";
 import {
   activateProvider,
-  AI_PROVIDERS,
   deleteAiCredential,
   getAiSetup,
   providerApiKey,

@@ -78,6 +78,20 @@
       "when": 1785574251224,
       "tag": "0010_multi_provider_credentials",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1785647547335,
+      "tag": "0011_coach_messages",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1785650447572,
+      "tag": "0012_reasoning_effort",
+      "breakpoints": true
     }
   ]
 }

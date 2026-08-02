@@ -196,10 +196,28 @@ export const ai_credentials = sqliteTable(
     provider: text("provider").notNull(),
     api_key_enc: text("api_key_enc").notNull(),
     model: text("model").notNull(),
+    reasoning_effort: text("reasoning_effort").notNull().default("low"),
     created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
   (t) => [primaryKey({ columns: [t.user_id, t.provider] })],
+);
+
+export const coach_messages = sqliteTable(
+  "coach_messages",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    content: text("content").notNull(),
+    generated: integer("generated", { mode: "boolean" })
+      .notNull()
+      .default(true),
+    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("coach_messages_user_idx").on(t.user_id, t.created_at)],
 );
 
 export const coach_facts = sqliteTable(

@@ -3,7 +3,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 
 import { groqCapability } from "@/lib/ai/groqCaps";
-import type { AiProvider } from "@/lib/ai/providers";
+import type { AiProvider } from "@/lib/ai/options";
 
 const OPENROUTER_API = "https://openrouter.ai/api/v1";
 const FETCH_TIMEOUT_MS = 10_000;

@@ -8,7 +8,12 @@ import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
 import { getWhoopConnection } from "@/lib/integrations/whoop";
 import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
-import { chat, chatTools } from "@/lib/ai/provider";
+import { chat, chatToolsStream, type CoachEvent } from "@/lib/ai/provider";
+import {
+  appendExchange,
+  getConversation,
+  type CoachMessage,
+} from "@/lib/data/coachMessages";
 import { buildCoachTools } from "@/lib/ai/coachTools";
 import { userModelRef, type ModelRef } from "@/lib/ai/providers";
 import { toolsRouting } from "@/lib/ai/registry";
@@ -213,7 +218,9 @@ const TOOLS_ADDENDUM = `
 
 Data access: you have tools that read the user's live data (today's meals and targets, the food catalog, recent workouts, body scans). Call only the tools the question actually needs, then answer that question directly and concretely. Never invent data you did not read from a tool.
 
-Whenever you suggest what to eat, search the catalog first and build the suggestion from the user's own saved items and their exact macros. One search call is enough: pass every term worth trying at once. When the search reports it found no match and returned the user's most eaten items instead, say so before suggesting anything else.`;
+Whenever you suggest what to eat, search the catalog first and build the suggestion from the user's own saved items and their exact macros. One search call is enough: pass every term worth trying at once. When the search reports it found no match and returned the user's most eaten items instead, say so before suggesting anything else.
+
+Suggest ONLY items the catalog returned. The user eats out and logs from that catalog, so a food that is not in it is not something they can order or log. Do not add generic foods (protein powder, quinoa, olive oil, cottage cheese, a fillet of fish) to round the macros: if the catalog cannot reach the target, say which macro is short and by how much, and offer to add the missing food to the catalog. Naming a food the catalog did not return is the one thing that makes this answer useless.`;
 
 async function memoryAndFacts(
   userId: string,
@@ -258,20 +265,29 @@ async function toolReply(
   routeOnly: string[] | undefined,
   userId: string,
   profile: Profile,
+  history: CoachMessage[],
   question?: string,
+  onEvent?: (event: CoachEvent) => void,
 ): Promise<{ text: string; generated: boolean }> {
   const { memory, parts } = await memoryAndFacts(userId, question);
   const ask = question?.trim()
-    ? `User question: ${question.trim()}`
+    ? question.trim()
     : "Give a short read on how today and the week are going, and the next action.";
 
   try {
-    const { text, toolLog } = await chatTools(
+    const { text, toolLog } = await chatToolsStream(
       routeOnly ? { ...ref, routeOnly } : ref,
       {
-        instructions: SYSTEM + TOOLS_ADDENDUM,
-        prompt: [...parts, ask].join("\n"),
+        instructions: [SYSTEM + TOOLS_ADDENDUM, ...parts].join("\n\n"),
+        messages: [
+          ...history.map((message) => ({
+            role: message.role,
+            content: message.content,
+          })),
+          { role: "user" as const, content: ask },
+        ],
         tools: buildCoachTools(userId, profile, todayLogicalDay(dayConfig(profile))),
+        onEvent: onEvent ?? (() => {}),
       },
     );
     if (text) {
@@ -298,13 +314,13 @@ async function contextReply(
   ref: ModelRef,
   userId: string,
   profile: Profile,
+  history: CoachMessage[],
   question?: string,
 ): Promise<{ text: string; generated: boolean }> {
   const ctx = await buildContext(userId, profile);
   const { memory, parts } = await memoryAndFacts(userId, question);
 
   const userMsg = [
-    ...parts,
     ...ctx.lines,
     question?.trim()
       ? `User question: ${question.trim()}`
@@ -313,7 +329,11 @@ async function contextReply(
 
   try {
     const text = await chat(ref, [
-      { role: "system", content: SYSTEM },
+      { role: "system", content: [SYSTEM, ...parts].join("\n\n") },
+      ...history.map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
       { role: "user", content: userMsg },
     ]);
     if (text) {
@@ -333,12 +353,17 @@ export async function coachReply(
   userId: string,
   profile: Profile,
   question?: string,
+  onEvent?: (event: CoachEvent) => void,
 ): Promise<{ text: string; generated: boolean }> {
   const ref = await userModelRef(userId);
   if (!ref) {
     const ctx = await buildContext(userId, profile);
-    return { text: deterministicReply(ctx), generated: false };
+    const text = deterministicReply(ctx);
+    await appendExchange(userId, question?.trim() || null, text, false);
+    return { text, generated: false };
   }
+
+  const history = await getConversation(userId);
 
   let toolPin: string[] | null | undefined = null;
   try {
@@ -347,8 +372,24 @@ export async function coachReply(
     toolPin = null;
   }
 
-  if (toolPin !== null) {
-    return toolReply(ref, toolPin, userId, profile, question);
-  }
-  return contextReply(ref, userId, profile, question);
+  const result =
+    toolPin !== null
+      ? await toolReply(
+          ref,
+          toolPin,
+          userId,
+          profile,
+          history,
+          question,
+          onEvent,
+        )
+      : await contextReply(ref, userId, profile, history, question);
+
+  await appendExchange(
+    userId,
+    question?.trim() || null,
+    result.text,
+    result.generated,
+  );
+  return result;
 }

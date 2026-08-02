@@ -10,7 +10,8 @@ import { SearchField } from "@/components/ui/SearchField";
 import { Segmented } from "@/components/ui/Segmented";
 import { Surface } from "@/components/ui/Surface";
 import { useAiSettings } from "@/components/settings/useAiSettings";
-import type { AiProvider, AiSetup } from "@/lib/ai/providers";
+import type { AiProvider } from "@/lib/ai/options";
+import type { AiSetup } from "@/lib/ai/providers";
 import type { ModelInfo } from "@/lib/ai/registry";
 import { cn } from "@/lib/utils";
 

@@ -5,28 +5,32 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import type { LanguageModel } from "ai";
 import { and, eq } from "drizzle-orm";
 
+import {
+  isAiProvider,
+  isReasoningEffort,
+  type AiProvider,
+  type ReasoningEffort,
+} from "@/lib/ai/options";
+
+export type { AiProvider, ReasoningEffort };
 import { db, schema } from "@/lib/db";
 import { decryptSecret, encryptSecret } from "@/lib/integrations/crypto";
 
 const { ai_credentials, profiles } = schema;
 
-export const AI_PROVIDERS = ["openrouter", "groq"] as const;
-export type AiProvider = (typeof AI_PROVIDERS)[number];
-
-export function isAiProvider(value: string): value is AiProvider {
-  return (AI_PROVIDERS as readonly string[]).includes(value);
-}
 
 export interface ModelRef {
   provider: AiProvider;
   model: string;
   apiKey: string;
+  reasoningEffort: ReasoningEffort;
   routeOnly?: string[];
 }
 
 export interface AiCredential {
   provider: AiProvider;
   model: string;
+  reasoningEffort: ReasoningEffort;
 }
 
 export interface AiSetup {
@@ -60,11 +64,22 @@ async function activeProvider(userId: string): Promise<AiProvider | null> {
 
 async function savedCredentials(userId: string): Promise<AiCredential[]> {
   const rows = await db
-    .select({ provider: ai_credentials.provider, model: ai_credentials.model })
+    .select({
+      provider: ai_credentials.provider,
+      model: ai_credentials.model,
+      reasoning_effort: ai_credentials.reasoning_effort,
+    })
     .from(ai_credentials)
     .where(eq(ai_credentials.user_id, userId));
   return rows
-    .filter((row): row is AiCredential => isAiProvider(row.provider))
+    .filter((row) => isAiProvider(row.provider))
+    .map((row) => ({
+      provider: row.provider as AiProvider,
+      model: row.model,
+      reasoningEffort: isReasoningEffort(row.reasoning_effort)
+        ? row.reasoning_effort
+        : "low",
+    }))
     .sort((a, b) => a.provider.localeCompare(b.provider));
 }
 
@@ -107,6 +122,7 @@ export async function userModelRef(userId: string): Promise<ModelRef | null> {
     return {
       provider: active.provider,
       model: active.model,
+      reasoningEffort: active.reasoningEffort,
       apiKey: decryptSecret(row.api_key_enc, aad(userId, active.provider)),
     };
   } catch (err) {
@@ -229,4 +245,20 @@ export async function deleteAiCredential(
   if (!wasActive) return;
   const remaining = await savedCredentials(userId);
   await setActive(userId, remaining[0]?.provider ?? null);
+}
+
+export async function updateReasoningEffort(
+  userId: string,
+  provider: AiProvider,
+  effort: ReasoningEffort,
+): Promise<void> {
+  await db
+    .update(ai_credentials)
+    .set({ reasoning_effort: effort, updated_at: new Date() })
+    .where(
+      and(
+        eq(ai_credentials.user_id, userId),
+        eq(ai_credentials.provider, provider),
+      ),
+    );
 }

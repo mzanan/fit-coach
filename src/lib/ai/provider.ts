@@ -1,7 +1,16 @@
 import "server-only";
 
-import { generateObject, generateText, isStepCount, type ToolSet } from "ai";
+import {
+  generateObject,
+  generateText,
+  isStepCount,
+  streamText,
+  type ToolSet,
+} from "ai";
 
+import type { SharedV4ProviderOptions } from "@ai-sdk/provider";
+
+import { groqCapability } from "@/lib/ai/groqCaps";
 import { resolveModel, type ModelRef } from "@/lib/ai/providers";
 import { structuredRouting } from "@/lib/ai/registry";
 
@@ -42,25 +51,110 @@ export async function chat(
   return text.trim();
 }
 
+
+function reasoningOptions(ref: ModelRef): SharedV4ProviderOptions | undefined {
+  if (ref.provider === "groq") {
+    const supported =
+      groqCapability(ref.model).reasoning && ref.reasoningEffort !== "none";
+    return supported
+      ? { groq: { reasoningEffort: ref.reasoningEffort } }
+      : undefined;
+  }
+  return {
+    openrouter: {
+      reasoning: {
+        enabled: ref.reasoningEffort !== "none",
+        effort: ref.reasoningEffort,
+      },
+    },
+  };
+}
+
+export type CoachEvent =
+  | { type: "status"; tool: string }
+  | { type: "reasoning"; text: string }
+  | { type: "delta"; text: string };
+
+export async function chatToolsStream(
+  ref: ModelRef,
+  options: {
+    instructions: string;
+    messages: { role: "user" | "assistant"; content: string }[];
+    tools: ToolSet;
+    maxSteps?: number;
+    maxTokens?: number;
+    onEvent: (event: CoachEvent) => void;
+  },
+): Promise<{ text: string; toolLog: string[] }> {
+  const model = resolveModel(ref);
+  const maxTokens = options.maxTokens ?? 3000;
+  const result = streamText({
+    model,
+    instructions: options.instructions,
+    messages: options.messages,
+    tools: options.tools,
+    stopWhen: isStepCount(options.maxSteps ?? 5),
+    maxOutputTokens: maxTokens,
+    providerOptions: reasoningOptions(ref),
+  });
+
+  const toolLog: string[] = [];
+  let text = "";
+  for await (const part of result.fullStream) {
+    if (part.type === "tool-call") {
+      options.onEvent({ type: "status", tool: part.toolName });
+    } else if (part.type === "tool-result") {
+      toolLog.push(
+        `${part.toolName}(${JSON.stringify(part.input)}) -> ${JSON.stringify(part.output).slice(0, 400)}`,
+      );
+    } else if (part.type === "reasoning-delta") {
+      options.onEvent({ type: "reasoning", text: part.text });
+    } else if (part.type === "text-delta") {
+      text += part.text;
+      options.onEvent({ type: "delta", text: part.text });
+    }
+  }
+
+  if (text.trim()) return { text: text.trim(), toolLog };
+
+  const gathered = toolLog.length
+    ? `Data already read from the app:\n${toolLog.join("\n")}`
+    : "No data could be read from the app.";
+  const closing = streamText({
+    model,
+    instructions: `${options.instructions}\n\nAnswer the user now from the data below. Do not ask for more data.`,
+    messages: [...options.messages, { role: "user", content: gathered }],
+    maxOutputTokens: maxTokens,
+    providerOptions: reasoningOptions(ref),
+  });
+  for await (const delta of closing.textStream) {
+    text += delta;
+    options.onEvent({ type: "delta", text: delta });
+  }
+  return { text: text.trim(), toolLog };
+}
+
 export async function chatTools(
   ref: ModelRef,
   options: {
     instructions: string;
-    prompt: string;
+    messages: { role: "user" | "assistant"; content: string }[];
     tools: ToolSet;
     maxSteps?: number;
     maxTokens?: number;
   },
 ): Promise<{ text: string; toolLog: string[] }> {
   const model = resolveModel(ref);
-  const maxTokens = options.maxTokens ?? 1200;
+  const maxTokens = options.maxTokens ?? 3000;
+  const providerOptions = reasoningOptions(ref);
   const result = await generateText({
     model,
     instructions: options.instructions,
-    prompt: options.prompt,
+    messages: options.messages,
     tools: options.tools,
     stopWhen: isStepCount(options.maxSteps ?? 5),
     maxOutputTokens: maxTokens,
+    providerOptions,
   });
   const toolLog = result.steps.flatMap((step) =>
     step.toolResults.map(
@@ -71,14 +165,15 @@ export async function chatTools(
 
   let text = result.text.trim();
   if (!text) {
+    const gathered = toolLog.length
+      ? `Data already read from the app:\n${toolLog.join("\n")}`
+      : "No data could be read from the app.";
     const closing = await generateText({
       model,
-      instructions: `${options.instructions}\n\nAnswer the user now from the tool results already gathered. Do not ask for more data.`,
-      messages: [
-        { role: "user", content: options.prompt },
-        ...result.response.messages,
-      ],
+      instructions: `${options.instructions}\n\nAnswer the user now from the data below. Do not ask for more data.`,
+      messages: [...options.messages, { role: "user", content: gathered }],
       maxOutputTokens: maxTokens,
+      providerOptions,
     });
     text = closing.text.trim();
   }
