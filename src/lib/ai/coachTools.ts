@@ -9,6 +9,7 @@ import { getDayData } from "@/lib/data/today";
 import { getRecentWorkouts, hydrateWorkout } from "@/lib/data/workouts";
 import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
+import { hasMacros } from "@/lib/macros";
 import { normalizeSearch } from "@/lib/search";
 import { round } from "@/lib/utils";
 
@@ -169,15 +170,25 @@ export function buildCoachTools(
               )
             : [];
           const matched = hits.length > 0;
+          const pool = matched ? hits : items;
+          const usable = pool.filter(hasMacros);
           const chosen = matched
-            ? hits.slice(0, CATALOG_RESULTS)
+            ? [...usable, ...pool.filter((item) => !hasMacros(item))].slice(
+                0,
+                CATALOG_RESULTS,
+              )
             : spreadByPlace(
-                await mostEaten(userId, items, CATALOG_SAMPLE),
+                await mostEaten(
+                  userId,
+                  usable.length ? usable : pool,
+                  CATALOG_SAMPLE,
+                ),
                 CATALOG_SAMPLE,
               );
           return {
             query_matched: matched,
             catalog_size: items.length,
+            items_with_macros: items.filter(hasMacros).length,
             places: placeCounts(items),
             note: matched
               ? undefined
