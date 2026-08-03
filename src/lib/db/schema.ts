@@ -99,6 +99,7 @@ export const profiles = sqliteTable("profiles", {
   seeded_at: integer("seeded_at", { mode: "timestamp_ms" }),
   ai_provider: text("ai_provider"),
   coach_rules: text("coach_rules"),
+  dining_mode: text("dining_mode"),
   created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 });

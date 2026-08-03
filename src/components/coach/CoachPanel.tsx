@@ -9,6 +9,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Pill } from "@/components/ui/Pill";
 import { Surface } from "@/components/ui/Surface";
 import { cn } from "@/lib/utils";
+import { DiningModeAsk } from "@/components/coach/DiningModeAsk";
 import { EffortMenu } from "@/components/coach/EffortMenu";
 import { useCoachChat, type ChatBubble } from "@/components/coach/useCoachChat";
 import type { ReasoningEffort } from "@/lib/ai/options";
@@ -75,14 +76,17 @@ function Turn({ bubble }: { bubble: ChatBubble }) {
 export function CoachPanel({
   initial,
   effort,
+  diningMode,
 }: {
   initial: CoachMessage[];
   effort: ReasoningEffort | null;
+  diningMode: string | null;
 }) {
   const { setAnchor, ...chat } = useCoachChat(initial, effort);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {diningMode ? null : <DiningModeAsk />}
       <div className="flex flex-wrap items-center gap-2">
         {QUICK.map((q) => (
           <Button

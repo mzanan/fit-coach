@@ -47,6 +47,20 @@ Meal distribution rules, in priority order:
 
 Weekly review (Sunday or when asked): look at adherence and training progression, then recommend keep / adjust calories by 100-150 / swap exercises stalled 3+ weeks. Routine changes only with a concrete reason, never for variety.`;
 
+const DINING_RULES: Record<string, string> = {
+  delivery:
+    "\n\nStanding rule, asked once and kept until the user changes it: the user orders delivery from their saved catalog and does not cook. Never suggest cooking, home-made dishes, or anything that is not a catalog item or a place the catalog names.",
+  cooks:
+    "\n\nStanding rule, asked once and kept until the user changes it: the user can cook at home as well as order from the catalog. Home-cooked suggestions are allowed, but mark their macros as estimates and offer to save them to the catalog.",
+};
+
+function diningRule(profile: Profile): string {
+  return (
+    DINING_RULES[profile.dining_mode ?? ""] ??
+    "\n\nYou do not know yet whether this user cooks at home or only orders delivery. The app is asking them right above the chat. Until they answer, suggest only catalog items and do not assume they have a kitchen."
+  );
+}
+
 function coachingRules(profile: Profile): string {
   const own = profile.coach_rules?.trim();
   return own
@@ -286,7 +300,7 @@ async function toolReply(
     const { text, toolLog } = await chatToolsStream(
       routeOnly ? { ...ref, routeOnly } : ref,
       {
-        instructions: [COACH_FRAME + coachingRules(profile) + TOOLS_ADDENDUM, ...parts].join("\n\n"),
+        instructions: [COACH_FRAME + diningRule(profile) + coachingRules(profile) + TOOLS_ADDENDUM, ...parts].join("\n\n"),
         messages: [
           ...history.map((message) => ({
             role: message.role,
@@ -339,7 +353,10 @@ async function contextReply(
     const text = await chat(ref, [
       {
         role: "system",
-        content: [COACH_FRAME + coachingRules(profile), ...parts].join("\n\n"),
+        content: [
+          COACH_FRAME + diningRule(profile) + coachingRules(profile),
+          ...parts,
+        ].join("\n\n"),
       },
       ...history.map((message) => ({
         role: message.role,

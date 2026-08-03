@@ -1,0 +1,1 @@
+ALTER TABLE `profiles` ADD `dining_mode` text;

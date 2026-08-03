@@ -51,6 +51,24 @@ export async function updateCoachRules(input: unknown) {
   revalidatePath("/settings/coach");
 }
 
+const DINING_MODES = ["delivery", "cooks"] as const;
+
+const diningModeSchema = z.object({
+  mode: z.enum(DINING_MODES),
+});
+
+export async function updateDiningMode(input: unknown) {
+  const user = await requireUser();
+  const { mode } = diningModeSchema.parse(input);
+
+  await db
+    .update(profiles)
+    .set({ dining_mode: mode, updated_at: new Date() })
+    .where(eq(profiles.user_id, user.id));
+  revalidatePath("/coach");
+  revalidatePath("/settings/coach");
+}
+
 const settingsSchema = z.object({
   sex: z.enum(["male", "female"]),
   birth_year: z.number().int().min(1900).max(2100).nullable(),
