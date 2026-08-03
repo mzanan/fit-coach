@@ -14,3 +14,9 @@ export const macroFields = {
   fat_g: macroNumber,
   carbs_g: macroNumber,
 };
+
+export const optionalMacroFields = {
+  protein_g: macroNumber.nullish(),
+  fat_g: macroNumber.nullish(),
+  carbs_g: macroNumber.nullish(),
+};

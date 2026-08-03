@@ -24,7 +24,14 @@ export function ImportCatalogRow({
         {item.place ? (
           <p className="text-meta text-muted-foreground">{item.place}</p>
         ) : null}
-        <MacroChips macros={item} className="mt-1" />
+        <MacroChips
+          macros={{
+            protein_g: item.protein_g ?? null,
+            fat_g: item.fat_g ?? null,
+            carbs_g: item.carbs_g ?? null,
+          }}
+          className="mt-1"
+        />
       </div>
     </div>
   );

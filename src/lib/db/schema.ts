@@ -98,6 +98,7 @@ export const profiles = sqliteTable("profiles", {
   calories_target: real("calories_target").notNull().default(2150),
   seeded_at: integer("seeded_at", { mode: "timestamp_ms" }),
   ai_provider: text("ai_provider"),
+  coach_rules: text("coach_rules"),
   created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 });
@@ -111,9 +112,9 @@ export const catalog_items = sqliteTable(
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     place: text("place"),
-    protein_g: real("protein_g").notNull().default(0),
-    fat_g: real("fat_g").notNull().default(0),
-    carbs_g: real("carbs_g").notNull().default(0),
+    protein_g: real("protein_g"),
+    fat_g: real("fat_g"),
+    carbs_g: real("carbs_g"),
     fat_quality: text("fat_quality"),
     notes: text("notes"),
     is_composable: integer("is_composable", { mode: "boolean" })

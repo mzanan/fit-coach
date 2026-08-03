@@ -3,6 +3,7 @@ import {
   Activity,
   Database,
   FileText,
+  MessageCircle,
   ScanLine,
   Sparkles,
   Target,
@@ -58,6 +59,12 @@ export default async function SettingsPage() {
             icon={Sparkles}
             label="AI"
             value={ai ? ai.model.split("/").pop() : "Not configured"}
+          />
+          <ListRow
+            href="/settings/coach"
+            icon={MessageCircle}
+            label="Coach rules"
+            value={profile.coach_rules ? "Yours" : "Built-in"}
           />
         </ListGroup>
 

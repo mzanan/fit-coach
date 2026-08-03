@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import type { AiProvider } from "@/lib/ai/options";
+import { isAiProvider, type AiProvider } from "@/lib/ai/options";
 import type { AiSetup } from "@/lib/ai/providers";
 import type { ModelInfo } from "@/lib/ai/registry";
 import {
@@ -20,6 +20,7 @@ const VISIBLE_LIMIT = 30;
 const LABEL: Record<AiProvider, string> = {
   openrouter: "OpenRouter",
   groq: "Groq",
+  google: "Google",
 };
 
 export function useAiSettings(
@@ -27,6 +28,7 @@ export function useAiSettings(
   openrouterModels: ModelInfo[],
   groqModels: ModelInfo[] | null,
   groqListFailed: boolean,
+  googleModels: ModelInfo[],
 ) {
   const [pending, startTransition] = useTransition();
   const [provider, setProvider] = useState<AiProvider>(
@@ -75,8 +77,9 @@ export function useAiSettings(
 
   const models = useMemo(() => {
     if (provider === "openrouter") return openrouterModels;
+    if (provider === "google") return googleModels;
     return groqModels ?? typedModels ?? [];
-  }, [provider, openrouterModels, groqModels, typedModels]);
+  }, [provider, openrouterModels, googleModels, groqModels, typedModels]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -109,7 +112,7 @@ export function useAiSettings(
 
   function switchProvider(next: string) {
     if (next === provider) return;
-    if (next !== "openrouter" && next !== "groq") return;
+    if (!isAiProvider(next)) return;
 
     const previous = provider;
     setProvider(next);

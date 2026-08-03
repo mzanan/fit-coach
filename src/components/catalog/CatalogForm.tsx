@@ -4,11 +4,14 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
-import { MacroInputs, type MacroValues } from "@/components/ui/MacroInputs";
+import {
+  OptionalMacroInputs,
+  type OptionalMacroValues,
+} from "@/components/ui/MacroInputs";
 import { Segmented } from "@/components/ui/Segmented";
 import { FAT_QUALITY_OPTIONS } from "@/lib/constants";
 
-export interface CatalogFormValues extends MacroValues {
+export interface CatalogFormValues extends OptionalMacroValues {
   name: string;
   place: string;
   notes: string;
@@ -33,9 +36,9 @@ export function CatalogForm({
     place: initial?.place ?? "",
     notes: initial?.notes ?? "",
     fat_quality: initial?.fat_quality ?? "",
-    protein_g: initial?.protein_g ?? 0,
-    fat_g: initial?.fat_g ?? 0,
-    carbs_g: initial?.carbs_g ?? 0,
+    protein_g: initial?.protein_g ?? null,
+    fat_g: initial?.fat_g ?? null,
+    carbs_g: initial?.carbs_g ?? null,
   });
 
   function submit(e: React.FormEvent) {
@@ -67,7 +70,7 @@ export function CatalogForm({
       </div>
 
       {hideMacros ? null : (
-        <MacroInputs
+        <OptionalMacroInputs
           value={values}
           onChange={(m) => setValues({ ...values, ...m })}
         />

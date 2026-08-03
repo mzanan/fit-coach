@@ -2,9 +2,15 @@ import "server-only";
 
 import { z } from "zod";
 
+import { googleModel } from "@/lib/ai/googleCaps";
 import { chatJson } from "@/lib/ai/provider";
 import type { ModelRef } from "@/lib/ai/providers";
-import { dayString, fatQuality, macroFields } from "@/lib/validation";
+import {
+  dayString,
+  fatQuality,
+  macroFields,
+  optionalMacroFields,
+} from "@/lib/validation";
 
 const importedMeal = z.object({
   category: z.enum(["breakfast", "post_gym", "lunch", "snack", "dinner"]),
@@ -43,7 +49,7 @@ const importedCatalogItem = z.object({
   place: z.string().nullish(),
   fat_quality: fatQuality.optional(),
   notes: z.string().nullish(),
-  ...macroFields,
+  ...optionalMacroFields,
 });
 
 export const mdExtraction = z.object({
@@ -70,13 +76,15 @@ const SYSTEM = `You extract structured data from a personal markdown log of nutr
     }
   ],
   "catalog_items": [
-    { "name": string, "place": string|null, "protein_g": number, "fat_g": number, "carbs_g": number, "fat_quality": "clean"|"oily"|null, "notes": string|null }
+    { "name": string, "place": string|null, "protein_g": number|null, "fat_g": number|null, "carbs_g": number|null, "fat_quality": "clean"|"oily"|null, "notes": string|null }
   ],
   "warnings": [string]
 }
 
 Rules:
-- Extract ONLY what the text states. NEVER invent or estimate macros; if a meal has no macros in the text, use 0 for the missing values and add a warning naming the meal and day.
+- Extract ONLY what the text states. NEVER invent or estimate macros.
+- A catalog item whose macros the text does not give gets null for each missing macro. Never write 0 for a macro the text does not state: 0 means the text says zero.
+- A meal inside a day has no null macros: if the text gives no macros for it, use 0 and add a warning naming the meal and day.
 - Macros are grams. Calories are derived, do not extract them as a macro.
 - Map meal category from explicit labels or time of day: 05-11 breakfast, 11-16 lunch, 16-18 snack, 16-23 dinner; post-workout meals are post_gym.
 - fat_quality: "oily" only when the text says fried/oily/greasy, "clean" when it says clean/grilled/steamed, else null.
@@ -85,7 +93,8 @@ Rules:
 - catalog_items: only from sections that describe reusable meals or a food reference list (not daily logs).
 - If a section is unrelated to food or training, ignore it.`;
 
-function chunkMarkdown(text: string, maxChars = 12000): string[] {
+function chunkMarkdown(text: string, maxChars = 4000): string[] {
+  maxChars = maxChars || 4000;
   if (text.length <= maxChars) return [text];
   const sections = text.split(/(?=^#{1,3} )/m);
   const chunks: string[] = [];
@@ -105,7 +114,13 @@ function chunkMarkdown(text: string, maxChars = 12000): string[] {
   return chunks;
 }
 
-function mergeExtractions(parts: MdExtraction[]): MdExtraction {
+function knownMacros(item: ImportedCatalogItem): number {
+  return [item.protein_g, item.fat_g, item.carbs_g].filter(
+    (macro) => macro !== null && macro !== undefined,
+  ).length;
+}
+
+export function mergeExtractions(parts: MdExtraction[]): MdExtraction {
   const dayMap = new Map<string, ImportedDay>();
   const catalog = new Map<string, ImportedCatalogItem>();
   const warnings: string[] = [];
@@ -122,7 +137,12 @@ function mergeExtractions(parts: MdExtraction[]): MdExtraction {
     }
     for (const item of part.catalog_items) {
       const key = item.name.trim().toLowerCase();
-      if (!catalog.has(key)) catalog.set(key, item);
+      const existing = catalog.get(key);
+      if (!existing) {
+        catalog.set(key, item);
+      } else if (knownMacros(item) > knownMacros(existing)) {
+        catalog.set(key, item);
+      }
     }
     warnings.push(...part.warnings);
   }
@@ -134,10 +154,19 @@ function mergeExtractions(parts: MdExtraction[]): MdExtraction {
 export async function extractFromMarkdown(
   ref: ModelRef,
   text: string,
+  onChunk?: (done: number, total: number) => void,
+  signal?: AbortSignal,
 ): Promise<MdExtraction> {
-  const chunks = chunkMarkdown(text);
+  const google = ref.provider === "google" ? googleModel(ref.model) : null;
+  const chunks = chunkMarkdown(text, google?.maxInputChars);
+  const budget = google ? 60_000 : 6000;
   const parts: MdExtraction[] = [];
   for (let i = 0; i < chunks.length; i++) {
+    if (signal?.aborted) break;
+    onChunk?.(i, chunks.length);
+    console.log(
+      `md import: part ${i + 1}/${chunks.length}, ${chunks[i].length} chars, model ${ref.provider}/${ref.model}, output budget ${budget}`,
+    );
     const raw = await chatJson<unknown>(
       ref,
       [
@@ -147,12 +176,18 @@ export async function extractFromMarkdown(
           content: `Markdown log (part ${i + 1} of ${chunks.length}):\n\n${chunks[i]}`,
         },
       ],
-      8000,
+      budget,
+      signal,
     );
     const parsed = mdExtraction.safeParse(raw);
     if (parsed.success) {
       parts.push(parsed.data);
     } else {
+      console.error(
+        `md import: part ${i + 1} did not match the schema`,
+        parsed.error.issues.slice(0, 5),
+        JSON.stringify(raw).slice(0, 600),
+      );
       parts.push({
         days: [],
         catalog_items: [],

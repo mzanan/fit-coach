@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Eraser, Sparkles } from "lucide-react";
+import { ChevronRight, Eraser, Sparkles, Square } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -172,15 +172,23 @@ export function CoachPanel({
                 onChange={chat.setEffort}
               />
             ) : null}
-            <Button
-              type="submit"
-              size="sm"
-              disabled={chat.loading}
-              className="shrink-0"
-            >
-              <Sparkles className="size-4" strokeWidth={1.5} />
-              Ask
-            </Button>
+            {chat.loading ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={chat.stop}
+                className="shrink-0"
+              >
+                <Square className="size-4" strokeWidth={1.5} />
+                Stop
+              </Button>
+            ) : (
+              <Button type="submit" size="sm" className="shrink-0">
+                <Sparkles className="size-4" strokeWidth={1.5} />
+                Ask
+              </Button>
+            )}
           </form>
         </Surface>
       </div>

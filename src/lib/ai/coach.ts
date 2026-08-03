@@ -15,6 +15,7 @@ import {
   type CoachMessage,
 } from "@/lib/data/coachMessages";
 import { buildCoachTools } from "@/lib/ai/coachTools";
+import { PROVIDER_LABEL } from "@/lib/ai/options";
 import { userModelRef, type ModelRef } from "@/lib/ai/providers";
 import { toolsRouting } from "@/lib/ai/registry";
 import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
@@ -25,7 +26,14 @@ import { round } from "@/lib/utils";
 
 const { meals, body_scans } = schema;
 
-const SYSTEM = `You are a strength and nutrition coach inside a personal tracking app. The user is doing body recomposition (gain muscle, lose fat) and mostly eats out. Real progress = photo every 4 weeks + waist, not the scale.
+const COACH_FRAME = `You are a strength and nutrition coach inside a personal tracking app. The user is doing body recomposition (gain muscle, lose fat) and mostly eats out. Real progress = photo every 4 weeks + waist, not the scale.
+
+How you work, always:
+- NEVER change the user's daily targets on your own. If the data conflicts with the targets or something is ambiguous, surface it and ask.
+- ALWAYS reply in the same language the user wrote their question in. If there is no question, reply in the language of the user's previous messages, and in English if you have no signal at all. Never switch to a different language than the user's, even a closely related one.
+- Be direct and concrete, no hype, no alarmism, no emoji. Give one or two specific next actions (e.g. what to add to hit protein). Keep it under 130 words. Never use em dashes.`;
+
+const DEFAULT_COACHING = `
 
 Macro rules, follow them strictly:
 - Protein is the priority. Warn clearly if protein is low; that hurts muscle.
@@ -37,11 +45,14 @@ Meal distribution rules, in priority order:
 2. Early correction: if a logged meal lands more than 15% short of its third on any macro, flag it immediately and add the shortfall to the NEXT meal. Never let a deficit silently pile up onto dinner.
 3. Snack (16-18h) is an EXCEPTION, not a habit: suggest it only when compensating in dinner would push dinner above 40% of the daily macros. If snacks become recurring, the base meals are mis-sized: say so and propose resizing the thirds.
 
-Hard limits:
-- NEVER change the user's daily targets on your own. If the data conflicts with the targets or something is ambiguous, surface it and ask.
-- Weekly review (Sunday or when asked): look at adherence and training progression, then recommend keep / adjust calories by 100-150 / swap exercises stalled 3+ weeks. Routine changes only with a concrete reason, never for variety.
-- ALWAYS reply in the same language the user wrote their question in. If there is no question, reply in the language of the user's previous messages, and in English if you have no signal at all. Never switch to a different language than the user's, even a closely related one.
-- Be direct and concrete, no hype, no alarmism, no emoji. Give one or two specific next actions (e.g. what to add to hit protein). Keep it under 130 words. Never use em dashes.`;
+Weekly review (Sunday or when asked): look at adherence and training progression, then recommend keep / adjust calories by 100-150 / swap exercises stalled 3+ weeks. Routine changes only with a concrete reason, never for variety.`;
+
+function coachingRules(profile: Profile): string {
+  const own = profile.coach_rules?.trim();
+  return own
+    ? `\n\nCoaching rules the user wrote for you. They are the method you coach by, and they win over any general advice you would otherwise give:\n\n${own}`
+    : DEFAULT_COACHING;
+}
 
 interface CoachContext {
   profile: Profile;
@@ -192,11 +203,6 @@ function aiErrorReply(ctx: CoachContext): string {
   return `The coach could not reach your AI model. Check your key and model in Settings > AI, or try again. Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
-const PROVIDER_LABEL: Record<ModelRef["provider"], string> = {
-  openrouter: "OpenRouter",
-  groq: "Groq",
-};
-
 function limitErrorReply(
   provider: ModelRef["provider"],
   error: unknown,
@@ -278,7 +284,7 @@ async function toolReply(
     const { text, toolLog } = await chatToolsStream(
       routeOnly ? { ...ref, routeOnly } : ref,
       {
-        instructions: [SYSTEM + TOOLS_ADDENDUM, ...parts].join("\n\n"),
+        instructions: [COACH_FRAME + coachingRules(profile) + TOOLS_ADDENDUM, ...parts].join("\n\n"),
         messages: [
           ...history.map((message) => ({
             role: message.role,
@@ -329,7 +335,10 @@ async function contextReply(
 
   try {
     const text = await chat(ref, [
-      { role: "system", content: [SYSTEM, ...parts].join("\n\n") },
+      {
+        role: "system",
+        content: [COACH_FRAME + coachingRules(profile), ...parts].join("\n\n"),
+      },
       ...history.map((message) => ({
         role: message.role,
         content: message.content,
@@ -354,12 +363,15 @@ export async function coachReply(
   profile: Profile,
   question?: string,
   onEvent?: (event: CoachEvent) => void,
+  signal?: AbortSignal,
 ): Promise<{ text: string; generated: boolean }> {
   const ref = await userModelRef(userId);
   if (!ref) {
     const ctx = await buildContext(userId, profile);
     const text = deterministicReply(ctx);
-    await appendExchange(userId, question?.trim() || null, text, false);
+    if (!signal?.aborted) {
+      await appendExchange(userId, question?.trim() || null, text, false);
+    }
     return { text, generated: false };
   }
 
@@ -384,6 +396,8 @@ export async function coachReply(
           onEvent,
         )
       : await contextReply(ref, userId, profile, history, question);
+
+  if (signal?.aborted) return result;
 
   await appendExchange(
     userId,

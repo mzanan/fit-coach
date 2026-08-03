@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { addMealFromCatalog, repeatMeal } from "@/lib/actions/meals";
 import type { CatalogItemFull } from "@/lib/data/catalog";
 import type { RecentMeal } from "@/lib/data/recentMeals";
+import { hasMacros } from "@/lib/macros";
 import { normalizeSearch } from "@/lib/search";
 
 export interface PickerItem {
@@ -59,12 +60,14 @@ export function useAddMeal({
             key: `recent:${r.id}`,
             name: item.name,
             place: item.place,
-            protein_g: item.protein_g,
-            fat_g: item.fat_g,
-            carbs_g: item.carbs_g,
+            protein_g: r.protein_g,
+            fat_g: r.fat_g,
+            carbs_g: r.carbs_g,
             fat_quality: item.fat_quality,
-            action: (category, day) =>
-              addMealFromCatalog({ itemId: item.id, category, day }),
+            action: hasMacros(item)
+              ? (category, day) =>
+                  addMealFromCatalog({ itemId: item.id, category, day })
+              : (category, day) => repeatMeal({ mealId: r.id, category, day }),
           });
         }
       } else {
@@ -90,14 +93,14 @@ export function useAddMeal({
 
   const catalogItems = useMemo(() => {
     return simpleCatalog
-      .filter((c) => !recentCatalogIds.has(c.id))
+      .filter((c) => !recentCatalogIds.has(c.id) && hasMacros(c))
       .map((c): PickerItem => ({
         key: `catalog:${c.id}`,
         name: c.name,
         place: c.place,
-        protein_g: c.protein_g,
-        fat_g: c.fat_g,
-        carbs_g: c.carbs_g,
+        protein_g: c.protein_g ?? 0,
+        fat_g: c.fat_g ?? 0,
+        carbs_g: c.carbs_g ?? 0,
         fat_quality: c.fat_quality,
         action: (category, day) =>
           addMealFromCatalog({ itemId: c.id, category, day }),

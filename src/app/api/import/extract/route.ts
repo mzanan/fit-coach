@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { coachReply } from "@/lib/ai/coach";
-import { ensureProfile } from "@/lib/profile";
+import { runMdExtraction, type ImportSource } from "@/lib/ai/mdExtract";
 import { getUser } from "@/lib/session";
+
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   const user = await getUser();
@@ -10,34 +11,35 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let question: string | undefined;
+  let sources: ImportSource[] = [];
   try {
-    const body = (await request.json()) as { question?: string };
-    question = body.question;
+    const body = (await request.json()) as { sources?: ImportSource[] };
+    sources = Array.isArray(body.sources) ? body.sources : [];
   } catch {
-    question = undefined;
+    sources = [];
   }
 
-  const profile = await ensureProfile(user.id);
   const encoder = new TextEncoder();
-
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (event: unknown) => {
         controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       };
-      send({ type: "status", tool: "thinking" });
       try {
-        const result = await coachReply(
+        const extraction = await runMdExtraction(
           user.id,
-          profile,
-          question,
-          send,
+          sources,
+          (progress) => send({ type: "progress", ...progress }),
           request.signal,
         );
-        send({ type: "done", text: result.text, generated: result.generated });
-      } catch {
-        send({ type: "error" });
+        send({ type: "done", extraction });
+      } catch (error) {
+        console.error("md import: extraction failed", error);
+        send({
+          type: "error",
+          message:
+            error instanceof Error ? error.message : "Extraction failed",
+        });
       }
       controller.close();
     },

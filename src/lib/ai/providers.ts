@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import type { LanguageModel } from "ai";
@@ -41,6 +42,9 @@ export interface AiSetup {
 export function resolveModel(ref: ModelRef): LanguageModel {
   if (ref.provider === "groq") {
     return createGroq({ apiKey: ref.apiKey })(ref.model);
+  }
+  if (ref.provider === "google") {
+    return createGoogleGenerativeAI({ apiKey: ref.apiKey })(ref.model);
   }
   return createOpenRouter({ apiKey: ref.apiKey })(
     ref.model,

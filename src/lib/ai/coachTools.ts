@@ -16,6 +16,7 @@ const { body_scans, meals } = schema;
 
 const HYDRATED_WORKOUTS = 3;
 const CATALOG_RESULTS = 8;
+const CATALOG_SAMPLE = 12;
 const SCAN_LIMIT = 2;
 const MAX_QUERY_TERMS = 12;
 
@@ -42,6 +43,44 @@ async function mostEaten<T extends { id: string }>(
       (ranking.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
       (ranking.get(b.id) ?? Number.MAX_SAFE_INTEGER),
   );
+}
+
+function placeCounts<T extends { place: string | null }>(
+  items: T[],
+): { place: string; items: number }[] {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const place = item.place?.trim() || "No place";
+    counts.set(place, (counts.get(place) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([place, count]) => ({ place, items: count }))
+    .sort((a, b) => b.items - a.items);
+}
+
+function spreadByPlace<T extends { place: string | null }>(
+  items: T[],
+  limit: number,
+): T[] {
+  const byPlace = new Map<string, T[]>();
+  for (const item of items) {
+    const place = item.place?.trim() || "No place";
+    const list = byPlace.get(place) ?? [];
+    list.push(item);
+    byPlace.set(place, list);
+  }
+  const queues = [...byPlace.values()];
+  const picked: T[] = [];
+  let round = 0;
+  while (picked.length < limit && queues.some((q) => q.length > round)) {
+    for (const queue of queues) {
+      if (picked.length >= limit) break;
+      const item = queue[round];
+      if (item) picked.push(item);
+    }
+    round += 1;
+  }
+  return picked;
 }
 
 const TOOL_FAILURE = {
@@ -104,7 +143,7 @@ export function buildCoachTools(
     }),
     search_catalog: tool({
       description:
-        "Search the user's saved food catalog by name or place. Pass every term worth trying in one call: they are searched together. The catalog is stored in the words the user typed, often English even when they ask in another language, so include the English translation of each term alongside the original. Returns the user's most eaten items when nothing matches.",
+        "Search the user's saved food catalog by name or place. Pass every term worth trying in one call: they are searched together. The catalog is stored in the words the user typed, often English even when they ask in another language, so include the English translation of each term alongside the original. This tool ALWAYS returns real items from the catalog: when nothing matches the terms it returns a sample spread across the user's places, so never tell the user their catalog is empty or that you found nothing. A macro of null means that number was never recorded: say so instead of guessing it.",
       inputSchema: z.object({
         queries: z.array(z.string().trim().min(1)).min(1),
       }),
@@ -131,11 +170,19 @@ export function buildCoachTools(
             : [];
           const matched = hits.length > 0;
           const chosen = matched
-            ? hits
-            : await mostEaten(userId, items, CATALOG_RESULTS);
+            ? hits.slice(0, CATALOG_RESULTS)
+            : spreadByPlace(
+                await mostEaten(userId, items, CATALOG_SAMPLE),
+                CATALOG_SAMPLE,
+              );
           return {
-            matched,
-            items: chosen.slice(0, CATALOG_RESULTS).map((item) => ({
+            query_matched: matched,
+            catalog_size: items.length,
+            places: placeCounts(items),
+            note: matched
+              ? undefined
+              : "Nothing matched those terms, so these are a sample of the catalog across the user's places. Suggest from them; do not say the catalog is empty or that you found nothing.",
+            items: chosen.map((item) => ({
               name: item.name,
               place: item.place,
               protein_g: item.protein_g,

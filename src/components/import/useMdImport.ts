@@ -1,10 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { commitMdImport, extractMdImport } from "@/lib/actions/mdImport";
+import { commitMdImport } from "@/lib/actions/mdImport";
+import { readNdjson } from "@/lib/ndjson";
+import type { MdExtraction } from "@/lib/ai/mdImport";
 import type {
   ImportedCatalogItem,
   ImportedMeal,
@@ -32,18 +34,77 @@ export interface PreviewCatalogItem extends ImportedCatalogItem {
   include: boolean;
 }
 
+type ExtractEvent =
+  | {
+      type: "progress";
+      file: string;
+      fileIndex: number;
+      files: number;
+      chunk: number;
+      chunks: number;
+    }
+  | { type: "done"; extraction: MdExtraction }
+  | { type: "error"; message: string };
+
+export interface Attachment {
+  id: string;
+  name: string;
+  text: string;
+}
+
 export function useMdImport() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [mdText, setMdText] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [days, setDays] = useState<PreviewDay[] | null>(null);
   const [catalogItems, setCatalogItems] = useState<PreviewCatalogItem[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [progress, setProgress] = useState<string | null>(null);
+  const [controller, setController] = useState<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => controller?.abort();
+  }, [controller]);
 
   function extract() {
     startTransition(async () => {
+      setProgress("Sending your files");
+      const abort = new AbortController();
+      setController(abort);
       try {
-        const result = await extractMdImport(mdText);
+        const res = await fetch("/api/import/extract", {
+          method: "POST",
+          signal: abort.signal,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sources: [
+              ...attachments.map((file) => ({
+                name: file.name,
+                text: file.text,
+              })),
+              ...(mdText.trim()
+                ? [{ name: "Pasted text", text: mdText }]
+                : []),
+            ],
+          }),
+        });
+        if (!res.ok || !res.body) throw new Error("Extraction failed");
+
+        let result: MdExtraction | null = null;
+        for await (const event of readNdjson<ExtractEvent>(res.body)) {
+          if (event.type === "progress") {
+            setProgress(
+              `${event.file} (${event.fileIndex} of ${event.files}), part ${event.chunk} of ${event.chunks}`,
+            );
+          } else if (event.type === "done") {
+            result = event.extraction;
+          } else {
+            throw new Error(event.message);
+          }
+        }
+        if (!result) throw new Error("Extraction returned nothing");
+
         setDays(
           result.days.map((d, di) => ({
             day: d.day,
@@ -64,13 +125,44 @@ export function useMdImport() {
         );
         setWarnings(result.warnings);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Extraction failed");
+        if ((e as Error).name !== "AbortError") {
+          toast.error(e instanceof Error ? e.message : "Extraction failed");
+        }
+      } finally {
+        setProgress(null);
+        setController(null);
       }
     });
   }
 
-  async function loadFile(file: File) {
-    setMdText(await file.text());
+  async function attachFiles(files: File[]) {
+    const loaded = await Promise.all(
+      files.map(async (file) => ({
+        id: `${file.name}-${file.size}-${file.lastModified}`,
+        name: file.name,
+        text: (await file.text()).trim(),
+      })),
+    );
+    const kept = loaded.filter((file) => file.text.length > 0);
+    if (!kept.length) {
+      toast.error("Those files are empty");
+      return;
+    }
+    if (kept.length < loaded.length) {
+      toast(`${loaded.length - kept.length} empty file(s) skipped`);
+    }
+    setAttachments((current) => [
+      ...current,
+      ...kept.filter((file) => !current.some((a) => a.id === file.id)),
+    ]);
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((current) => current.filter((file) => file.id !== id));
+  }
+
+  function cancelExtraction() {
+    controller?.abort();
   }
 
   function updateMeal(day: string, key: string, values: Partial<ImportedMeal>) {
@@ -152,8 +244,12 @@ export function useMdImport() {
           warnings: [],
         };
         const result = await commitMdImport(payload);
+        const skipped =
+          result.skippedDuplicates + result.skippedCatalogItems;
         toast.success(
-          `Imported ${result.meals} meals, ${result.workouts} workouts, ${result.catalogItems} catalog items`,
+          `Imported ${result.meals} meals, ${result.workouts} workouts, ${result.catalogItems} catalog items${
+            skipped ? `. ${skipped} already there, skipped` : ""
+          }`,
         );
         router.push("/");
       } catch (e) {
@@ -177,7 +273,11 @@ export function useMdImport() {
     pending,
     mdText,
     setMdText,
-    loadFile,
+    attachFiles,
+    attachments,
+    progress,
+    cancelExtraction,
+    removeAttachment,
     extract,
     days,
     catalogItems,

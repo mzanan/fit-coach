@@ -1,15 +1,10 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { parseISO } from "date-fns";
 
-import { userModelRef } from "@/lib/ai/providers";
-import {
-  extractFromMarkdown,
-  mdExtraction,
-  type MdExtraction,
-} from "@/lib/ai/mdImport";
+import { mdExtraction } from "@/lib/ai/mdImport";
 import { db, schema } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { newId } from "@/lib/utils";
@@ -22,15 +17,6 @@ const {
   workout_sets,
 } = schema;
 
-export async function extractMdImport(text: string): Promise<MdExtraction> {
-  const user = await requireUser();
-  const ref = await userModelRef(user.id);
-  if (!ref) throw new Error("Add your AI provider key in Settings > AI; MD import needs AI");
-  const trimmed = text.trim();
-  if (!trimmed) throw new Error("Empty markdown");
-  return extractFromMarkdown(ref, trimmed);
-}
-
 export async function commitMdImport(payload: unknown) {
   const user = await requireUser();
   const data = mdExtraction.parse(payload);
@@ -41,15 +27,54 @@ export async function commitMdImport(payload: unknown) {
     .where(eq(catalog_items.user_id, user.id));
   const existingNames = new Set(existing.map((r) => r.name.trim().toLowerCase()));
 
+  const days = data.days.map((day) => day.day);
+  const loggedMeals = days.length
+    ? await db
+        .select({ day: meals.logical_day, name: meals.name, category: meals.category })
+        .from(meals)
+        .where(
+          and(eq(meals.user_id, user.id), inArray(meals.logical_day, days)),
+        )
+    : [];
+  const loggedKeys = new Set(
+    loggedMeals.map((m) => `${m.day}|${m.category}|${m.name.trim().toLowerCase()}`),
+  );
+  const loggedWorkoutDays = new Set(
+    days.length
+      ? (
+          await db
+            .select({ day: workouts.logical_day })
+            .from(workouts)
+            .where(
+              and(
+                eq(workouts.user_id, user.id),
+                inArray(workouts.logical_day, days),
+              ),
+            )
+        ).map((w) => w.day)
+      : [],
+  );
+
   let mealCount = 0;
   let workoutCount = 0;
+  let skipped = 0;
 
   for (const day of data.days) {
     const base = parseISO(`${day.day}T12:00:00`).getTime();
 
-    if (day.meals.length) {
+    const fresh = day.meals.filter((m) => {
+      const key = `${day.day}|${m.category}|${m.name.trim().toLowerCase()}`;
+      if (loggedKeys.has(key)) {
+        skipped += 1;
+        return false;
+      }
+      loggedKeys.add(key);
+      return true;
+    });
+
+    if (fresh.length) {
       await db.insert(meals).values(
-        day.meals.map((m, i) => ({
+        fresh.map((m, i) => ({
           id: newId(),
           user_id: user.id,
           logical_day: day.day,
@@ -64,10 +89,10 @@ export async function commitMdImport(payload: unknown) {
           created_at: new Date(base + i * 60_000),
         })),
       );
-      mealCount += day.meals.length;
+      mealCount += fresh.length;
     }
 
-    if (day.workout) {
+    if (day.workout && !loggedWorkoutDays.has(day.day)) {
       const workoutId = newId();
       await db.insert(workouts).values({
         id: workoutId,
@@ -101,7 +126,10 @@ export async function commitMdImport(payload: unknown) {
           );
         }
       }
+      loggedWorkoutDays.add(day.day);
       workoutCount += 1;
+    } else if (day.workout) {
+      skipped += 1;
     }
   }
 
@@ -116,9 +144,9 @@ export async function commitMdImport(payload: unknown) {
         user_id: user.id,
         name: item.name.trim(),
         place: item.place?.trim() || null,
-        protein_g: item.protein_g,
-        fat_g: item.fat_g,
-        carbs_g: item.carbs_g,
+        protein_g: item.protein_g ?? null,
+        fat_g: item.fat_g ?? null,
+        carbs_g: item.carbs_g ?? null,
         fat_quality: item.fat_quality ?? null,
         notes: item.notes?.trim() || null,
         is_composable: false,
@@ -140,5 +168,6 @@ export async function commitMdImport(payload: unknown) {
     workouts: workoutCount,
     catalogItems: newItems.length,
     skippedCatalogItems: data.catalog_items.length - newItems.length,
+    skippedDuplicates: skipped,
   };
 }

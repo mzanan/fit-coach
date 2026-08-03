@@ -103,9 +103,9 @@ export function CatalogItemRow({ item }: { item: CatalogItemFull }) {
                   place: v.place || undefined,
                   notes: v.notes || undefined,
                   fat_quality: v.fat_quality || null,
-                  protein_g: item.is_composable ? 0 : v.protein_g,
-                  fat_g: item.is_composable ? 0 : v.fat_g,
-                  carbs_g: item.is_composable ? 0 : v.carbs_g,
+                  protein_g: item.is_composable ? null : v.protein_g,
+                  fat_g: item.is_composable ? null : v.fat_g,
+                  carbs_g: item.is_composable ? null : v.carbs_g,
                 }),
               { success: "Item updated", onDone: () => setEditing(false) },
             )

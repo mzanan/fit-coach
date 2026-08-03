@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { clearCoachChat, updateReasoningEffortAction } from "@/lib/actions/coach";
 import type { ReasoningEffort } from "@/lib/ai/options";
 import type { CoachMessage } from "@/lib/data/coachMessages";
+import { readNdjson } from "@/lib/ndjson";
 
 export interface ChatBubble {
   id: string;
@@ -52,6 +53,7 @@ export function useCoachChat(
   const [streaming, setStreaming] = useState("");
   const [reasoning, setReasoning] = useState("");
   const [anchor, setAnchor] = useState<HTMLDivElement | null>(null);
+  const [controller, setController] = useState<AbortController | null>(null);
 
   useEffect(() => {
     anchor?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -73,45 +75,36 @@ export function useCoachChat(
       setStatus(STATUS.thinking);
       setStreaming("");
 
+      const abort = new AbortController();
+      setController(abort);
       try {
         const res = await fetch("/api/coach", {
           method: "POST",
+          signal: abort.signal,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ question: asked || undefined }),
         });
         if (!res.ok || !res.body) throw new Error("Coach unavailable");
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
         let answer = "";
         let thoughts = "";
         let generated = true;
 
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            const event = JSON.parse(line) as CoachStreamEvent;
-            if (event.type === "status") {
-              setStatus(STATUS[event.tool] ?? STATUS.thinking);
-            } else if (event.type === "reasoning") {
-              thoughts += event.text;
-              setReasoning(thoughts);
-            } else if (event.type === "delta") {
-              answer += event.text;
-              setStatus(null);
-              setStreaming(answer);
-            } else if (event.type === "done") {
-              answer = event.text;
-              generated = event.generated;
-            } else {
-              throw new Error("Coach failed");
-            }
+        for await (const event of readNdjson<CoachStreamEvent>(res.body)) {
+          if (event.type === "status") {
+            setStatus(STATUS[event.tool] ?? STATUS.thinking);
+          } else if (event.type === "reasoning") {
+            thoughts += event.text;
+            setReasoning(thoughts);
+          } else if (event.type === "delta") {
+            answer += event.text;
+            setStatus(null);
+            setStreaming(answer);
+          } else if (event.type === "done") {
+            answer = event.text;
+            generated = event.generated;
+          } else {
+            throw new Error("Coach failed");
           }
         }
 
@@ -125,9 +118,12 @@ export function useCoachChat(
             reasoning: thoughts.trim() || undefined,
           },
         ]);
-      } catch {
-        toast.error("Could not reach the coach");
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          toast.error("Could not reach the coach");
+        }
       } finally {
+        setController(null);
         setStreaming("");
         setReasoning("");
         setStatus(null);
@@ -136,6 +132,10 @@ export function useCoachChat(
     },
     [question, loading, bubbles.length],
   );
+
+  function stop() {
+    controller?.abort();
+  }
 
   function setEffort(next: ReasoningEffort) {
     const previous = effort;
@@ -168,6 +168,7 @@ export function useCoachChat(
     streaming,
     reasoning,
     ask,
+    stop,
     setAnchor,
     confirmOpen,
     setConfirmOpen,

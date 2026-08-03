@@ -2,6 +2,7 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 
+import { googleModel } from "@/lib/ai/googleCaps";
 import { groqCapability } from "@/lib/ai/groqCaps";
 import type { AiProvider } from "@/lib/ai/options";
 
@@ -119,6 +120,9 @@ export async function structuredRouting(
   provider: AiProvider,
   model: string,
 ): Promise<string[] | null | undefined> {
+  if (provider === "google") {
+    return googleModel(model) ? undefined : null;
+  }
   if (provider === "groq") {
     return groqCapability(model).structured ? undefined : null;
   }
@@ -129,6 +133,9 @@ export async function toolsRouting(
   provider: AiProvider,
   model: string,
 ): Promise<string[] | null | undefined> {
+  if (provider === "google") {
+    return googleModel(model) ? undefined : null;
+  }
   if (provider === "groq") {
     return groqCapability(model).tools ? undefined : null;
   }

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { googleModel } from "@/lib/ai/googleCaps";
 import { groqModels } from "@/lib/ai/groq";
 import { AI_PROVIDERS } from "@/lib/ai/options";
 import {
@@ -75,6 +76,33 @@ async function groqError(
   return null;
 }
 
+const GOOGLE_MODELS_URL =
+  "https://generativelanguage.googleapis.com/v1beta/models";
+
+async function googleError(
+  apiKey: string,
+  model: string | null,
+): Promise<string | null> {
+  if (model && !googleModel(model)) {
+    return "Unknown Google model. Pick one from the list.";
+  }
+  let response: Response;
+  try {
+    response = await fetch(`${GOOGLE_MODELS_URL}?key=${encodeURIComponent(apiKey)}`, {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+  } catch {
+    return "Could not reach Google to validate the key. Try again.";
+  }
+  if (response.status === 400 || response.status === 403) {
+    return "Google rejected this API key.";
+  }
+  if (!response.ok) {
+    return "Could not validate the key with Google. Try again.";
+  }
+  return null;
+}
+
 function revalidateAi(): void {
   revalidatePath("/settings");
   revalidatePath("/settings/ai");
@@ -109,6 +137,9 @@ export async function saveAiSettingsAction(
 
   if (provider === "groq") {
     const error = await groqError(apiKey, model);
+    if (error) return { error };
+  } else if (provider === "google") {
+    const error = await googleError(apiKey, model);
     if (error) return { error };
   } else {
     const invalidKey = await openrouterKeyError(apiKey);
@@ -166,6 +197,10 @@ export async function updateAiModelAction(
     }
     const error = await groqError(apiKey, model);
     if (error) return { error };
+  } else if (provider === "google") {
+    if (!googleModel(model)) {
+      return { error: "Unknown Google model. Pick one from the list." };
+    }
   } else {
     const invalidModel = await openrouterModelError(model);
     if (invalidModel) return { error: invalidModel };

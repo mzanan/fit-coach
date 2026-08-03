@@ -11,6 +11,7 @@ import {
 import type { SharedV4ProviderOptions } from "@ai-sdk/provider";
 
 import { groqCapability } from "@/lib/ai/groqCaps";
+import type { ReasoningEffort } from "@/lib/ai/options";
 import { resolveModel, type ModelRef } from "@/lib/ai/providers";
 import { structuredRouting } from "@/lib/ai/registry";
 
@@ -46,13 +47,32 @@ export async function chat(
     model: resolveModel(ref),
     instructions,
     messages: turns,
-    maxOutputTokens: maxTokens,
+    maxOutputTokens: maxTokens + googleThinkingBudget(ref),
+    providerOptions: reasoningOptions(ref),
   });
   return text.trim();
 }
 
 
+const GOOGLE_THINKING: Record<ReasoningEffort, number> = {
+  none: 0,
+  low: 1024,
+  medium: 4096,
+  high: 8192,
+};
+
+function googleThinkingBudget(ref: ModelRef): number {
+  return ref.provider === "google"
+    ? GOOGLE_THINKING[ref.reasoningEffort ?? "low"]
+    : 0;
+}
+
 function reasoningOptions(ref: ModelRef): SharedV4ProviderOptions | undefined {
+  if (ref.provider === "google") {
+    return {
+      google: { thinkingConfig: { thinkingBudget: googleThinkingBudget(ref) } },
+    };
+  }
   if (ref.provider === "groq") {
     const supported =
       groqCapability(ref.model).reasoning && ref.reasoningEffort !== "none";
@@ -94,7 +114,7 @@ export async function chatToolsStream(
     messages: options.messages,
     tools: options.tools,
     stopWhen: isStepCount(options.maxSteps ?? 5),
-    maxOutputTokens: maxTokens,
+    maxOutputTokens: maxTokens + googleThinkingBudget(ref),
     providerOptions: reasoningOptions(ref),
   });
 
@@ -124,7 +144,7 @@ export async function chatToolsStream(
     model,
     instructions: `${options.instructions}\n\nAnswer the user now from the data below. Do not ask for more data.`,
     messages: [...options.messages, { role: "user", content: gathered }],
-    maxOutputTokens: maxTokens,
+    maxOutputTokens: maxTokens + googleThinkingBudget(ref),
     providerOptions: reasoningOptions(ref),
   });
   for await (const delta of closing.textStream) {
@@ -153,7 +173,7 @@ export async function chatTools(
     messages: options.messages,
     tools: options.tools,
     stopWhen: isStepCount(options.maxSteps ?? 5),
-    maxOutputTokens: maxTokens,
+    maxOutputTokens: maxTokens + googleThinkingBudget(ref),
     providerOptions,
   });
   const toolLog = result.steps.flatMap((step) =>
@@ -172,7 +192,7 @@ export async function chatTools(
       model,
       instructions: `${options.instructions}\n\nAnswer the user now from the data below. Do not ask for more data.`,
       messages: [...options.messages, { role: "user", content: gathered }],
-      maxOutputTokens: maxTokens,
+      maxOutputTokens: maxTokens + googleThinkingBudget(ref),
       providerOptions,
     });
     text = closing.text.trim();
@@ -196,7 +216,12 @@ export async function chatJson<T>(
   ref: ModelRef,
   messages: ChatMessage[],
   maxTokens = 4000,
+  signal?: AbortSignal,
 ): Promise<T> {
+  const providerOptions: SharedV4ProviderOptions | undefined =
+    ref.provider === "google"
+      ? { google: { thinkingConfig: { thinkingBudget: 0 } } }
+      : undefined;
   let routeOnly: string[] | null | undefined;
   try {
     routeOnly = await structuredRouting(ref.provider, ref.model);
@@ -209,13 +234,25 @@ export async function chatJson<T>(
     throw new Error(`Model ${ref.model} has no provider with structured output`);
   }
   const { instructions, turns } = split(messages);
-  const { object } = await generateObject({
-    model: resolveModel(routeOnly ? { ...ref, routeOnly } : ref),
-    instructions,
-    messages: turns,
-    maxOutputTokens: maxTokens,
-    output: "no-schema",
-    repairText: async (options) => unwrapJson(options),
-  });
-  return object as T;
+  try {
+    const { object } = await generateObject({
+      model: resolveModel(routeOnly ? { ...ref, routeOnly } : ref),
+      instructions,
+      messages: turns,
+      maxOutputTokens: maxTokens,
+      providerOptions,
+      abortSignal: signal,
+      output: "no-schema",
+      repairText: async (options) => unwrapJson(options),
+    });
+    return object as T;
+  } catch (error) {
+    const raw = (error as { text?: string })?.text;
+    console.error(
+      `chatJson failed on ${ref.provider}/${ref.model}`,
+      (error as Error).message,
+      raw ? `raw tail: ${raw.slice(-400)}` : "no raw text on the error",
+    );
+    throw error;
+  }
 }

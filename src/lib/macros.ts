@@ -7,6 +7,12 @@ export interface Macros {
   carbs_g: number;
 }
 
+export interface PartialMacros {
+  protein_g: number | null;
+  fat_g: number | null;
+  carbs_g: number | null;
+}
+
 export function kcalOf(m: Macros): number {
   return m.protein_g * 4 + m.carbs_g * 4 + m.fat_g * 9;
 }
@@ -91,4 +97,16 @@ function line(
     (key === "fat" && (state === "low" || state === "high")) ||
     (key === "calories" && state === "over");
   return { key, current: round(current, 0), target: round(target, 0), remaining, pct, state, warn };
+}
+
+export function hasMacros(item: PartialMacros): item is Macros {
+  return (
+    item.protein_g !== null && item.fat_g !== null && item.carbs_g !== null
+  );
+}
+
+export function hasAnyMacro(item: PartialMacros): boolean {
+  return (
+    item.protein_g !== null || item.fat_g !== null || item.carbs_g !== null
+  );
 }
