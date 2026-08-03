@@ -10,6 +10,8 @@ import { getWhoopConnection } from "@/lib/integrations/whoop";
 import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
 import type { ModelMessage } from "ai";
 
+import type { ResolveFailure } from "@/lib/catalogMeal";
+
 import {
   approvalResponseMessage,
   chat,
@@ -253,12 +255,23 @@ function limitErrorReply(
 
 export type CoachResult =
   | { status: "answered"; text: string; generated: boolean }
-  | { status: "pending"; approvalId: string; preview: PendingPreview };
+  | { status: "pending"; approvalId: string; previews: PendingPreview[] };
 
 const WRITE_FAILED =
   "The coach tried to log that meal but the request came back malformed. Ask again, or log it from the Today screen.";
 
 const DENIED = "Not logged. Nothing was written.";
+
+const RESUME_FAILED =
+  "The coach lost the connection while confirming. The meal may or may not have been logged: check Today before asking again.";
+
+const NOT_WRITTEN =
+  "Nothing was logged. The catalog item may have changed since you were asked. Check Today, and log it from there if it is missing.";
+
+function previewFailure(reason: ResolveFailure, error: string): string {
+  if (reason === "no_macros") return error;
+  return "The coach tried to log a meal it could not identify in your catalog. Ask again naming the item.";
+}
 
 const TOOLS_ADDENDUM = `
 
@@ -375,26 +388,35 @@ async function toolReply(
       });
 
     if (approvals.length) {
-      const preview = await previewLogMeal(
-        userId,
-        setup.today,
-        approvals[0].input,
+      const resolved = await Promise.all(
+        approvals.map((approval) =>
+          previewLogMeal(userId, setup.today, approval.input),
+        ),
       );
-      if (!preview.ok) {
-        return { status: "answered", text: preview.error, generated: false };
+      const failed = resolved.find((preview) => !preview.ok);
+      if (failed && !failed.ok) {
+        return {
+          status: "answered",
+          text: previewFailure(failed.reason, failed.error),
+          generated: false,
+        };
       }
+      const previews = resolved.flatMap((preview) =>
+        preview.ok ? [preview.preview] : [],
+      );
       if (!signal?.aborted) {
         await savePendingWrite(userId, {
           approvalId: approvals[0].approvalId,
+          approvalIds: approvals.map((approval) => approval.approvalId),
           question: question?.trim() || null,
           messages,
-          preview: preview.preview,
+          previews,
         });
       }
       return {
         status: "pending",
         approvalId: approvals[0].approvalId,
-        preview: preview.preview,
+        previews,
       };
     }
 
@@ -485,6 +507,8 @@ export async function coachReply(
   onEvent?: (event: CoachEvent) => void,
   signal?: AbortSignal,
 ): Promise<CoachResult> {
+  await clearPendingWrite(userId);
+
   const ref = await userModelRef(userId);
   if (!ref) {
     const ctx = await buildContext(userId, profile);
@@ -495,7 +519,6 @@ export async function coachReply(
     return { status: "answered", text, generated: false };
   }
 
-  await clearPendingWrite(userId);
   const history = await getConversation(userId);
 
   let toolPin: string[] | null | undefined = null;
@@ -556,6 +579,7 @@ export async function resolvePendingWrite(
 
   const ref = await userModelRef(userId);
   if (!ref) {
+    await savePendingWrite(userId, pending);
     return {
       status: "answered",
       text: "Add your AI provider key in Settings > AI to use the coach.",
@@ -574,50 +598,56 @@ export async function resolvePendingWrite(
   const setup = await toolSetup(userId, profile, history, question);
 
   try {
-    const { text, toolLog } = await chatToolsStream(
+    const { text, toolLog, writeOutputs } = await chatToolsStream(
       toolPin ? { ...ref, routeOnly: toolPin } : ref,
       {
         instructions: setup.instructions,
         messages: [
           ...setup.messages,
           ...pending.messages,
-          approvalResponseMessage(
-            [{ approvalId, toolName: WRITE_TOOL, input: null }],
-            true,
-          ),
+          approvalResponseMessage(pending.approvalIds, true),
         ],
-        tools: buildCoachTools(userId, profile, setup.today),
+        tools: buildCoachTools(userId, profile, pending.previews[0].day),
         approvalFor: WRITE_TOOL,
         onEvent: onEvent ?? (() => {}),
         signal,
       },
     );
 
-    const answer = text || loggedLine(pending.preview);
-    if (!signal?.aborted) {
-      await appendExchange(userId, question ?? null, answer, Boolean(text));
-      if (text) {
-        await learn(
-          ref,
-          userId,
-          setup.memory,
-          exchangeOf(toolLog, question, answer),
-          Boolean(question),
-        );
-      }
+    const written = writeOutputs.filter((output) => output.logged).length;
+    if (!written) {
+      const failure = writeOutputs.find((output) => output.error)?.error;
+      await appendExchange(userId, question ?? null, failure ?? NOT_WRITTEN, false);
+      return {
+        status: "answered",
+        text: failure ?? NOT_WRITTEN,
+        generated: false,
+      };
+    }
+
+    const answer = text || loggedLines(pending.previews.slice(0, written));
+    await appendExchange(userId, question ?? null, answer, Boolean(text));
+    if (text && !signal?.aborted) {
+      await learn(
+        ref,
+        userId,
+        setup.memory,
+        exchangeOf(toolLog, question, answer),
+        Boolean(question),
+      );
     }
     return { status: "answered", text: answer, generated: Boolean(text) };
-  } catch (error) {
-    const ctx = await buildContext(userId, profile);
-    const text = limitErrorReply(ref.provider, error, ctx) ?? aiErrorReply(ctx);
-    if (!signal?.aborted) {
-      await appendExchange(userId, question ?? null, text, false);
-    }
-    return { status: "answered", text, generated: false };
+  } catch {
+    await appendExchange(userId, question ?? null, RESUME_FAILED, false);
+    return { status: "answered", text: RESUME_FAILED, generated: false };
   }
 }
 
-function loggedLine(preview: PendingPreview): string {
-  const portions = preview.portions === 1 ? "" : ` x${preview.portions}`;
-  return `Logged ${preview.name}${portions} as ${categoryLabel(preview.category).toLowerCase()}: ${preview.protein_g}g protein, ${preview.fat_g}g fat, ${preview.carbs_g}g carbs, ${preview.kcal} kcal.`;
+function loggedLines(previews: PendingPreview[]): string {
+  return previews
+    .map((preview) => {
+      const portions = preview.portions === 1 ? "" : ` x${preview.portions}`;
+      return `Logged ${preview.name}${portions} as ${categoryLabel(preview.category).toLowerCase()}: ${preview.protein_g}g protein, ${preview.fat_g}g fat, ${preview.carbs_g}g carbs, ${preview.kcal} kcal.`;
+    })
+    .join("\n");
 }

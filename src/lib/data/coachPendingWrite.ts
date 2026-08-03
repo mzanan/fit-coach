@@ -1,6 +1,6 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { ModelMessage } from "ai";
 
 import { db, schema } from "@/lib/db";
@@ -22,32 +22,69 @@ export interface PendingPreview {
 
 export interface PendingWrite {
   approvalId: string;
+  approvalIds: string[];
   question: string | null;
   messages: ModelMessage[];
-  preview: PendingPreview;
+  previews: PendingPreview[];
+}
+
+function toRow(userId: string, pending: PendingWrite) {
+  return {
+    user_id: userId,
+    approval_id: pending.approvalId,
+    question: pending.question,
+    messages: JSON.stringify({
+      messages: pending.messages,
+      approvalIds: pending.approvalIds,
+    }),
+    preview: JSON.stringify(pending.previews),
+    created_at: new Date(),
+  };
 }
 
 export async function savePendingWrite(
   userId: string,
   pending: PendingWrite,
 ): Promise<void> {
-  const row = {
-    user_id: userId,
-    approval_id: pending.approvalId,
-    question: pending.question,
-    messages: JSON.stringify(pending.messages),
-    preview: JSON.stringify(pending.preview),
-    created_at: new Date(),
-  };
+  const row = toRow(userId, pending);
   await db
     .insert(coach_pending_writes)
     .values(row)
     .onConflictDoUpdate({ target: coach_pending_writes.user_id, set: row });
 }
 
-export async function getPendingPreview(
-  userId: string,
-): Promise<{ approvalId: string; preview: PendingPreview; question: string | null } | null> {
+function parsePreviews(raw: string): PendingPreview[] | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as PendingPreview[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseMessages(
+  raw: string,
+): { messages: ModelMessage[]; approvalIds: string[] } | null {
+  try {
+    const parsed = JSON.parse(raw) as {
+      messages?: ModelMessage[];
+      approvalIds?: string[];
+    };
+    if (!Array.isArray(parsed.messages)) return null;
+    return {
+      messages: parsed.messages,
+      approvalIds: Array.isArray(parsed.approvalIds) ? parsed.approvalIds : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function getPendingPreview(userId: string): Promise<{
+  approvalId: string;
+  previews: PendingPreview[];
+  question: string | null;
+} | null> {
   const [row] = await db
     .select({
       approval_id: coach_pending_writes.approval_id,
@@ -59,15 +96,14 @@ export async function getPendingPreview(
     .limit(1);
   if (!row) return null;
 
-  try {
-    return {
-      approvalId: row.approval_id,
-      question: row.question,
-      preview: JSON.parse(row.preview) as PendingPreview,
-    };
-  } catch {
-    return null;
-  }
+  const previews = parsePreviews(row.preview);
+  if (!previews) return null;
+
+  return {
+    approvalId: row.approval_id,
+    question: row.question,
+    previews,
+  };
 }
 
 export async function takePendingWrite(
@@ -75,24 +111,29 @@ export async function takePendingWrite(
   approvalId: string,
 ): Promise<PendingWrite | null> {
   const [row] = await db
-    .select()
-    .from(coach_pending_writes)
-    .where(eq(coach_pending_writes.user_id, userId))
-    .limit(1);
-  if (!row || row.approval_id !== approvalId) return null;
+    .delete(coach_pending_writes)
+    .where(
+      and(
+        eq(coach_pending_writes.user_id, userId),
+        eq(coach_pending_writes.approval_id, approvalId),
+      ),
+    )
+    .returning();
+  if (!row) return null;
 
-  await clearPendingWrite(userId);
+  const parsed = parseMessages(row.messages);
+  const previews = parsePreviews(row.preview);
+  if (!parsed || !previews?.length) return null;
 
-  try {
-    return {
-      approvalId: row.approval_id,
-      question: row.question,
-      messages: JSON.parse(row.messages) as ModelMessage[],
-      preview: JSON.parse(row.preview) as PendingPreview,
-    };
-  } catch {
-    return null;
-  }
+  return {
+    approvalId: row.approval_id,
+    approvalIds: parsed.approvalIds.length
+      ? parsed.approvalIds
+      : [row.approval_id],
+    question: row.question,
+    messages: parsed.messages,
+    previews,
+  };
 }
 
 export async function clearPendingWrite(userId: string): Promise<void> {

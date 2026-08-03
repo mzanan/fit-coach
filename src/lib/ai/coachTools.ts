@@ -10,6 +10,7 @@ import {
   insertResolvedMeal,
   resolveCatalogMeal,
   MAX_PORTIONS,
+  type ResolveFailure,
 } from "@/lib/catalogMeal";
 import { MEAL_CATEGORIES, type MealCategoryKey } from "@/lib/constants";
 import { getCatalog } from "@/lib/data/catalog";
@@ -137,11 +138,16 @@ export async function previewLogMeal(
   today: string,
   input: unknown,
 ): Promise<
-  { ok: true; preview: PendingPreview } | { ok: false; error: string }
+  | { ok: true; preview: PendingPreview }
+  | { ok: false; reason: ResolveFailure; error: string }
 > {
   const parsed = logMealInput.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: "The coach asked to log a meal it did not describe properly." };
+    return {
+      ok: false,
+      reason: "not_found",
+      error: "The coach asked to log a meal it did not describe properly.",
+    };
   }
 
   const resolved = await resolveCatalogMeal(userId, {
@@ -149,7 +155,9 @@ export async function previewLogMeal(
     itemName: parsed.data.item_name,
     portions: parsed.data.portions,
   });
-  if (!resolved.ok) return { ok: false, error: resolved.error };
+  if (!resolved.ok) {
+    return { ok: false, reason: resolved.reason, error: resolved.error };
+  }
 
   return {
     ok: true,

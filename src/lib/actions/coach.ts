@@ -6,11 +6,12 @@ import { z } from "zod";
 import { REASONING_EFFORTS } from "@/lib/ai/options";
 import { getAiSetup, updateReasoningEffort } from "@/lib/ai/providers";
 import { clearConversation } from "@/lib/data/coachMessages";
+import { clearPendingWrite } from "@/lib/data/coachPendingWrite";
 import { requireUser } from "@/lib/session";
 
 export async function clearCoachChat(): Promise<void> {
   const user = await requireUser();
-  await clearConversation(user.id);
+  await Promise.all([clearConversation(user.id), clearPendingWrite(user.id)]);
   revalidatePath("/coach");
 }
 

@@ -19,7 +19,7 @@ export interface ChatBubble {
 
 export interface PendingApproval {
   approvalId: string;
-  preview: PendingPreview;
+  previews: PendingPreview[];
   question: string | null;
 }
 
@@ -28,7 +28,7 @@ type CoachStreamEvent =
   | { type: "reasoning"; text: string }
   | { type: "delta"; text: string }
   | { type: "done"; text: string; generated: boolean }
-  | { type: "approval"; approvalId: string; preview: PendingPreview }
+  | { type: "approval"; approvalId: string; previews: PendingPreview[] }
   | { type: "error" };
 
 const STATUS: Record<string, string> = {
@@ -116,7 +116,7 @@ export function useCoachChat(
         } else if (event.type === "approval") {
           approval = {
             approvalId: event.approvalId,
-            preview: event.preview,
+            previews: event.previews,
             question: null,
           };
         } else {

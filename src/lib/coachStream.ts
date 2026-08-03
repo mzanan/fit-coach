@@ -7,7 +7,7 @@ import type { PendingPreview } from "@/lib/data/coachPendingWrite";
 export type CoachStreamEvent =
   | CoachEvent
   | { type: "done"; text: string; generated: boolean }
-  | { type: "approval"; approvalId: string; preview: PendingPreview }
+  | { type: "approval"; approvalId: string; previews: PendingPreview[] }
   | { type: "error" };
 
 export function coachNdjsonResponse(
@@ -28,7 +28,7 @@ export function coachNdjsonResponse(
             ? {
                 type: "approval",
                 approvalId: result.approvalId,
-                preview: result.preview,
+                previews: result.previews,
               }
             : { type: "done", text: result.text, generated: result.generated },
         );

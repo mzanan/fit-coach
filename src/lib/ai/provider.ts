@@ -114,6 +114,7 @@ export interface ToolStreamResult {
   approvals: ApprovalRequest[];
   messages: ModelMessage[];
   writeAttempted: boolean;
+  writeOutputs: { logged: boolean; error?: string }[];
 }
 
 export interface ToolStreamOptions {
@@ -159,6 +160,7 @@ export async function chatToolsStream(
 
   const toolLog: string[] = [];
   const approvals: ApprovalRequest[] = [];
+  const writeOutputs: { logged: boolean; error?: string }[] = [];
   let writeAttempted = false;
   let text = "";
   for await (const part of result.fullStream) {
@@ -172,6 +174,13 @@ export async function chatToolsStream(
         input: part.toolCall.input,
       });
     } else if (part.type === "tool-result") {
+      if (part.toolName === approvalFor) {
+        const output = part.output as { logged?: unknown; error?: unknown };
+        writeOutputs.push({
+          logged: output?.logged === true,
+          error: typeof output?.error === "string" ? output.error : undefined,
+        });
+      }
       toolLog.push(
         `${part.toolName}(${JSON.stringify(part.input)}) -> ${JSON.stringify(part.output).slice(0, 400)}`,
       );
@@ -183,7 +192,7 @@ export async function chatToolsStream(
     }
   }
 
-  const messages = (await result.response).messages;
+  const messages = await result.responseMessages;
 
   if (text.trim() || approvals.length) {
     return {
@@ -192,6 +201,7 @@ export async function chatToolsStream(
       approvals,
       messages,
       writeAttempted,
+      writeOutputs,
     };
   }
 
@@ -210,18 +220,25 @@ export async function chatToolsStream(
     text += delta;
     options.onEvent({ type: "delta", text: delta });
   }
-  return { text: text.trim(), toolLog, approvals, messages, writeAttempted };
+  return {
+    text: text.trim(),
+    toolLog,
+    approvals,
+    messages,
+    writeAttempted,
+    writeOutputs,
+  };
 }
 
 export function approvalResponseMessage(
-  approvals: ApprovalRequest[],
+  approvalIds: string[],
   approved: boolean,
 ): ModelMessage {
   return {
     role: "tool",
-    content: approvals.map((approval) => ({
+    content: approvalIds.map((approvalId) => ({
       type: "tool-approval-response" as const,
-      approvalId: approval.approvalId,
+      approvalId,
       approved,
     })),
   } as unknown as ModelMessage;

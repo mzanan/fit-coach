@@ -81,7 +81,7 @@ export async function appendExchange(
             user_id: userId,
             role: "user",
             content: question,
-            generated: true,
+            generated,
             created_at: new Date(now),
           },
         ]
