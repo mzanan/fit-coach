@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db, schema } from "@/lib/db";
+import { COACH_RULES_MAX } from "@/lib/constants";
 import { requireUser } from "@/lib/session";
 
 const { profiles } = schema;
@@ -32,8 +33,6 @@ export async function updateTargets(input: unknown) {
   revalidatePath("/settings/targets");
 }
 
-const COACH_RULES_MAX = 20_000;
-
 const coachRulesSchema = z.object({
   rules: z.string().max(COACH_RULES_MAX),
 });
@@ -48,6 +47,24 @@ export async function updateCoachRules(input: unknown) {
     .where(eq(profiles.user_id, user.id));
   revalidatePath("/coach");
   revalidatePath("/settings");
+  revalidatePath("/settings/coach");
+}
+
+const DINING_MODES = ["delivery", "cooks"] as const;
+
+const diningModeSchema = z.object({
+  mode: z.enum(DINING_MODES),
+});
+
+export async function updateDiningMode(input: unknown) {
+  const user = await requireUser();
+  const { mode } = diningModeSchema.parse(input);
+
+  await db
+    .update(profiles)
+    .set({ dining_mode: mode, updated_at: new Date() })
+    .where(eq(profiles.user_id, user.id));
+  revalidatePath("/coach");
   revalidatePath("/settings/coach");
 }
 

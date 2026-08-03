@@ -6,13 +6,15 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Page } from "@/components/ui/Page";
 import { getAiSettings } from "@/lib/ai/providers";
 import { getFullConversation } from "@/lib/data/coachMessages";
+import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
 
 export default async function CoachPage() {
   const user = await requireUser();
-  const [ai, history] = await Promise.all([
+  const [ai, history, profile] = await Promise.all([
     getAiSettings(user.id),
     getFullConversation(user.id),
+    ensureProfile(user.id),
   ]);
 
   return (
@@ -34,7 +36,11 @@ export default async function CoachPage() {
             }
           />
         ) : null}
-        <CoachPanel initial={history} effort={ai?.reasoningEffort ?? null} />
+        <CoachPanel
+          initial={history}
+          effort={ai?.reasoningEffort ?? null}
+          diningMode={profile.dining_mode}
+        />
       </div>
     </Page>
   );

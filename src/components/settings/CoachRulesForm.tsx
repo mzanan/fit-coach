@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Surface } from "@/components/ui/Surface";
 import { Textarea } from "@/components/ui/Textarea";
 import { updateCoachRules } from "@/lib/actions/profile";
+import { COACH_RULES_MAX } from "@/lib/constants";
 import { useAction } from "@/hooks/useAction";
 
 export function CoachRulesForm({ initial }: { initial: string | null }) {
@@ -36,6 +37,7 @@ export function CoachRulesForm({ initial }: { initial: string | null }) {
           onChange={(e) => setRules(e.target.value)}
           placeholder="Paste the markdown your coach wrote. It replaces the built-in macro and meal rules; the language, length and no-invented-data rules stay."
           rows={20}
+          maxLength={COACH_RULES_MAX}
           className="min-h-[60vh] font-mono text-meta"
           aria-label="Coach rules"
         />
@@ -54,7 +56,8 @@ export function CoachRulesForm({ initial }: { initial: string | null }) {
             </Button>
           ) : null}
           <span className="ml-auto text-meta text-muted-foreground">
-            {rules.length.toLocaleString()} chars
+            {rules.length.toLocaleString()} / {COACH_RULES_MAX.toLocaleString()}{" "}
+            chars
           </span>
         </div>
       </form>

@@ -2,14 +2,21 @@ import {
   hasAnyMacro,
   hasMacros,
   kcalOf,
+  known,
   type PartialMacros,
 } from "@/lib/macros";
 import { cn } from "@/lib/utils";
 
-function Value({ n, unit }: { n: number | null; unit: string }) {
+function Value({
+  n,
+  unit,
+}: {
+  n: number | null | undefined;
+  unit: string;
+}) {
   return (
-    <span className={n === null ? "text-faint" : "text-foreground"}>
-      <span className="num">{n === null ? "?" : Math.round(n)}</span>
+    <span className={known(n) ? "text-foreground" : "text-faint"}>
+      <span className="num">{known(n) ? Math.round(n) : "?"}</span>
       <span className="ml-0.5 font-sans text-faint">{unit}</span>
     </span>
   );

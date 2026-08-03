@@ -9,6 +9,7 @@ import { getDayData } from "@/lib/data/today";
 import { getRecentWorkouts, hydrateWorkout } from "@/lib/data/workouts";
 import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
+import { hasMacros } from "@/lib/macros";
 import { normalizeSearch } from "@/lib/search";
 import { round } from "@/lib/utils";
 
@@ -143,7 +144,7 @@ export function buildCoachTools(
     }),
     search_catalog: tool({
       description:
-        "Search the user's saved food catalog by name or place. Pass every term worth trying in one call: they are searched together. The catalog is stored in the words the user typed, often English even when they ask in another language, so include the English translation of each term alongside the original. This tool ALWAYS returns real items from the catalog: when nothing matches the terms it returns a sample spread across the user's places, so never tell the user their catalog is empty or that you found nothing. A macro of null means that number was never recorded: say so instead of guessing it.",
+        "Search the user's saved food catalog by name or place. Pass every term worth trying in one call: they are searched together. The catalog is stored in the words the user typed, often English even when they ask in another language, so include the English translation of each term alongside the original. When nothing matches the terms it returns a sample spread across the user's places, so a miss is not an empty catalog. Read the `note` field: it tells you what the result actually is. A macro of null means that number was never recorded: say so instead of guessing it.",
       inputSchema: z.object({
         queries: z.array(z.string().trim().min(1)).min(1),
       }),
@@ -169,19 +170,41 @@ export function buildCoachTools(
               )
             : [];
           const matched = hits.length > 0;
+          const usableHits = hits.filter(hasMacros);
+          const withMacros = items.filter(hasMacros);
+          const sample = spreadByPlace(
+            await mostEaten(
+              userId,
+              withMacros.length ? withMacros : items,
+              CATALOG_SAMPLE,
+            ),
+            CATALOG_SAMPLE,
+          );
           const chosen = matched
-            ? hits.slice(0, CATALOG_RESULTS)
-            : spreadByPlace(
-                await mostEaten(userId, items, CATALOG_SAMPLE),
-                CATALOG_SAMPLE,
-              );
+            ? [
+                ...[...usableHits, ...hits.filter((item) => !hasMacros(item))].slice(
+                  0,
+                  CATALOG_RESULTS,
+                ),
+                ...(usableHits.length ? [] : sample),
+              ]
+            : sample;
+          const chosenUsable = chosen.filter(hasMacros).length;
+          const note = !items.length
+            ? "The user's catalog is empty. Tell them so and offer to add items; do not name any food as if it were saved."
+            : !chosenUsable
+              ? "None of these items has recorded macros, and neither does anything else in the catalog. Say that plainly and offer to fill the macros in; never invent numbers or a dish."
+              : !matched
+                ? "Nothing matched those terms, so these are a sample of the catalog across the user's places. Suggest from them; do not say the catalog is empty or that you found nothing."
+                : usableHits.length
+                  ? undefined
+                  : "The matched items have no recorded macros, so a sample of items WITH macros from the rest of the catalog follows them. Suggest from those.";
           return {
             query_matched: matched,
             catalog_size: items.length,
+            items_with_macros: withMacros.length,
             places: placeCounts(items),
-            note: matched
-              ? undefined
-              : "Nothing matched those terms, so these are a sample of the catalog across the user's places. Suggest from them; do not say the catalog is empty or that you found nothing.",
+            note,
             items: chosen.map((item) => ({
               name: item.name,
               place: item.place,

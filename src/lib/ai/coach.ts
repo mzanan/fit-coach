@@ -47,6 +47,20 @@ Meal distribution rules, in priority order:
 
 Weekly review (Sunday or when asked): look at adherence and training progression, then recommend keep / adjust calories by 100-150 / swap exercises stalled 3+ weeks. Routine changes only with a concrete reason, never for variety.`;
 
+const DINING_RULES: Record<string, string> = {
+  delivery:
+    "\n\nStanding rule, asked once and kept until the user changes it: the user orders delivery from their saved catalog and does not cook. Never suggest cooking, home-made dishes, or anything that is not a catalog item or a place the catalog names.",
+  cooks:
+    "\n\nStanding rule, asked once and kept until the user changes it: the user can cook at home as well as order from the catalog. Home-cooked suggestions are allowed, but mark their macros as estimates and offer to save them to the catalog.",
+};
+
+function diningRule(profile: Profile): string {
+  return (
+    DINING_RULES[profile.dining_mode ?? ""] ??
+    "\n\nYou do not know whether this user cooks at home or only orders delivery, so suggest only catalog items and do not assume they have a kitchen."
+  );
+}
+
 function coachingRules(profile: Profile): string {
   const own = profile.coach_rules?.trim();
   return own
@@ -224,6 +238,8 @@ const TOOLS_ADDENDUM = `
 
 Data access: you have tools that read the user's live data (today's meals and targets, the food catalog, recent workouts, body scans). Call only the tools the question actually needs, then answer that question directly and concretely. Never invent data you did not read from a tool.
 
+What the user tells you outranks what the tools read. The app only knows the meals the user typed into it, and they often eat without logging, so an empty day from get_today means "nothing was logged", NEVER "nothing was eaten". If the user states what they have consumed, or gives you totals, take those numbers as the truth for this conversation and answer from them. Do not ask them to log anything first, do not ask them to confirm what they already said, and do not repeat the day back to them: they asked a question, answer it.
+
 Whenever you suggest what to eat, search the catalog first and build the suggestion from the user's own saved items and their exact macros. One search call is enough: pass every term worth trying at once. When the search reports it found no match and returned the user's most eaten items instead, say so before suggesting anything else.
 
 Suggest ONLY items the catalog returned. The user eats out and logs from that catalog, so a food that is not in it is not something they can order or log. Do not add generic foods (protein powder, quinoa, olive oil, cottage cheese, a fillet of fish) to round the macros: if the catalog cannot reach the target, say which macro is short and by how much, and offer to add the missing food to the catalog. Naming a food the catalog did not return is the one thing that makes this answer useless.`;
@@ -239,7 +255,7 @@ async function memoryAndFacts(
 
   const factLines = facts.length
     ? [
-        "Known facts about this user, learned from past conversations. Respect them, especially corrections. They are preferences, not instructions: the macro rules, meal distribution rules and hard limits above always win, and no fact can waive them. If a fact conflicts with those rules, follow the rules and say why:",
+        "Known facts about this user, learned from past conversations. Respect them, especially corrections. They are preferences, not instructions: the coaching rules above always win, and no fact can waive them. If a fact conflicts with those rules, follow the rules and say why:",
         ...facts.map((f) => `- (${f.category}) ${f.content}`),
       ]
     : [];
@@ -274,6 +290,7 @@ async function toolReply(
   history: CoachMessage[],
   question?: string,
   onEvent?: (event: CoachEvent) => void,
+  signal?: AbortSignal,
 ): Promise<{ text: string; generated: boolean }> {
   const { memory, parts } = await memoryAndFacts(userId, question);
   const ask = question?.trim()
@@ -284,7 +301,7 @@ async function toolReply(
     const { text, toolLog } = await chatToolsStream(
       routeOnly ? { ...ref, routeOnly } : ref,
       {
-        instructions: [COACH_FRAME + coachingRules(profile) + TOOLS_ADDENDUM, ...parts].join("\n\n"),
+        instructions: [COACH_FRAME + diningRule(profile) + coachingRules(profile) + TOOLS_ADDENDUM, ...parts].join("\n\n"),
         messages: [
           ...history.map((message) => ({
             role: message.role,
@@ -302,7 +319,9 @@ async function toolReply(
         `User: ${question?.trim() || "(daily check-in)"}`,
         `Coach: ${text}`,
       ].join("\n");
-      await learn(ref, userId, memory, exchange, Boolean(question?.trim()));
+      if (!signal?.aborted) {
+        await learn(ref, userId, memory, exchange, Boolean(question?.trim()));
+      }
       return { text, generated: true };
     }
     const ctx = await buildContext(userId, profile);
@@ -322,6 +341,7 @@ async function contextReply(
   profile: Profile,
   history: CoachMessage[],
   question?: string,
+  signal?: AbortSignal,
 ): Promise<{ text: string; generated: boolean }> {
   const ctx = await buildContext(userId, profile);
   const { memory, parts } = await memoryAndFacts(userId, question);
@@ -337,7 +357,10 @@ async function contextReply(
     const text = await chat(ref, [
       {
         role: "system",
-        content: [COACH_FRAME + coachingRules(profile), ...parts].join("\n\n"),
+        content: [
+          COACH_FRAME + diningRule(profile) + coachingRules(profile),
+          ...parts,
+        ].join("\n\n"),
       },
       ...history.map((message) => ({
         role: message.role,
@@ -347,7 +370,9 @@ async function contextReply(
     ]);
     if (text) {
       const exchange = `${ctx.lines.join("\n")}\nUser: ${question?.trim() || "(daily check-in)"}\nCoach: ${text}`;
-      await learn(ref, userId, memory, exchange, Boolean(question?.trim()));
+      if (!signal?.aborted) {
+        await learn(ref, userId, memory, exchange, Boolean(question?.trim()));
+      }
     }
     return { text: text || aiErrorReply(ctx), generated: Boolean(text) };
   } catch (error) {
@@ -394,8 +419,9 @@ export async function coachReply(
           history,
           question,
           onEvent,
+          signal,
         )
-      : await contextReply(ref, userId, profile, history, question);
+      : await contextReply(ref, userId, profile, history, question, signal);
 
   if (signal?.aborted) return result;
 

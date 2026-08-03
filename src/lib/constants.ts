@@ -204,3 +204,5 @@ export const COACH_FACT_CATEGORIES = [
 export type CoachFactCategory = (typeof COACH_FACT_CATEGORIES)[number]["key"];
 
 export const COACH_FACT_CATEGORY_KEYS = COACH_FACT_CATEGORIES.map((c) => c.key);
+
+export const COACH_RULES_MAX = 20_000;
