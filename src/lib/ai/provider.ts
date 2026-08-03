@@ -204,6 +204,9 @@ export async function chatToolsStream(
   }
 
   const messages = await result.responseMessages;
+  console.info(
+    `coach: ${ref.provider}/${ref.model} finished with ${approvals.length} approval(s), ${toolLog.length} tool result(s), ${text.trim().length} chars`,
+  );
 
   if (text.trim() || approvals.length) {
     return {

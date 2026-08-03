@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 
 import { db, schema } from "@/lib/db";
 import { hasMacros, kcalOf } from "@/lib/macros";
-import { normalizeSearch } from "@/lib/search";
+import { matchesTerm, normalizeSearch } from "@/lib/search";
 import { newId, round } from "@/lib/utils";
 
 const { meals, catalog_items } = schema;
@@ -13,7 +13,11 @@ export const MAX_PORTIONS = 10;
 
 function sameItemName(given: string, stored: string): boolean {
   const strip = (value: string) => normalizeSearch(value).replace(/\s+/g, "");
-  return strip(given) === strip(stored);
+  return (
+    strip(given) === strip(stored) ||
+    matchesTerm(stored, given) ||
+    strip(stored).includes(strip(given))
+  );
 }
 
 export interface ResolvedMeal {
@@ -74,6 +78,9 @@ export async function resolveCatalogMeal(
   }
 
   if (input.itemName && !sameItemName(input.itemName, item.name)) {
+    console.warn(
+      `coach: log_meal name mismatch, model sent "${input.itemName}" for "${item.name}"`,
+    );
     return {
       ok: false,
       reason: "name_mismatch",

@@ -262,6 +262,9 @@ export function buildCoachTools(
               ]
             : sample;
           const chosenUsable = chosen.filter(hasMacros).length;
+          console.info(
+            `coach: search_catalog ${JSON.stringify(terms)} -> ${hits.length} hits (${usableHits.length} usable) of ${items.length}, returning ${chosen.length}`,
+          );
           const note = !items.length
             ? "The user's catalog is empty. Tell them so and offer to add items; do not name any food as if it were saved."
             : !chosenUsable
