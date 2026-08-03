@@ -130,11 +130,19 @@ export interface ToolStreamOptions {
 
 function repairToolName(tools: ToolSet): ToolCallRepairFunction<ToolSet> {
   return async ({ toolCall, error }) => {
-    if (!NoSuchToolError.isInstance(error)) return null;
-    const cleaned = Object.keys(tools).find((name) =>
-      toolCall.toolName.startsWith(name),
+    if (NoSuchToolError.isInstance(error)) {
+      const cleaned = Object.keys(tools).find((name) =>
+        toolCall.toolName.startsWith(name),
+      );
+      console.warn(
+        `coach: malformed tool name ${toolCall.toolName}, ${cleaned ? `repaired to ${cleaned}` : "no match"}`,
+      );
+      return cleaned ? { ...toolCall, toolName: cleaned } : null;
+    }
+    console.warn(
+      `coach: invalid input for ${toolCall.toolName}: ${toolCall.input}`,
     );
-    return cleaned ? { ...toolCall, toolName: cleaned } : null;
+    return null;
   };
 }
 
@@ -168,6 +176,9 @@ export async function chatToolsStream(
       if (part.toolName === approvalFor) writeAttempted = true;
       options.onEvent({ type: "status", tool: part.toolName });
     } else if (part.type === "tool-approval-request") {
+      console.info(
+        `coach: approval requested for ${part.toolCall.toolName} ${JSON.stringify(part.toolCall.input)}`,
+      );
       approvals.push({
         approvalId: part.approvalId,
         toolName: part.toolCall.toolName,

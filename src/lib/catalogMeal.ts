@@ -4,11 +4,17 @@ import { and, eq } from "drizzle-orm";
 
 import { db, schema } from "@/lib/db";
 import { hasMacros, kcalOf } from "@/lib/macros";
+import { normalizeSearch } from "@/lib/search";
 import { newId, round } from "@/lib/utils";
 
 const { meals, catalog_items } = schema;
 
 export const MAX_PORTIONS = 10;
+
+function sameItemName(given: string, stored: string): boolean {
+  const strip = (value: string) => normalizeSearch(value).replace(/\s+/g, "");
+  return strip(given) === strip(stored);
+}
 
 export interface ResolvedMeal {
   catalog_item_id: string;
@@ -67,7 +73,7 @@ export async function resolveCatalogMeal(
     return { ok: false, reason: "not_found", error: "Catalog item not found" };
   }
 
-  if (input.itemName && input.itemName.trim() !== item.name) {
+  if (input.itemName && !sameItemName(input.itemName, item.name)) {
     return {
       ok: false,
       reason: "name_mismatch",

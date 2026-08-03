@@ -20,7 +20,7 @@ import { getRecentWorkouts, hydrateWorkout } from "@/lib/data/workouts";
 import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
 import { hasMacros } from "@/lib/macros";
-import { normalizeSearch } from "@/lib/search";
+import { matchesTerm } from "@/lib/search";
 import { round } from "@/lib/utils";
 
 const { body_scans, meals } = schema;
@@ -227,7 +227,7 @@ export function buildCoachTools(
         async ({ queries }: { queries: string[] }) => {
           const terms = queries
             .slice(0, MAX_QUERY_TERMS)
-            .map(normalizeSearch)
+            .map((query) => query.trim())
             .filter(Boolean);
           const items = (await getCatalog(userId)).filter(
             (item) => !item.archived,
@@ -236,10 +236,8 @@ export function buildCoachTools(
             ? items.filter((item) =>
                 terms.some(
                   (term) =>
-                    normalizeSearch(item.name).includes(term) ||
-                    (item.place
-                      ? normalizeSearch(item.place).includes(term)
-                      : false),
+                    matchesTerm(item.name, term) ||
+                    (item.place ? matchesTerm(item.place, term) : false),
                 ),
               )
             : [];
