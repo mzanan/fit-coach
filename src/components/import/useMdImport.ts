@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { commitMdImport } from "@/lib/actions/mdImport";
@@ -49,6 +49,10 @@ export function useMdImport() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [progress, setProgress] = useState<string | null>(null);
   const [controller, setController] = useState<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => controller?.abort();
+  }, [controller]);
 
   function extract() {
     startTransition(async () => {
