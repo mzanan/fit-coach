@@ -144,6 +144,9 @@ export async function extractFromMarkdown(
   const parts: MdExtraction[] = [];
   for (let i = 0; i < chunks.length; i++) {
     onChunk?.(i, chunks.length);
+    console.log(
+      `md import: part ${i + 1}/${chunks.length}, ${chunks[i].length} chars, model ${ref.provider}/${ref.model}, output budget ${budget}`,
+    );
     const raw = await chatJson<unknown>(
       ref,
       [
@@ -159,6 +162,11 @@ export async function extractFromMarkdown(
     if (parsed.success) {
       parts.push(parsed.data);
     } else {
+      console.error(
+        `md import: part ${i + 1} did not match the schema`,
+        parsed.error.issues.slice(0, 5),
+        JSON.stringify(raw).slice(0, 600),
+      );
       parts.push({
         days: [],
         catalog_items: [],

@@ -210,13 +210,23 @@ export async function chatJson<T>(
     throw new Error(`Model ${ref.model} has no provider with structured output`);
   }
   const { instructions, turns } = split(messages);
-  const { object } = await generateObject({
-    model: resolveModel(routeOnly ? { ...ref, routeOnly } : ref),
-    instructions,
-    messages: turns,
-    maxOutputTokens: maxTokens,
-    output: "no-schema",
-    repairText: async (options) => unwrapJson(options),
-  });
-  return object as T;
+  try {
+    const { object } = await generateObject({
+      model: resolveModel(routeOnly ? { ...ref, routeOnly } : ref),
+      instructions,
+      messages: turns,
+      maxOutputTokens: maxTokens,
+      output: "no-schema",
+      repairText: async (options) => unwrapJson(options),
+    });
+    return object as T;
+  } catch (error) {
+    const raw = (error as { text?: string })?.text;
+    console.error(
+      `chatJson failed on ${ref.provider}/${ref.model}`,
+      (error as Error).message,
+      raw ? `raw tail: ${raw.slice(-400)}` : "no raw text on the error",
+    );
+    throw error;
+  }
 }

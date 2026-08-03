@@ -29,6 +29,7 @@ export async function POST(request: Request) {
         );
         send({ type: "done", extraction });
       } catch (error) {
+        console.error("md import: extraction failed", error);
         send({
           type: "error",
           message:
