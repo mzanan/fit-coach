@@ -39,12 +39,6 @@ export interface Attachment {
   text: string;
 }
 
-export interface ImportCounts {
-  meals: number;
-  workouts: number;
-  catalogItems: number;
-}
-
 export function useMdImport() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -270,7 +264,7 @@ export function useMdImport() {
     });
   }
 
-  const included: ImportCounts | null = days
+  const included = days
     ? {
         meals: days.reduce(
           (n, d) => n + d.meals.filter((m) => m.include).length,
