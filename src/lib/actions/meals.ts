@@ -39,6 +39,15 @@ export async function addMealFromCatalog(input: unknown): Promise<string> {
     )
     .limit(1);
   if (!item[0]) throw new Error("Catalog item not found");
+  if (
+    item[0].protein_g === null ||
+    item[0].fat_g === null ||
+    item[0].carbs_g === null
+  ) {
+    throw new Error(
+      `${item[0].name} has no macros yet. Edit it in the catalog first.`,
+    );
+  }
 
   const id = newId();
   await db.insert(meals).values({

@@ -6,7 +6,12 @@ import { z } from "zod";
 
 import { db, schema } from "@/lib/db";
 import { requireUser } from "@/lib/session";
-import { componentGroup, fatQuality, macroFields } from "@/lib/validation";
+import {
+  componentGroup,
+  fatQuality,
+  macroFields,
+  optionalMacroFields,
+} from "@/lib/validation";
 import { newId } from "@/lib/utils";
 
 const { catalog_items, catalog_components } = schema;
@@ -22,7 +27,7 @@ const createSchema = z.object({
   place: z.string().optional(),
   notes: z.string().optional(),
   fat_quality: fatQuality.optional(),
-  ...macroFields,
+  ...optionalMacroFields,
 });
 
 export async function createCatalogItem(input: unknown) {
@@ -36,9 +41,9 @@ export async function createCatalogItem(input: unknown) {
     name: data.name.trim(),
     place: data.place?.trim() || null,
     notes: data.notes?.trim() || null,
-    protein_g: data.protein_g,
-    fat_g: data.fat_g,
-    carbs_g: data.carbs_g,
+    protein_g: data.protein_g ?? null,
+    fat_g: data.fat_g ?? null,
+    carbs_g: data.carbs_g ?? null,
     fat_quality: data.fat_quality ?? null,
     is_composable: false,
     created_at: now,
@@ -59,9 +64,9 @@ export async function updateCatalogItem(input: unknown) {
       name: data.name.trim(),
       place: data.place?.trim() || null,
       notes: data.notes?.trim() || null,
-      protein_g: data.protein_g,
-      fat_g: data.fat_g,
-      carbs_g: data.carbs_g,
+      protein_g: data.protein_g ?? null,
+      fat_g: data.fat_g ?? null,
+      carbs_g: data.carbs_g ?? null,
       fat_quality: data.fat_quality ?? null,
       updated_at: new Date(),
     })

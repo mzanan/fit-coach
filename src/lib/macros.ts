@@ -92,3 +92,13 @@ function line(
     (key === "calories" && state === "over");
   return { key, current: round(current, 0), target: round(target, 0), remaining, pct, state, warn };
 }
+
+export function hasMacros(item: {
+  protein_g: number | null;
+  fat_g: number | null;
+  carbs_g: number | null;
+}): boolean {
+  return (
+    item.protein_g !== null && item.fat_g !== null && item.carbs_g !== null
+  );
+}

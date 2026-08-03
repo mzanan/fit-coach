@@ -111,9 +111,9 @@ export const catalog_items = sqliteTable(
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     place: text("place"),
-    protein_g: real("protein_g").notNull().default(0),
-    fat_g: real("fat_g").notNull().default(0),
-    carbs_g: real("carbs_g").notNull().default(0),
+    protein_g: real("protein_g"),
+    fat_g: real("fat_g"),
+    carbs_g: real("carbs_g"),
     fat_quality: text("fat_quality"),
     notes: text("notes"),
     is_composable: integer("is_composable", { mode: "boolean" })

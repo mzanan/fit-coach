@@ -104,7 +104,7 @@ export function buildCoachTools(
     }),
     search_catalog: tool({
       description:
-        "Search the user's saved food catalog by name or place. Pass every term worth trying in one call: they are searched together. The catalog is stored in the words the user typed, often English even when they ask in another language, so include the English translation of each term alongside the original. Returns the user's most eaten items when nothing matches.",
+        "Search the user's saved food catalog by name or place. Pass every term worth trying in one call: they are searched together. The catalog is stored in the words the user typed, often English even when they ask in another language, so include the English translation of each term alongside the original. Returns the user's most eaten items when nothing matches. A macro of null means that number was never recorded: say so instead of guessing it.",
       inputSchema: z.object({
         queries: z.array(z.string().trim().min(1)).min(1),
       }),

@@ -5,7 +5,12 @@ import { z } from "zod";
 import { googleModel } from "@/lib/ai/googleCaps";
 import { chatJson } from "@/lib/ai/provider";
 import type { ModelRef } from "@/lib/ai/providers";
-import { dayString, fatQuality, macroFields } from "@/lib/validation";
+import {
+  dayString,
+  fatQuality,
+  macroFields,
+  optionalMacroFields,
+} from "@/lib/validation";
 
 const importedMeal = z.object({
   category: z.enum(["breakfast", "post_gym", "lunch", "snack", "dinner"]),
@@ -44,7 +49,7 @@ const importedCatalogItem = z.object({
   place: z.string().nullish(),
   fat_quality: fatQuality.optional(),
   notes: z.string().nullish(),
-  ...macroFields,
+  ...optionalMacroFields,
 });
 
 export const mdExtraction = z.object({
@@ -71,13 +76,15 @@ const SYSTEM = `You extract structured data from a personal markdown log of nutr
     }
   ],
   "catalog_items": [
-    { "name": string, "place": string|null, "protein_g": number, "fat_g": number, "carbs_g": number, "fat_quality": "clean"|"oily"|null, "notes": string|null }
+    { "name": string, "place": string|null, "protein_g": number|null, "fat_g": number|null, "carbs_g": number|null, "fat_quality": "clean"|"oily"|null, "notes": string|null }
   ],
   "warnings": [string]
 }
 
 Rules:
-- Extract ONLY what the text states. NEVER invent or estimate macros; if a meal has no macros in the text, use 0 for the missing values and add a warning naming the meal and day.
+- Extract ONLY what the text states. NEVER invent or estimate macros.
+- A catalog item whose macros the text does not give gets null for each missing macro. Never write 0 for a macro the text does not state: 0 means the text says zero.
+- A meal inside a day has no null macros: if the text gives no macros for it, use 0 and add a warning naming the meal and day.
 - Macros are grams. Calories are derived, do not extract them as a macro.
 - Map meal category from explicit labels or time of day: 05-11 breakfast, 11-16 lunch, 16-18 snack, 16-23 dinner; post-workout meals are post_gym.
 - fat_quality: "oily" only when the text says fried/oily/greasy, "clean" when it says clean/grilled/steamed, else null.
