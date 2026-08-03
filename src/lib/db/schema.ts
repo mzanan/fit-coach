@@ -98,6 +98,7 @@ export const profiles = sqliteTable("profiles", {
   calories_target: real("calories_target").notNull().default(2150),
   seeded_at: integer("seeded_at", { mode: "timestamp_ms" }),
   ai_provider: text("ai_provider"),
+  coach_rules: text("coach_rules"),
   created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 });

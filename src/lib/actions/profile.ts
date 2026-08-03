@@ -32,6 +32,25 @@ export async function updateTargets(input: unknown) {
   revalidatePath("/settings/targets");
 }
 
+const COACH_RULES_MAX = 20_000;
+
+const coachRulesSchema = z.object({
+  rules: z.string().max(COACH_RULES_MAX),
+});
+
+export async function updateCoachRules(input: unknown) {
+  const user = await requireUser();
+  const { rules } = coachRulesSchema.parse(input);
+
+  await db
+    .update(profiles)
+    .set({ coach_rules: rules.trim() || null, updated_at: new Date() })
+    .where(eq(profiles.user_id, user.id));
+  revalidatePath("/coach");
+  revalidatePath("/settings");
+  revalidatePath("/settings/coach");
+}
+
 const settingsSchema = z.object({
   sex: z.enum(["male", "female"]),
   birth_year: z.number().int().min(1900).max(2100).nullable(),
