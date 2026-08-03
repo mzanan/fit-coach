@@ -134,10 +134,12 @@ export function mergeExtractions(parts: MdExtraction[]): MdExtraction {
 export async function extractFromMarkdown(
   ref: ModelRef,
   text: string,
+  onChunk?: (done: number, total: number) => void,
 ): Promise<MdExtraction> {
   const chunks = chunkMarkdown(text);
   const parts: MdExtraction[] = [];
   for (let i = 0; i < chunks.length; i++) {
+    onChunk?.(i, chunks.length);
     const raw = await chatJson<unknown>(
       ref,
       [

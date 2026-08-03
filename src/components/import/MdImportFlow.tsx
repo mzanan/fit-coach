@@ -23,6 +23,7 @@ export function MdImportFlow({ today }: { today: string }) {
     setMdText,
     attachFiles,
     attachments,
+    progress,
     removeAttachment,
     extract,
     days,
@@ -45,7 +46,11 @@ export function MdImportFlow({ today }: { today: string }) {
         <Skeleton className="mt-2 h-5 w-36" />
         <Skeleton className="mt-2 h-5 w-44" />
         <p className="mt-3 text-meta text-muted-foreground">
-          Long logs take a few seconds.
+          {progress ?? "Starting"}
+        </p>
+        <p className="mt-1 text-meta text-muted-foreground">
+          Each part is one call to your model, and a free tier can rate limit
+          them, so a long log takes minutes. Leaving this page cancels it.
         </p>
       </Surface>
     );

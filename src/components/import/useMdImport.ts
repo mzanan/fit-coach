@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { commitMdImport, extractMdImport } from "@/lib/actions/mdImport";
+import { commitMdImport } from "@/lib/actions/mdImport";
+import type { MdExtraction } from "@/lib/ai/mdImport";
 import type {
   ImportedCatalogItem,
   ImportedMeal,
@@ -46,14 +47,66 @@ export function useMdImport() {
   const [days, setDays] = useState<PreviewDay[] | null>(null);
   const [catalogItems, setCatalogItems] = useState<PreviewCatalogItem[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [progress, setProgress] = useState<string | null>(null);
 
   function extract() {
     startTransition(async () => {
+      setProgress("Sending your files");
       try {
-        const result = await extractMdImport([
-          ...attachments.map((file) => ({ name: file.name, text: file.text })),
-          ...(mdText.trim() ? [{ name: "Pasted text", text: mdText }] : []),
-        ]);
+        const res = await fetch("/api/import/extract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sources: [
+              ...attachments.map((file) => ({
+                name: file.name,
+                text: file.text,
+              })),
+              ...(mdText.trim()
+                ? [{ name: "Pasted text", text: mdText }]
+                : []),
+            ],
+          }),
+        });
+        if (!res.ok || !res.body) throw new Error("Extraction failed");
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let result: MdExtraction | null = null;
+
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            const event = JSON.parse(line) as
+              | {
+                  type: "progress";
+                  file: string;
+                  fileIndex: number;
+                  files: number;
+                  chunk: number;
+                  chunks: number;
+                }
+              | { type: "done"; extraction: MdExtraction }
+              | { type: "error"; message: string };
+            if (event.type === "progress") {
+              setProgress(
+                `${event.file} (${event.fileIndex} of ${event.files}), part ${event.chunk} of ${event.chunks}`,
+              );
+            } else if (event.type === "done") {
+              result = event.extraction;
+            } else {
+              throw new Error(event.message);
+            }
+          }
+        }
+        if (!result) throw new Error("Extraction returned nothing");
+
         setDays(
           result.days.map((d, di) => ({
             day: d.day,
@@ -75,6 +128,8 @@ export function useMdImport() {
         setWarnings(result.warnings);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Extraction failed");
+      } finally {
+        setProgress(null);
       }
     });
   }
@@ -211,6 +266,7 @@ export function useMdImport() {
     setMdText,
     attachFiles,
     attachments,
+    progress,
     removeAttachment,
     extract,
     days,
