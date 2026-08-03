@@ -222,6 +222,17 @@ export const coach_messages = sqliteTable(
   (t) => [index("coach_messages_user_idx").on(t.user_id, t.created_at)],
 );
 
+export const coach_pending_writes = sqliteTable("coach_pending_writes", {
+  user_id: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  approval_id: text("approval_id").notNull(),
+  question: text("question"),
+  messages: text("messages").notNull(),
+  preview: text("preview").notNull(),
+  created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+});
+
 export const coach_facts = sqliteTable(
   "coach_facts",
   {

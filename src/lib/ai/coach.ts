@@ -8,13 +8,30 @@ import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
 import { getWhoopConnection } from "@/lib/integrations/whoop";
 import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
-import { chat, chatToolsStream, type CoachEvent } from "@/lib/ai/provider";
+import type { ModelMessage } from "ai";
+
+import {
+  approvalResponseMessage,
+  chat,
+  chatToolsStream,
+  type CoachEvent,
+} from "@/lib/ai/provider";
 import {
   appendExchange,
   getConversation,
   type CoachMessage,
 } from "@/lib/data/coachMessages";
-import { buildCoachTools } from "@/lib/ai/coachTools";
+import {
+  clearPendingWrite,
+  savePendingWrite,
+  takePendingWrite,
+  type PendingPreview,
+} from "@/lib/data/coachPendingWrite";
+import {
+  buildCoachTools,
+  previewLogMeal,
+  WRITE_TOOL,
+} from "@/lib/ai/coachTools";
 import { PROVIDER_LABEL } from "@/lib/ai/options";
 import { userModelRef, type ModelRef } from "@/lib/ai/providers";
 import { toolsRouting } from "@/lib/ai/registry";
@@ -234,11 +251,22 @@ function limitErrorReply(
   return `${label}: ${detail} Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
+export type CoachResult =
+  | { status: "answered"; text: string; generated: boolean }
+  | { status: "pending"; approvalId: string; preview: PendingPreview };
+
+const WRITE_FAILED =
+  "The coach tried to log that meal but the request came back malformed. Ask again, or log it from the Today screen.";
+
+const DENIED = "Not logged. Nothing was written.";
+
 const TOOLS_ADDENDUM = `
 
 Data access: you have tools that read the user's live data (today's meals and targets, the food catalog, recent workouts, body scans). Call only the tools the question actually needs, then answer that question directly and concretely. Never invent data you did not read from a tool.
 
 What the user tells you outranks what the tools read. The app only knows the meals the user typed into it, and they often eat without logging, so an empty day from get_today means "nothing was logged", NEVER "nothing was eaten". If the user states what they have consumed, or gives you totals, take those numbers as the truth for this conversation and answer from them. Do not ask them to log anything first, do not ask them to confirm what they already said, and do not repeat the day back to them: they asked a question, answer it.
+
+You can also log a meal with log_meal, but only when the user asks you to. Pass the id and the exact name of a catalog item a search returned: the app resolves the macros from that item itself, so you never send macro numbers and never guess them. The user confirms before anything is written, so do not ask them to confirm yourself.
 
 Whenever you suggest what to eat, search the catalog first and build the suggestion from the user's own saved items and their exact macros. One search call is enough: pass every term worth trying at once. When the search reports it found no match and returned the user's most eaten items instead, say so before suggesting anything else.
 
@@ -282,6 +310,47 @@ async function learn(
   }
 }
 
+function askOf(question?: string): string {
+  return question?.trim()
+    ? question.trim()
+    : "Give a short read on how today and the week are going, and the next action.";
+}
+
+async function toolSetup(
+  userId: string,
+  profile: Profile,
+  history: CoachMessage[],
+  question?: string,
+) {
+  const { memory, parts } = await memoryAndFacts(userId, question);
+  return {
+    memory,
+    today: todayLogicalDay(dayConfig(profile)),
+    instructions: [
+      COACH_FRAME +
+        diningRule(profile) +
+        coachingRules(profile) +
+        TOOLS_ADDENDUM,
+      ...parts,
+    ].join("\n\n"),
+    messages: [
+      ...history.map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
+      { role: "user" as const, content: askOf(question) },
+    ] as ModelMessage[],
+  };
+}
+
+function exchangeOf(toolLog: string[], question: string | undefined, text: string): string {
+  return [
+    ...(toolLog.length ? ["Data the coach read from the app:", ...toolLog] : []),
+    `User: ${question?.trim() || "(daily check-in)"}`,
+    `Coach: ${text}`,
+  ].join("\n");
+}
+
 async function toolReply(
   ref: ModelRef,
   routeOnly: string[] | undefined,
@@ -291,44 +360,67 @@ async function toolReply(
   question?: string,
   onEvent?: (event: CoachEvent) => void,
   signal?: AbortSignal,
-): Promise<{ text: string; generated: boolean }> {
-  const { memory, parts } = await memoryAndFacts(userId, question);
-  const ask = question?.trim()
-    ? question.trim()
-    : "Give a short read on how today and the week are going, and the next action.";
+): Promise<CoachResult> {
+  const setup = await toolSetup(userId, profile, history, question);
 
   try {
-    const { text, toolLog } = await chatToolsStream(
-      routeOnly ? { ...ref, routeOnly } : ref,
-      {
-        instructions: [COACH_FRAME + diningRule(profile) + coachingRules(profile) + TOOLS_ADDENDUM, ...parts].join("\n\n"),
-        messages: [
-          ...history.map((message) => ({
-            role: message.role,
-            content: message.content,
-          })),
-          { role: "user" as const, content: ask },
-        ],
-        tools: buildCoachTools(userId, profile, todayLogicalDay(dayConfig(profile))),
+    const { text, toolLog, approvals, messages, writeAttempted } =
+      await chatToolsStream(routeOnly ? { ...ref, routeOnly } : ref, {
+        instructions: setup.instructions,
+        messages: setup.messages,
+        tools: buildCoachTools(userId, profile, setup.today),
+        approvalFor: WRITE_TOOL,
         onEvent: onEvent ?? (() => {}),
-      },
-    );
-    if (text) {
-      const exchange = [
-        ...(toolLog.length ? ["Data the coach read from the app:", ...toolLog] : []),
-        `User: ${question?.trim() || "(daily check-in)"}`,
-        `Coach: ${text}`,
-      ].join("\n");
-      if (!signal?.aborted) {
-        await learn(ref, userId, memory, exchange, Boolean(question?.trim()));
+        signal,
+      });
+
+    if (approvals.length) {
+      const preview = await previewLogMeal(
+        userId,
+        setup.today,
+        approvals[0].input,
+      );
+      if (!preview.ok) {
+        return { status: "answered", text: preview.error, generated: false };
       }
-      return { text, generated: true };
+      if (!signal?.aborted) {
+        await savePendingWrite(userId, {
+          approvalId: approvals[0].approvalId,
+          question: question?.trim() || null,
+          messages,
+          preview: preview.preview,
+        });
+      }
+      return {
+        status: "pending",
+        approvalId: approvals[0].approvalId,
+        preview: preview.preview,
+      };
     }
+
+    if (text) {
+      if (!signal?.aborted) {
+        await learn(
+          ref,
+          userId,
+          setup.memory,
+          exchangeOf(toolLog, question, text),
+          Boolean(question?.trim()),
+        );
+      }
+      return { status: "answered", text, generated: true };
+    }
+
     const ctx = await buildContext(userId, profile);
-    return { text: aiErrorReply(ctx), generated: false };
+    return {
+      status: "answered",
+      text: writeAttempted ? WRITE_FAILED : aiErrorReply(ctx),
+      generated: false,
+    };
   } catch (error) {
     const ctx = await buildContext(userId, profile);
     return {
+      status: "answered",
       text: limitErrorReply(ref.provider, error, ctx) ?? aiErrorReply(ctx),
       generated: false,
     };
@@ -342,15 +434,13 @@ async function contextReply(
   history: CoachMessage[],
   question?: string,
   signal?: AbortSignal,
-): Promise<{ text: string; generated: boolean }> {
+): Promise<CoachResult> {
   const ctx = await buildContext(userId, profile);
   const { memory, parts } = await memoryAndFacts(userId, question);
 
   const userMsg = [
     ...ctx.lines,
-    question?.trim()
-      ? `User question: ${question.trim()}`
-      : "Give a short read on how today and the week are going, and the next action.",
+    question?.trim() ? `User question: ${question.trim()}` : askOf(question),
   ].join("\n");
 
   try {
@@ -374,9 +464,14 @@ async function contextReply(
         await learn(ref, userId, memory, exchange, Boolean(question?.trim()));
       }
     }
-    return { text: text || aiErrorReply(ctx), generated: Boolean(text) };
+    return {
+      status: "answered",
+      text: text || aiErrorReply(ctx),
+      generated: Boolean(text),
+    };
   } catch (error) {
     return {
+      status: "answered",
       text: limitErrorReply(ref.provider, error, ctx) ?? aiErrorReply(ctx),
       generated: false,
     };
@@ -389,7 +484,7 @@ export async function coachReply(
   question?: string,
   onEvent?: (event: CoachEvent) => void,
   signal?: AbortSignal,
-): Promise<{ text: string; generated: boolean }> {
+): Promise<CoachResult> {
   const ref = await userModelRef(userId);
   if (!ref) {
     const ctx = await buildContext(userId, profile);
@@ -397,9 +492,10 @@ export async function coachReply(
     if (!signal?.aborted) {
       await appendExchange(userId, question?.trim() || null, text, false);
     }
-    return { text, generated: false };
+    return { status: "answered", text, generated: false };
   }
 
+  await clearPendingWrite(userId);
   const history = await getConversation(userId);
 
   let toolPin: string[] | null | undefined = null;
@@ -423,7 +519,7 @@ export async function coachReply(
         )
       : await contextReply(ref, userId, profile, history, question, signal);
 
-  if (signal?.aborted) return result;
+  if (signal?.aborted || result.status === "pending") return result;
 
   await appendExchange(
     userId,
@@ -432,4 +528,96 @@ export async function coachReply(
     result.generated,
   );
   return result;
+}
+
+export async function resolvePendingWrite(
+  userId: string,
+  profile: Profile,
+  approvalId: string,
+  approved: boolean,
+  onEvent?: (event: CoachEvent) => void,
+  signal?: AbortSignal,
+): Promise<CoachResult> {
+  const pending = await takePendingWrite(userId, approvalId);
+  if (!pending) {
+    return {
+      status: "answered",
+      text: "That confirmation is no longer valid. Ask again.",
+      generated: false,
+    };
+  }
+
+  const question = pending.question ?? undefined;
+
+  if (!approved) {
+    await appendExchange(userId, question ?? null, DENIED, false);
+    return { status: "answered", text: DENIED, generated: false };
+  }
+
+  const ref = await userModelRef(userId);
+  if (!ref) {
+    return {
+      status: "answered",
+      text: "Add your AI provider key in Settings > AI to use the coach.",
+      generated: false,
+    };
+  }
+
+  let toolPin: string[] | null | undefined = null;
+  try {
+    toolPin = await toolsRouting(ref.provider, ref.model);
+  } catch {
+    toolPin = null;
+  }
+
+  const history = await getConversation(userId);
+  const setup = await toolSetup(userId, profile, history, question);
+
+  try {
+    const { text, toolLog } = await chatToolsStream(
+      toolPin ? { ...ref, routeOnly: toolPin } : ref,
+      {
+        instructions: setup.instructions,
+        messages: [
+          ...setup.messages,
+          ...pending.messages,
+          approvalResponseMessage(
+            [{ approvalId, toolName: WRITE_TOOL, input: null }],
+            true,
+          ),
+        ],
+        tools: buildCoachTools(userId, profile, setup.today),
+        approvalFor: WRITE_TOOL,
+        onEvent: onEvent ?? (() => {}),
+        signal,
+      },
+    );
+
+    const answer = text || loggedLine(pending.preview);
+    if (!signal?.aborted) {
+      await appendExchange(userId, question ?? null, answer, Boolean(text));
+      if (text) {
+        await learn(
+          ref,
+          userId,
+          setup.memory,
+          exchangeOf(toolLog, question, answer),
+          Boolean(question),
+        );
+      }
+    }
+    return { status: "answered", text: answer, generated: Boolean(text) };
+  } catch (error) {
+    const ctx = await buildContext(userId, profile);
+    const text = limitErrorReply(ref.provider, error, ctx) ?? aiErrorReply(ctx);
+    if (!signal?.aborted) {
+      await appendExchange(userId, question ?? null, text, false);
+    }
+    return { status: "answered", text, generated: false };
+  }
+}
+
+function loggedLine(preview: PendingPreview): string {
+  const portions = preview.portions === 1 ? "" : ` x${preview.portions}`;
+  return `Logged ${preview.name}${portions} as ${categoryLabel(preview.category).toLowerCase()}: ${preview.protein_g}g protein, ${preview.fat_g}g fat, ${preview.carbs_g}g carbs, ${preview.kcal} kcal.`;
 }
