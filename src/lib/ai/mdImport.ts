@@ -140,7 +140,7 @@ export async function extractFromMarkdown(
 ): Promise<MdExtraction> {
   const google = ref.provider === "google" ? googleModel(ref.model) : null;
   const chunks = chunkMarkdown(text, google?.maxInputChars);
-  const budget = google ? 32_000 : 6000;
+  const budget = google ? 60_000 : 6000;
   const parts: MdExtraction[] = [];
   for (let i = 0; i < chunks.length; i++) {
     onChunk?.(i, chunks.length);

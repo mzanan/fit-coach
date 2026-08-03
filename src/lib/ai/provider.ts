@@ -198,6 +198,10 @@ export async function chatJson<T>(
   messages: ChatMessage[],
   maxTokens = 4000,
 ): Promise<T> {
+  const providerOptions: SharedV4ProviderOptions | undefined =
+    ref.provider === "google"
+      ? { google: { thinkingConfig: { thinkingBudget: 0 } } }
+      : undefined;
   let routeOnly: string[] | null | undefined;
   try {
     routeOnly = await structuredRouting(ref.provider, ref.model);
@@ -216,6 +220,7 @@ export async function chatJson<T>(
       instructions,
       messages: turns,
       maxOutputTokens: maxTokens,
+      providerOptions,
       output: "no-schema",
       repairText: async (options) => unwrapJson(options),
     });
