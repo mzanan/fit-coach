@@ -16,6 +16,7 @@ import {
   approvalResponseMessage,
   chat,
   chatToolsStream,
+  type ApprovalRequest,
   type CoachEvent,
 } from "@/lib/ai/provider";
 import {
@@ -280,6 +281,10 @@ Data access: you have tools that read the user's live data (today's meals and ta
 What the user tells you outranks what the tools read. The app only knows the meals the user typed into it, and they often eat without logging, so an empty day from get_today means "nothing was logged", NEVER "nothing was eaten". If the user states what they have consumed, or gives you totals, take those numbers as the truth for this conversation and answer from them. Do not ask them to log anything first, do not ask them to confirm what they already said, and do not repeat the day back to them: they asked a question, answer it.
 
 You can also log a meal with log_meal, but only when the user asks you to. Pass the id and the exact name of a catalog item a search returned: the app resolves the macros from that item itself, so you never send macro numbers and never guess them. The user confirms before anything is written, so do not ask them to confirm yourself.
+
+Two rules about logging, both absolute:
+- If the user asks you to log something, CALL log_meal. Saying you will log it, or describing what you are about to log, does nothing: only the tool call reaches the app. Never announce a log you did not call the tool for.
+- If several catalog items match what they named and they differ in size or portion (100G vs 200G, half vs full), ASK which one instead of choosing. Only pick on your own when a single item matches.
 
 Whenever you suggest what to eat, search the catalog first and build the suggestion from the user's own saved items and their exact macros. One search call is enough: pass every term worth trying at once. When the search reports it found no match and returned the user's most eaten items instead, say so before suggesting anything else.
 
@@ -598,21 +603,32 @@ export async function resolvePendingWrite(
   const setup = await toolSetup(userId, profile, history, question);
 
   try {
-    const { text, toolLog, writeOutputs } = await chatToolsStream(
-      toolPin ? { ...ref, routeOnly: toolPin } : ref,
-      {
+    const answered = [
+      ...pending.messages,
+      approvalResponseMessage(pending.approvalIds, true),
+    ];
+    const day = pending.previews[0].day;
+
+    const { text, toolLog, writeOutputs, approvals, messages } =
+      await chatToolsStream(toolPin ? { ...ref, routeOnly: toolPin } : ref, {
         instructions: setup.instructions,
-        messages: [
-          ...setup.messages,
-          ...pending.messages,
-          approvalResponseMessage(pending.approvalIds, true),
-        ],
-        tools: buildCoachTools(userId, profile, pending.previews[0].day),
+        messages: [...setup.messages, ...answered],
+        tools: buildCoachTools(userId, profile, day),
         approvalFor: WRITE_TOOL,
         onEvent: onEvent ?? (() => {}),
         signal,
-      },
-    );
+      });
+
+    if (approvals.length) {
+      const chained = await chainApproval(
+        userId,
+        day,
+        question,
+        [...answered, ...messages],
+        approvals,
+      );
+      if (chained) return chained;
+    }
 
     const written = writeOutputs.filter((output) => output.logged).length;
     if (!written) {
@@ -641,6 +657,35 @@ export async function resolvePendingWrite(
     await appendExchange(userId, question ?? null, RESUME_FAILED, false);
     return { status: "answered", text: RESUME_FAILED, generated: false };
   }
+}
+
+async function chainApproval(
+  userId: string,
+  day: string,
+  question: string | undefined,
+  messages: ModelMessage[],
+  approvals: ApprovalRequest[],
+): Promise<CoachResult | null> {
+  const resolved = await Promise.all(
+    approvals.map((approval) => previewLogMeal(userId, day, approval.input)),
+  );
+  const previews = resolved.flatMap((preview) =>
+    preview.ok ? [preview.preview] : [],
+  );
+  if (!previews.length) return null;
+
+  await savePendingWrite(userId, {
+    approvalId: approvals[0].approvalId,
+    approvalIds: approvals.map((approval) => approval.approvalId),
+    question: question ?? null,
+    messages,
+    previews,
+  });
+  return {
+    status: "pending",
+    approvalId: approvals[0].approvalId,
+    previews,
+  };
 }
 
 function loggedLines(previews: PendingPreview[]): string {
