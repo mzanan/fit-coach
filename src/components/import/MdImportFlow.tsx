@@ -152,6 +152,13 @@ export function MdImportFlow({ today }: { today: string }) {
         <p className="mx-auto mt-1.5 max-w-[32ch] text-meta text-muted-foreground">
           No days, meals or workouts were found in that log.
         </p>
+        {warnings.length ? (
+          <ul className="mx-auto mt-card max-w-[52ch] space-y-1 text-left text-meta text-muted-foreground">
+            {warnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+        ) : null}
         <Button variant="outline" className="mt-5" onClick={reset}>
           Back
         </Button>

@@ -28,7 +28,13 @@ export async function POST(request: Request) {
       };
       send({ type: "status", tool: "thinking" });
       try {
-        const result = await coachReply(user.id, profile, question, send);
+        const result = await coachReply(
+          user.id,
+          profile,
+          question,
+          send,
+          request.signal,
+        );
         send({ type: "done", text: result.text, generated: result.generated });
       } catch {
         send({ type: "error" });

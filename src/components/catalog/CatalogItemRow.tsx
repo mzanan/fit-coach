@@ -18,8 +18,6 @@ export function CatalogItemRow({ item }: { item: CatalogItemFull }) {
   const [editing, setEditing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { pending, run } = useAction();
-  const hasMacros =
-    item.protein_g !== null || item.fat_g !== null || item.carbs_g !== null;
 
   return (
     <div className="flex items-start gap-3 px-card py-3.5">
@@ -48,19 +46,8 @@ export function CatalogItemRow({ item }: { item: CatalogItemFull }) {
               ? "1 component"
               : `${item.components.length} components`}
           </p>
-        ) : hasMacros ? (
-          <MacroChips
-            macros={{
-              protein_g: item.protein_g ?? 0,
-              fat_g: item.fat_g ?? 0,
-              carbs_g: item.carbs_g ?? 0,
-            }}
-            className="mt-1.5"
-          />
         ) : (
-          <p className="mt-1.5 text-meta text-muted-foreground">
-            Macros not set
-          </p>
+          <MacroChips macros={item} className="mt-1.5" />
         )}
         {item.notes ? (
           <p className="mt-1 line-clamp-1 text-meta text-muted-foreground">

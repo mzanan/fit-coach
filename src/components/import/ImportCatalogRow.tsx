@@ -3,7 +3,6 @@
 import { Checkbox } from "@/components/ui/Checkbox";
 import { MacroChips } from "@/components/ui/MacroChips";
 import type { PreviewCatalogItem } from "@/components/import/useMdImport";
-import { hasMacros } from "@/lib/macros";
 
 export function ImportCatalogRow({
   item,
@@ -25,22 +24,14 @@ export function ImportCatalogRow({
         {item.place ? (
           <p className="text-meta text-muted-foreground">{item.place}</p>
         ) : null}
-        {hasMacros({
-          protein_g: item.protein_g ?? null,
-          fat_g: item.fat_g ?? null,
-          carbs_g: item.carbs_g ?? null,
-        }) ? (
-          <MacroChips
-            macros={{
-              protein_g: item.protein_g ?? 0,
-              fat_g: item.fat_g ?? 0,
-              carbs_g: item.carbs_g ?? 0,
-            }}
-            className="mt-1"
-          />
-        ) : (
-          <p className="mt-1 text-meta text-muted-foreground">Macros not set</p>
-        )}
+        <MacroChips
+          macros={{
+            protein_g: item.protein_g ?? null,
+            fat_g: item.fat_g ?? null,
+            carbs_g: item.carbs_g ?? null,
+          }}
+          className="mt-1"
+        />
       </div>
     </div>
   );

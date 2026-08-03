@@ -11,6 +11,7 @@ import {
 import type { SharedV4ProviderOptions } from "@ai-sdk/provider";
 
 import { groqCapability } from "@/lib/ai/groqCaps";
+import type { ReasoningEffort } from "@/lib/ai/options";
 import { resolveModel, type ModelRef } from "@/lib/ai/providers";
 import { structuredRouting } from "@/lib/ai/registry";
 
@@ -46,14 +47,32 @@ export async function chat(
     model: resolveModel(ref),
     instructions,
     messages: turns,
-    maxOutputTokens: maxTokens,
+    maxOutputTokens: maxTokens + googleThinkingBudget(ref),
+    providerOptions: reasoningOptions(ref),
   });
   return text.trim();
 }
 
 
+const GOOGLE_THINKING: Record<ReasoningEffort, number> = {
+  none: 0,
+  low: 1024,
+  medium: 4096,
+  high: 8192,
+};
+
+function googleThinkingBudget(ref: ModelRef): number {
+  return ref.provider === "google"
+    ? GOOGLE_THINKING[ref.reasoningEffort ?? "low"]
+    : 0;
+}
+
 function reasoningOptions(ref: ModelRef): SharedV4ProviderOptions | undefined {
-  if (ref.provider === "google") return undefined;
+  if (ref.provider === "google") {
+    return {
+      google: { thinkingConfig: { thinkingBudget: googleThinkingBudget(ref) } },
+    };
+  }
   if (ref.provider === "groq") {
     const supported =
       groqCapability(ref.model).reasoning && ref.reasoningEffort !== "none";
@@ -95,7 +114,7 @@ export async function chatToolsStream(
     messages: options.messages,
     tools: options.tools,
     stopWhen: isStepCount(options.maxSteps ?? 5),
-    maxOutputTokens: maxTokens,
+    maxOutputTokens: maxTokens + googleThinkingBudget(ref),
     providerOptions: reasoningOptions(ref),
   });
 
@@ -125,7 +144,7 @@ export async function chatToolsStream(
     model,
     instructions: `${options.instructions}\n\nAnswer the user now from the data below. Do not ask for more data.`,
     messages: [...options.messages, { role: "user", content: gathered }],
-    maxOutputTokens: maxTokens,
+    maxOutputTokens: maxTokens + googleThinkingBudget(ref),
     providerOptions: reasoningOptions(ref),
   });
   for await (const delta of closing.textStream) {
@@ -154,7 +173,7 @@ export async function chatTools(
     messages: options.messages,
     tools: options.tools,
     stopWhen: isStepCount(options.maxSteps ?? 5),
-    maxOutputTokens: maxTokens,
+    maxOutputTokens: maxTokens + googleThinkingBudget(ref),
     providerOptions,
   });
   const toolLog = result.steps.flatMap((step) =>
@@ -173,7 +192,7 @@ export async function chatTools(
       model,
       instructions: `${options.instructions}\n\nAnswer the user now from the data below. Do not ask for more data.`,
       messages: [...options.messages, { role: "user", content: gathered }],
-      maxOutputTokens: maxTokens,
+      maxOutputTokens: maxTokens + googleThinkingBudget(ref),
       providerOptions,
     });
     text = closing.text.trim();

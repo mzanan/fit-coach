@@ -355,12 +355,15 @@ export async function coachReply(
   profile: Profile,
   question?: string,
   onEvent?: (event: CoachEvent) => void,
+  signal?: AbortSignal,
 ): Promise<{ text: string; generated: boolean }> {
   const ref = await userModelRef(userId);
   if (!ref) {
     const ctx = await buildContext(userId, profile);
     const text = deterministicReply(ctx);
-    await appendExchange(userId, question?.trim() || null, text, false);
+    if (!signal?.aborted) {
+      await appendExchange(userId, question?.trim() || null, text, false);
+    }
     return { text, generated: false };
   }
 
@@ -385,6 +388,8 @@ export async function coachReply(
           onEvent,
         )
       : await contextReply(ref, userId, profile, history, question);
+
+  if (signal?.aborted) return result;
 
   await appendExchange(
     userId,
