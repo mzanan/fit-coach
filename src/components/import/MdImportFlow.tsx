@@ -231,9 +231,7 @@ export function MdImportFlow({ today }: { today: string }) {
           }
           onClick={commit}
         >
-          {pending
-            ? "Importing..."
-            : `Import ${included?.meals ?? 0} meals, ${included?.workouts ?? 0} workouts`}
+          {pending ? "Importing..." : "Import"}
         </Button>
       </StickyActions>
     </div>
