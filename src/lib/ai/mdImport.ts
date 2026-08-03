@@ -85,7 +85,7 @@ Rules:
 - catalog_items: only from sections that describe reusable meals or a food reference list (not daily logs).
 - If a section is unrelated to food or training, ignore it.`;
 
-function chunkMarkdown(text: string, maxChars = 12000): string[] {
+function chunkMarkdown(text: string, maxChars = 6000): string[] {
   if (text.length <= maxChars) return [text];
   const sections = text.split(/(?=^#{1,3} )/m);
   const chunks: string[] = [];
@@ -147,7 +147,7 @@ export async function extractFromMarkdown(
           content: `Markdown log (part ${i + 1} of ${chunks.length}):\n\n${chunks[i]}`,
         },
       ],
-      8000,
+      4000,
     );
     const parsed = mdExtraction.safeParse(raw);
     if (parsed.success) {
