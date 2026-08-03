@@ -52,6 +52,7 @@ export function useCoachChat(
   const [streaming, setStreaming] = useState("");
   const [reasoning, setReasoning] = useState("");
   const [anchor, setAnchor] = useState<HTMLDivElement | null>(null);
+  const [controller, setController] = useState<AbortController | null>(null);
 
   useEffect(() => {
     anchor?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -73,9 +74,12 @@ export function useCoachChat(
       setStatus(STATUS.thinking);
       setStreaming("");
 
+      const abort = new AbortController();
+      setController(abort);
       try {
         const res = await fetch("/api/coach", {
           method: "POST",
+          signal: abort.signal,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ question: asked || undefined }),
         });
@@ -125,9 +129,12 @@ export function useCoachChat(
             reasoning: thoughts.trim() || undefined,
           },
         ]);
-      } catch {
-        toast.error("Could not reach the coach");
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          toast.error("Could not reach the coach");
+        }
       } finally {
+        setController(null);
         setStreaming("");
         setReasoning("");
         setStatus(null);
@@ -136,6 +143,10 @@ export function useCoachChat(
     },
     [question, loading, bubbles.length],
   );
+
+  function stop() {
+    controller?.abort();
+  }
 
   function setEffort(next: ReasoningEffort) {
     const previous = effort;
@@ -168,6 +179,7 @@ export function useCoachChat(
     streaming,
     reasoning,
     ask,
+    stop,
     setAnchor,
     confirmOpen,
     setConfirmOpen,

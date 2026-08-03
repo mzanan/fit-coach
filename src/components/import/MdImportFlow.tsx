@@ -24,6 +24,7 @@ export function MdImportFlow({ today }: { today: string }) {
     attachFiles,
     attachments,
     progress,
+    cancelExtraction,
     removeAttachment,
     extract,
     days,
@@ -50,8 +51,16 @@ export function MdImportFlow({ today }: { today: string }) {
         </p>
         <p className="mt-1 text-meta text-muted-foreground">
           Each part is one call to your model, and a free tier can rate limit
-          them, so a long log takes minutes. Leaving this page cancels it.
+          them, so a long log takes minutes. Nothing is saved until you confirm
+          the review.
         </p>
+        <Button
+          variant="outline"
+          className="mt-card"
+          onClick={cancelExtraction}
+        >
+          Cancel
+        </Button>
       </Surface>
     );
   }

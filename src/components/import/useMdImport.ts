@@ -48,13 +48,17 @@ export function useMdImport() {
   const [catalogItems, setCatalogItems] = useState<PreviewCatalogItem[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [progress, setProgress] = useState<string | null>(null);
+  const [controller, setController] = useState<AbortController | null>(null);
 
   function extract() {
     startTransition(async () => {
       setProgress("Sending your files");
+      const abort = new AbortController();
+      setController(abort);
       try {
         const res = await fetch("/api/import/extract", {
           method: "POST",
+          signal: abort.signal,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sources: [
@@ -127,9 +131,12 @@ export function useMdImport() {
         );
         setWarnings(result.warnings);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Extraction failed");
+        if ((e as Error).name !== "AbortError") {
+          toast.error(e instanceof Error ? e.message : "Extraction failed");
+        }
       } finally {
         setProgress(null);
+        setController(null);
       }
     });
   }
@@ -158,6 +165,10 @@ export function useMdImport() {
 
   function removeAttachment(id: string) {
     setAttachments((current) => current.filter((file) => file.id !== id));
+  }
+
+  function cancelExtraction() {
+    controller?.abort();
   }
 
   function updateMeal(day: string, key: string, values: Partial<ImportedMeal>) {
@@ -267,6 +278,7 @@ export function useMdImport() {
     attachFiles,
     attachments,
     progress,
+    cancelExtraction,
     removeAttachment,
     extract,
     days,
