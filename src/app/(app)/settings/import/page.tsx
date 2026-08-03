@@ -32,35 +32,38 @@ export default async function MdImportPage() {
       backLabel="Back to settings"
       title="Import from Markdown"
       description="Extract, review, then import. Nothing is saved until you confirm."
+      className="flex h-full flex-col"
     >
-      {!ai ? (
-        <EmptyState
-          title="Import needs your AI key"
-          body="Add your OpenRouter API key to extract meals and workouts from a Markdown log."
-          action={
-            <Button variant="solid" asChild>
-              <Link href="/settings/ai">Set up AI</Link>
-            </Button>
-          }
-        />
-      ) : structuredOk === null ? (
-        <EmptyState
-          title="Could not check your model"
-          body="OpenRouter did not answer the capability check. Reload to retry."
-        />
-      ) : !structuredOk ? (
-        <EmptyState
-          title="Your model can't run the import"
-          body={`${ai.model} has no provider with structured output. Pick a model with the JSON badge.`}
-          action={
-            <Button variant="solid" asChild>
-              <Link href="/settings/ai">Change model</Link>
-            </Button>
-          }
-        />
-      ) : (
-        <MdImportFlow today={today} />
-      )}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {!ai ? (
+          <EmptyState
+            title="Import needs your AI key"
+            body="Add your OpenRouter API key to extract meals and workouts from a Markdown log."
+            action={
+              <Button variant="solid" asChild>
+                <Link href="/settings/ai">Set up AI</Link>
+              </Button>
+            }
+          />
+        ) : structuredOk === null ? (
+          <EmptyState
+            title="Could not check your model"
+            body="OpenRouter did not answer the capability check. Reload to retry."
+          />
+        ) : !structuredOk ? (
+          <EmptyState
+            title="Your model can't run the import"
+            body={`${ai.model} has no provider with structured output. Pick a model with the JSON badge.`}
+            action={
+              <Button variant="solid" asChild>
+                <Link href="/settings/ai">Change model</Link>
+              </Button>
+            }
+          />
+        ) : (
+          <MdImportFlow today={today} />
+        )}
+      </div>
     </Page>
   );
 }
