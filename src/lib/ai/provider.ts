@@ -53,6 +53,7 @@ export async function chat(
 
 
 function reasoningOptions(ref: ModelRef): SharedV4ProviderOptions | undefined {
+  if (ref.provider === "google") return undefined;
   if (ref.provider === "groq") {
     const supported =
       groqCapability(ref.model).reasoning && ref.reasoningEffort !== "none";

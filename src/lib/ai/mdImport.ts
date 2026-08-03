@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
+import { googleModel } from "@/lib/ai/googleCaps";
 import { chatJson } from "@/lib/ai/provider";
 import type { ModelRef } from "@/lib/ai/providers";
 import { dayString, fatQuality, macroFields } from "@/lib/validation";
@@ -86,6 +87,7 @@ Rules:
 - If a section is unrelated to food or training, ignore it.`;
 
 function chunkMarkdown(text: string, maxChars = 4000): string[] {
+  maxChars = maxChars || 4000;
   if (text.length <= maxChars) return [text];
   const sections = text.split(/(?=^#{1,3} )/m);
   const chunks: string[] = [];
@@ -136,7 +138,9 @@ export async function extractFromMarkdown(
   text: string,
   onChunk?: (done: number, total: number) => void,
 ): Promise<MdExtraction> {
-  const chunks = chunkMarkdown(text);
+  const google = ref.provider === "google" ? googleModel(ref.model) : null;
+  const chunks = chunkMarkdown(text, google?.maxInputChars);
+  const budget = google ? 32_000 : 6000;
   const parts: MdExtraction[] = [];
   for (let i = 0; i < chunks.length; i++) {
     onChunk?.(i, chunks.length);
@@ -149,7 +153,7 @@ export async function extractFromMarkdown(
           content: `Markdown log (part ${i + 1} of ${chunks.length}):\n\n${chunks[i]}`,
         },
       ],
-      6000,
+      budget,
     );
     const parsed = mdExtraction.safeParse(raw);
     if (parsed.success) {

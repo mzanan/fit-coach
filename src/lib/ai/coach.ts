@@ -195,6 +195,7 @@ function aiErrorReply(ctx: CoachContext): string {
 const PROVIDER_LABEL: Record<ModelRef["provider"], string> = {
   openrouter: "OpenRouter",
   groq: "Groq",
+  google: "Google",
 };
 
 function limitErrorReply(

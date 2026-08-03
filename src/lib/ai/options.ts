@@ -1,4 +1,4 @@
-export const AI_PROVIDERS = ["openrouter", "groq"] as const;
+export const AI_PROVIDERS = ["openrouter", "groq", "google"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
 export const REASONING_EFFORTS = ["none", "low", "medium", "high"] as const;

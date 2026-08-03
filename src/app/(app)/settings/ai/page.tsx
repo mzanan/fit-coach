@@ -2,6 +2,7 @@ import { AiCard } from "@/components/settings/AiCard";
 import { Page } from "@/components/ui/Page";
 import { groqModels } from "@/lib/ai/groq";
 import { getAiSetup, providerApiKey } from "@/lib/ai/providers";
+import { GOOGLE_MODELS } from "@/lib/ai/googleCaps";
 import { listModels, type ModelInfo } from "@/lib/ai/registry";
 import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
@@ -39,6 +40,13 @@ export default async function AiSettingsPage() {
         openrouterFailed={openrouterModels === null}
         groqModels={groqList}
         groqFailed={hasGroq && groqList === null}
+        googleModels={GOOGLE_MODELS.map((model) => ({
+          id: model.id,
+          name: model.name,
+          tools: true,
+          structured: true,
+          free: true,
+        }))}
       />
     </Page>
   );

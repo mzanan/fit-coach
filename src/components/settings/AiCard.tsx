@@ -18,11 +18,13 @@ import { cn } from "@/lib/utils";
 const PROVIDER_OPTIONS = [
   { value: "openrouter", label: "OpenRouter" },
   { value: "groq", label: "Groq" },
+  { value: "google", label: "Google" },
 ] as const;
 
 const PROVIDER_LABEL: Record<AiProvider, string> = {
   openrouter: "OpenRouter",
   groq: "Groq",
+  google: "Google",
 };
 
 interface AiCardProps {
@@ -31,6 +33,7 @@ interface AiCardProps {
   openrouterFailed: boolean;
   groqModels: ModelInfo[] | null;
   groqFailed: boolean;
+  googleModels: ModelInfo[];
 }
 
 function ModelRow({
@@ -75,8 +78,15 @@ export function AiCard({
   openrouterFailed,
   groqModels,
   groqFailed,
+  googleModels,
 }: AiCardProps) {
-  const ai = useAiSettings(setup, openrouterModels, groqModels, groqFailed);
+  const ai = useAiSettings(
+    setup,
+    openrouterModels,
+    groqModels,
+    groqFailed,
+    googleModels,
+  );
   const limited = ai.selectedModel && !ai.selectedModel.tools;
   const listFailed =
     ai.listFailed || (ai.provider === "openrouter" && openrouterFailed);
@@ -124,7 +134,13 @@ export function AiCard({
             id="ai-key"
             type="password"
             autoComplete="off"
-            placeholder={ai.provider === "groq" ? "gsk_..." : "sk-or-..."}
+            placeholder={
+              ai.provider === "groq"
+                ? "gsk_..."
+                : ai.provider === "google"
+                  ? "AIza..."
+                  : "sk-or-..."
+            }
             value={ai.apiKey}
             onChange={(e) => ai.setApiKey(e.target.value)}
           />
