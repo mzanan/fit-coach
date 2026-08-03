@@ -36,9 +36,11 @@ export async function commitMdImport(payload: unknown) {
           and(eq(meals.user_id, user.id), inArray(meals.logical_day, days)),
         )
     : [];
-  const loggedKeys = new Set(
-    loggedMeals.map((m) => `${m.day}|${m.category}|${m.name.trim().toLowerCase()}`),
-  );
+  const loggedCounts = new Map<string, number>();
+  for (const m of loggedMeals) {
+    const key = `${m.day}|${m.category}|${m.name.trim().toLowerCase()}`;
+    loggedCounts.set(key, (loggedCounts.get(key) ?? 0) + 1);
+  }
   const loggedWorkoutDays = new Set(
     days.length
       ? (
@@ -64,11 +66,12 @@ export async function commitMdImport(payload: unknown) {
 
     const fresh = day.meals.filter((m) => {
       const key = `${day.day}|${m.category}|${m.name.trim().toLowerCase()}`;
-      if (loggedKeys.has(key)) {
+      const already = loggedCounts.get(key) ?? 0;
+      if (already > 0) {
+        loggedCounts.set(key, already - 1);
         skipped += 1;
         return false;
       }
-      loggedKeys.add(key);
       return true;
     });
 
