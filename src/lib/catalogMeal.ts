@@ -117,6 +117,43 @@ export async function resolveCatalogMeal(
   };
 }
 
+const SIZE_PREFIX = /^\s*[\d.,]+\s*(g|gr|grs|gram|grams|kg|ml|l|oz)?\b\s*/i;
+
+function sizeVariantKey(name: string): string {
+  return normalizeSearch(name).replace(SIZE_PREFIX, "").trim();
+}
+
+export async function sizeVariantsOf(
+  userId: string,
+  item: { id: string; name: string },
+): Promise<{ id: string; name: string }[]> {
+  const key = sizeVariantKey(item.name);
+  if (!key || key === normalizeSearch(item.name)) return [];
+
+  const rows = await db
+    .select({
+      id: catalog_items.id,
+      name: catalog_items.name,
+      protein_g: catalog_items.protein_g,
+      fat_g: catalog_items.fat_g,
+      carbs_g: catalog_items.carbs_g,
+    })
+    .from(catalog_items)
+    .where(
+      and(
+        eq(catalog_items.user_id, userId),
+        eq(catalog_items.archived, false),
+      ),
+    );
+
+  return rows
+    .filter(
+      (row) =>
+        row.id !== item.id && hasMacros(row) && sizeVariantKey(row.name) === key,
+    )
+    .map((row) => ({ id: row.id, name: row.name }));
+}
+
 export async function insertResolvedMeal(
   userId: string,
   meal: ResolvedMeal,

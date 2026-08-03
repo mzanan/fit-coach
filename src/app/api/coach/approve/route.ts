@@ -9,6 +9,7 @@ import { getUser } from "@/lib/session";
 const bodySchema = z.object({
   approvalId: z.string().min(1),
   approved: z.boolean(),
+  itemId: z.string().min(1).optional(),
 });
 
 export async function POST(request: Request) {
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
       profile,
       parsed.data.approvalId,
       parsed.data.approved,
+      parsed.data.itemId,
       send,
       request.signal,
     ),

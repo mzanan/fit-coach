@@ -163,11 +163,11 @@ export function useCoachChat(
   );
 
   const decide = useCallback(
-    async (approved: boolean) => {
+    async (approved: boolean, itemId?: string) => {
       if (!pending || loading) return;
       const { approvalId } = pending;
       setPending(null);
-      await consume("/api/coach/approve", { approvalId, approved });
+      await consume("/api/coach/approve", { approvalId, approved, itemId });
     },
     [pending, loading, consume],
   );

@@ -269,6 +269,26 @@ const RESUME_FAILED =
 const NOT_WRITTEN =
   "Nothing was logged. The catalog item may have changed since you were asked. Check Today, and log it from there if it is missing.";
 
+const LOG_INTENT =
+  /\b(registr\w*|anot\w*|logue\w*|loguear|agreg\w*|a[ñn]ad\w*|sum\w*|carg\w*|log)\b/i;
+
+const CLAIMED_WRITE =
+  /\b(registrad[oa]s?|registr[eé]|anotad[oa]s?|a[ñn]adid[oa]s?|agregad[oa]s?|guardad[oa]s?|logged|a[ñn]adir[eé]|registrar[eé])\b/i;
+
+const NOTHING_LOGGED =
+  "\n\n(Nothing was logged. The coach did not actually run the log, so check Today and log it from there if you need it.)";
+
+function unloggedWarning(
+  question: string | undefined,
+  text: string,
+  wrote: boolean,
+): string {
+  if (wrote || !question) return "";
+  if (!LOG_INTENT.test(question)) return "";
+  if (!CLAIMED_WRITE.test(text)) return "";
+  return NOTHING_LOGGED;
+}
+
 function previewFailure(reason: ResolveFailure, error: string): string {
   if (reason === "no_macros") return error;
   return "The coach tried to log a meal it could not identify in your catalog. Ask again naming the item.";
@@ -382,7 +402,7 @@ async function toolReply(
   const setup = await toolSetup(userId, profile, history, question);
 
   try {
-    const { text, toolLog, approvals, messages, writeAttempted } =
+    const { text, toolLog, approvals, messages, writeAttempted, writeOutputs } =
       await chatToolsStream(routeOnly ? { ...ref, routeOnly } : ref, {
         instructions: setup.instructions,
         messages: setup.messages,
@@ -426,16 +446,23 @@ async function toolReply(
     }
 
     if (text) {
+      const answer =
+        text +
+        unloggedWarning(
+          question,
+          text,
+          writeAttempted || writeOutputs.some((output) => output.logged),
+        );
       if (!signal?.aborted) {
         await learn(
           ref,
           userId,
           setup.memory,
-          exchangeOf(toolLog, question, text),
+          exchangeOf(toolLog, question, answer),
           Boolean(question?.trim()),
         );
       }
-      return { status: "answered", text, generated: true };
+      return { status: "answered", text: answer, generated: true };
     }
 
     const ctx = await buildContext(userId, profile);
@@ -563,6 +590,7 @@ export async function resolvePendingWrite(
   profile: Profile,
   approvalId: string,
   approved: boolean,
+  itemId?: string,
   onEvent?: (event: CoachEvent) => void,
   signal?: AbortSignal,
 ): Promise<CoachResult> {
@@ -608,6 +636,9 @@ export async function resolvePendingWrite(
       approvalResponseMessage(pending.approvalIds, true),
     ];
     const day = pending.previews[0].day;
+    const chosen = itemId
+      ? pending.previews[0].variants.find((variant) => variant.id === itemId)
+      : undefined;
 
     const { text, toolLog, writeOutputs, approvals, messages } =
       await chatToolsStream(toolPin ? { ...ref, routeOnly: toolPin } : ref, {
@@ -617,6 +648,13 @@ export async function resolvePendingWrite(
         approvalFor: WRITE_TOOL,
         onEvent: onEvent ?? (() => {}),
         signal,
+        refineWrite: chosen
+          ? (input) => ({
+              ...input,
+              item_id: chosen.id,
+              item_name: chosen.name,
+            })
+          : undefined,
       });
 
     if (approvals.length) {
@@ -641,7 +679,10 @@ export async function resolvePendingWrite(
       };
     }
 
-    const answer = text || loggedLines(pending.previews.slice(0, written));
+    const logged = pending.previews
+      .slice(0, written)
+      .map((preview) => (chosen ? { ...preview, name: chosen.name } : preview));
+    const answer = text || loggedLines(logged);
     await appendExchange(userId, question ?? null, answer, Boolean(text));
     if (text && !signal?.aborted) {
       await learn(

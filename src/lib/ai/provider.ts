@@ -126,6 +126,7 @@ export interface ToolStreamOptions {
   maxTokens?: number;
   onEvent: (event: CoachEvent) => void;
   signal?: AbortSignal;
+  refineWrite?: (input: Record<string, unknown>) => Record<string, unknown>;
 }
 
 function repairToolName(tools: ToolSet): ToolCallRepairFunction<ToolSet> {
@@ -164,6 +165,10 @@ export async function chatToolsStream(
     maxOutputTokens: maxTokens + googleThinkingBudget(ref),
     providerOptions: reasoningOptions(ref),
     abortSignal: options.signal,
+    experimental_refineToolInput:
+      approvalFor && options.refineWrite
+        ? { [approvalFor]: options.refineWrite }
+        : undefined,
   });
 
   const toolLog: string[] = [];

@@ -18,6 +18,8 @@ export interface PendingPreview {
   carbs_g: number;
   kcal: number;
   day: string;
+  itemId: string;
+  variants: { id: string; name: string }[];
 }
 
 export interface PendingWrite {

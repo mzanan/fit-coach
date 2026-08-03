@@ -143,7 +143,9 @@ export function CoachPanel({
             <ApprovalCard
               previews={chat.pending.previews}
               busy={chat.loading}
-              onDecide={(approved) => void chat.decide(approved)}
+              onDecide={(approved, itemId) =>
+                void chat.decide(approved, itemId)
+              }
             />
           ) : null}
           <div ref={setAnchor} />

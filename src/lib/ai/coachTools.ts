@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import {
   insertResolvedMeal,
   resolveCatalogMeal,
+  sizeVariantsOf,
   MAX_PORTIONS,
   type ResolveFailure,
 } from "@/lib/catalogMeal";
@@ -159,6 +160,11 @@ export async function previewLogMeal(
     return { ok: false, reason: resolved.reason, error: resolved.error };
   }
 
+  const variants = await sizeVariantsOf(userId, {
+    id: resolved.meal.catalog_item_id,
+    name: resolved.meal.name,
+  });
+
   return {
     ok: true,
     preview: {
@@ -172,6 +178,8 @@ export async function previewLogMeal(
       carbs_g: resolved.meal.carbs_g,
       kcal: resolved.meal.kcal,
       day: today,
+      itemId: resolved.meal.catalog_item_id,
+      variants,
     },
   };
 }
