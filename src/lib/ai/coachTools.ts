@@ -170,29 +170,34 @@ export function buildCoachTools(
               )
             : [];
           const matched = hits.length > 0;
-          const pool = matched ? hits : items;
-          const usable = pool.filter(hasMacros);
+          const usableHits = hits.filter(hasMacros);
+          const withMacros = items.filter(hasMacros);
+          const sample = spreadByPlace(
+            await mostEaten(
+              userId,
+              withMacros.length ? withMacros : items,
+              CATALOG_SAMPLE,
+            ),
+            CATALOG_SAMPLE,
+          );
           const chosen = matched
-            ? [...usable, ...pool.filter((item) => !hasMacros(item))].slice(
-                0,
-                CATALOG_RESULTS,
-              )
-            : spreadByPlace(
-                await mostEaten(
-                  userId,
-                  usable.length ? usable : pool,
-                  CATALOG_SAMPLE,
-                ),
-                CATALOG_SAMPLE,
-              );
+            ? [
+                ...usableHits,
+                ...hits.filter((item) => !hasMacros(item)),
+                ...(usableHits.length ? [] : sample),
+              ].slice(0, CATALOG_RESULTS + CATALOG_SAMPLE)
+            : sample;
+          const note = !matched
+            ? "Nothing matched those terms, so these are a sample of the catalog across the user's places. Suggest from them; do not say the catalog is empty or that you found nothing."
+            : usableHits.length
+              ? undefined
+              : "The matched items have no recorded macros, so a sample of items WITH macros from the rest of the catalog is included after them. Suggest from those; do not say the catalog has nothing usable.";
           return {
             query_matched: matched,
             catalog_size: items.length,
-            items_with_macros: items.filter(hasMacros).length,
+            items_with_macros: withMacros.length,
             places: placeCounts(items),
-            note: matched
-              ? undefined
-              : "Nothing matched those terms, so these are a sample of the catalog across the user's places. Suggest from them; do not say the catalog is empty or that you found nothing.",
+            note,
             items: chosen.map((item) => ({
               name: item.name,
               place: item.place,
