@@ -15,6 +15,7 @@ import {
   type CoachMessage,
 } from "@/lib/data/coachMessages";
 import { buildCoachTools } from "@/lib/ai/coachTools";
+import { PROVIDER_LABEL } from "@/lib/ai/options";
 import { userModelRef, type ModelRef } from "@/lib/ai/providers";
 import { toolsRouting } from "@/lib/ai/registry";
 import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
@@ -191,12 +192,6 @@ function deterministicReply(ctx: CoachContext): string {
 function aiErrorReply(ctx: CoachContext): string {
   return `The coach could not reach your AI model. Check your key and model in Settings > AI, or try again. Snapshot:\n${ctx.lines.join("\n")}`;
 }
-
-const PROVIDER_LABEL: Record<ModelRef["provider"], string> = {
-  openrouter: "OpenRouter",
-  groq: "Groq",
-  google: "Google",
-};
 
 function limitErrorReply(
   provider: ModelRef["provider"],

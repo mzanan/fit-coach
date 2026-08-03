@@ -11,3 +11,9 @@ export function isAiProvider(value: string): value is AiProvider {
 export function isReasoningEffort(value: string): value is ReasoningEffort {
   return (REASONING_EFFORTS as readonly string[]).includes(value);
 }
+
+export const PROVIDER_LABEL: Record<AiProvider, string> = {
+  openrouter: "OpenRouter",
+  groq: "Groq",
+  google: "Google",
+};

@@ -114,6 +114,12 @@ function chunkMarkdown(text: string, maxChars = 4000): string[] {
   return chunks;
 }
 
+function knownMacros(item: ImportedCatalogItem): number {
+  return [item.protein_g, item.fat_g, item.carbs_g].filter(
+    (macro) => macro !== null && macro !== undefined,
+  ).length;
+}
+
 export function mergeExtractions(parts: MdExtraction[]): MdExtraction {
   const dayMap = new Map<string, ImportedDay>();
   const catalog = new Map<string, ImportedCatalogItem>();
@@ -131,7 +137,12 @@ export function mergeExtractions(parts: MdExtraction[]): MdExtraction {
     }
     for (const item of part.catalog_items) {
       const key = item.name.trim().toLowerCase();
-      if (!catalog.has(key)) catalog.set(key, item);
+      const existing = catalog.get(key);
+      if (!existing) {
+        catalog.set(key, item);
+      } else if (knownMacros(item) > knownMacros(existing)) {
+        catalog.set(key, item);
+      }
     }
     warnings.push(...part.warnings);
   }
@@ -144,12 +155,14 @@ export async function extractFromMarkdown(
   ref: ModelRef,
   text: string,
   onChunk?: (done: number, total: number) => void,
+  signal?: AbortSignal,
 ): Promise<MdExtraction> {
   const google = ref.provider === "google" ? googleModel(ref.model) : null;
   const chunks = chunkMarkdown(text, google?.maxInputChars);
   const budget = google ? 60_000 : 6000;
   const parts: MdExtraction[] = [];
   for (let i = 0; i < chunks.length; i++) {
+    if (signal?.aborted) break;
     onChunk?.(i, chunks.length);
     console.log(
       `md import: part ${i + 1}/${chunks.length}, ${chunks[i].length} chars, model ${ref.provider}/${ref.model}, output budget ${budget}`,
@@ -164,6 +177,7 @@ export async function extractFromMarkdown(
         },
       ],
       budget,
+      signal,
     );
     const parsed = mdExtraction.safeParse(raw);
     if (parsed.success) {

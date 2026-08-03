@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { commitMdImport } from "@/lib/actions/mdImport";
+import { readNdjson } from "@/lib/ndjson";
 import type { MdExtraction } from "@/lib/ai/mdImport";
 import type {
   ImportedCatalogItem,
@@ -32,6 +33,18 @@ export interface PreviewCatalogItem extends ImportedCatalogItem {
   key: string;
   include: boolean;
 }
+
+type ExtractEvent =
+  | {
+      type: "progress";
+      file: string;
+      fileIndex: number;
+      files: number;
+      chunk: number;
+      chunks: number;
+    }
+  | { type: "done"; extraction: MdExtraction }
+  | { type: "error"; message: string };
 
 export interface Attachment {
   id: string;
@@ -78,39 +91,16 @@ export function useMdImport() {
         });
         if (!res.ok || !res.body) throw new Error("Extraction failed");
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
         let result: MdExtraction | null = null;
-
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            const event = JSON.parse(line) as
-              | {
-                  type: "progress";
-                  file: string;
-                  fileIndex: number;
-                  files: number;
-                  chunk: number;
-                  chunks: number;
-                }
-              | { type: "done"; extraction: MdExtraction }
-              | { type: "error"; message: string };
-            if (event.type === "progress") {
-              setProgress(
-                `${event.file} (${event.fileIndex} of ${event.files}), part ${event.chunk} of ${event.chunks}`,
-              );
-            } else if (event.type === "done") {
-              result = event.extraction;
-            } else {
-              throw new Error(event.message);
-            }
+        for await (const event of readNdjson<ExtractEvent>(res.body)) {
+          if (event.type === "progress") {
+            setProgress(
+              `${event.file} (${event.fileIndex} of ${event.files}), part ${event.chunk} of ${event.chunks}`,
+            );
+          } else if (event.type === "done") {
+            result = event.extraction;
+          } else {
+            throw new Error(event.message);
           }
         }
         if (!result) throw new Error("Extraction returned nothing");
@@ -254,8 +244,12 @@ export function useMdImport() {
           warnings: [],
         };
         const result = await commitMdImport(payload);
+        const skipped =
+          result.skippedDuplicates + result.skippedCatalogItems;
         toast.success(
-          `Imported ${result.meals} meals, ${result.workouts} workouts, ${result.catalogItems} catalog items`,
+          `Imported ${result.meals} meals, ${result.workouts} workouts, ${result.catalogItems} catalog items${
+            skipped ? `. ${skipped} already there, skipped` : ""
+          }`,
         );
         router.push("/");
       } catch (e) {

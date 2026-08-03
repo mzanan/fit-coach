@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { clearCoachChat, updateReasoningEffortAction } from "@/lib/actions/coach";
 import type { ReasoningEffort } from "@/lib/ai/options";
 import type { CoachMessage } from "@/lib/data/coachMessages";
+import { readNdjson } from "@/lib/ndjson";
 
 export interface ChatBubble {
   id: string;
@@ -85,37 +86,25 @@ export function useCoachChat(
         });
         if (!res.ok || !res.body) throw new Error("Coach unavailable");
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
         let answer = "";
         let thoughts = "";
         let generated = true;
 
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            const event = JSON.parse(line) as CoachStreamEvent;
-            if (event.type === "status") {
-              setStatus(STATUS[event.tool] ?? STATUS.thinking);
-            } else if (event.type === "reasoning") {
-              thoughts += event.text;
-              setReasoning(thoughts);
-            } else if (event.type === "delta") {
-              answer += event.text;
-              setStatus(null);
-              setStreaming(answer);
-            } else if (event.type === "done") {
-              answer = event.text;
-              generated = event.generated;
-            } else {
-              throw new Error("Coach failed");
-            }
+        for await (const event of readNdjson<CoachStreamEvent>(res.body)) {
+          if (event.type === "status") {
+            setStatus(STATUS[event.tool] ?? STATUS.thinking);
+          } else if (event.type === "reasoning") {
+            thoughts += event.text;
+            setReasoning(thoughts);
+          } else if (event.type === "delta") {
+            answer += event.text;
+            setStatus(null);
+            setStreaming(answer);
+          } else if (event.type === "done") {
+            answer = event.text;
+            generated = event.generated;
+          } else {
+            throw new Error("Coach failed");
           }
         }
 

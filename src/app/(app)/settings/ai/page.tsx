@@ -45,7 +45,7 @@ export default async function AiSettingsPage() {
           name: model.name,
           tools: true,
           structured: true,
-          free: true,
+          free: model.freeTier,
         }))}
       />
     </Page>

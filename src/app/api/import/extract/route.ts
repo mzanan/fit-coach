@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { runMdExtraction, type ImportSource } from "@/lib/ai/mdExtract";
 import { getUser } from "@/lib/session";
 
+export const maxDuration = 300;
+
 export async function POST(request: Request) {
   const user = await getUser();
   if (!user) {
@@ -24,8 +26,11 @@ export async function POST(request: Request) {
         controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       };
       try {
-        const extraction = await runMdExtraction(user.id, sources, (progress) =>
-          send({ type: "progress", ...progress }),
+        const extraction = await runMdExtraction(
+          user.id,
+          sources,
+          (progress) => send({ type: "progress", ...progress }),
+          request.signal,
         );
         send({ type: "done", extraction });
       } catch (error) {

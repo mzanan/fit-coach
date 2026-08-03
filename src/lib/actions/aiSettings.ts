@@ -88,7 +88,7 @@ async function googleError(
   }
   let response: Response;
   try {
-    response = await fetch(`${GOOGLE_MODELS_URL}?key=${apiKey}`, {
+    response = await fetch(`${GOOGLE_MODELS_URL}?key=${encodeURIComponent(apiKey)}`, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
   } catch {

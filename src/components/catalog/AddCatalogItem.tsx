@@ -7,6 +7,7 @@ import { CatalogForm } from "@/components/catalog/CatalogForm";
 import { ResponsiveDialog } from "@/components/ui/ResponsiveDialog";
 import { Button } from "@/components/ui/Button";
 import { createCatalogItem } from "@/lib/actions/catalog";
+import { hasMacros } from "@/lib/macros";
 import { useAction } from "@/hooks/useAction";
 
 export function AddCatalogItem({
@@ -51,7 +52,12 @@ export function AddCatalogItem({
                   fat_g: v.fat_g,
                   carbs_g: v.carbs_g,
                 }),
-              { success: "Saved to catalog", onDone: () => setOpen(false) },
+              {
+                success: hasMacros(v)
+                  ? "Saved to catalog"
+                  : "Saved without macros. Add them to log it as a meal.",
+                onDone: () => setOpen(false),
+              },
             )
           }
         />

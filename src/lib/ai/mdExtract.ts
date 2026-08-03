@@ -24,6 +24,7 @@ export async function runMdExtraction(
   userId: string,
   sources: ImportSource[],
   onProgress: (progress: ImportProgress) => void,
+  signal?: AbortSignal,
 ): Promise<MdExtraction> {
   const ref = await userModelRef(userId);
   if (!ref) {
@@ -37,20 +38,37 @@ export async function runMdExtraction(
 
   const parts: MdExtraction[] = [];
   for (const [index, source] of usable.entries()) {
-    const part = await extractFromMarkdown(ref, source.text, (chunk, chunks) =>
-      onProgress({
-        file: source.name,
-        fileIndex: index + 1,
-        files: usable.length,
-        chunk: chunk + 1,
-        chunks,
-      }),
-    );
-    parts.push({
-      ...part,
-      warnings: part.warnings.map((warning) => `${source.name}: ${warning}`),
-    });
+    if (signal?.aborted) break;
+    try {
+      const part = await extractFromMarkdown(
+        ref,
+        source.text,
+        (chunk, chunks) =>
+          onProgress({
+            file: source.name,
+            fileIndex: index + 1,
+            files: usable.length,
+            chunk: chunk + 1,
+            chunks,
+          }),
+        signal,
+      );
+      parts.push({
+        ...part,
+        warnings: part.warnings.map((warning) => `${source.name}: ${warning}`),
+      });
+    } catch (error) {
+      if (signal?.aborted) break;
+      console.error(`md import: ${source.name} failed`, error);
+      const reason = error instanceof Error ? error.message : "unknown error";
+      parts.push({
+        days: [],
+        catalog_items: [],
+        warnings: [`${source.name} could not be read and was skipped: ${reason}`],
+      });
+    }
   }
+  if (!parts.length) throw new Error("Nothing could be extracted");
   return mergeExtractions(parts);
 }
 

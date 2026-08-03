@@ -216,6 +216,7 @@ export async function chatJson<T>(
   ref: ModelRef,
   messages: ChatMessage[],
   maxTokens = 4000,
+  signal?: AbortSignal,
 ): Promise<T> {
   const providerOptions: SharedV4ProviderOptions | undefined =
     ref.provider === "google"
@@ -240,6 +241,7 @@ export async function chatJson<T>(
       messages: turns,
       maxOutputTokens: maxTokens,
       providerOptions,
+      abortSignal: signal,
       output: "no-schema",
       repairText: async (options) => unwrapJson(options),
     });
