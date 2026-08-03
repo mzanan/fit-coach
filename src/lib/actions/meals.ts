@@ -4,6 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { insertResolvedMeal, resolveCatalogMeal } from "@/lib/catalogMeal";
 import { db, schema } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { dayString, fatQuality, macroFields } from "@/lib/validation";
@@ -27,43 +28,16 @@ export async function addMealFromCatalog(input: unknown): Promise<string> {
   const user = await requireUser();
   const { itemId, category, day } = fromCatalogSchema.parse(input);
 
-  const item = await db
-    .select()
-    .from(catalog_items)
-    .where(
-      and(
-        eq(catalog_items.id, itemId),
-        eq(catalog_items.user_id, user.id),
-        eq(catalog_items.archived, false),
-      ),
-    )
-    .limit(1);
-  if (!item[0]) throw new Error("Catalog item not found");
-  if (
-    item[0].protein_g === null ||
-    item[0].fat_g === null ||
-    item[0].carbs_g === null
-  ) {
+  const resolved = await resolveCatalogMeal(user.id, { itemId });
+  if (!resolved.ok) {
     throw new Error(
-      `${item[0].name} has no macros yet. Edit it in the catalog first.`,
+      resolved.reason === "no_macros"
+        ? "This item has no macros yet. Edit it in the catalog first."
+        : resolved.error,
     );
   }
 
-  const id = newId();
-  await db.insert(meals).values({
-    id,
-    user_id: user.id,
-    logical_day: day,
-    category,
-    name: item[0].name,
-    place: item[0].place,
-    protein_g: item[0].protein_g,
-    fat_g: item[0].fat_g,
-    carbs_g: item[0].carbs_g,
-    fat_quality: item[0].fat_quality,
-    catalog_item_id: item[0].id,
-    created_at: new Date(),
-  });
+  const id = await insertResolvedMeal(user.id, resolved.meal, category, day);
   revalidatePath("/");
   return id;
 }
