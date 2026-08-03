@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db, schema } from "@/lib/db";
+import { COACH_RULES_MAX } from "@/lib/constants";
 import { requireUser } from "@/lib/session";
 
 const { profiles } = schema;
@@ -31,8 +32,6 @@ export async function updateTargets(input: unknown) {
   revalidatePath("/settings");
   revalidatePath("/settings/targets");
 }
-
-const COACH_RULES_MAX = 20_000;
 
 const coachRulesSchema = z.object({
   rules: z.string().max(COACH_RULES_MAX),

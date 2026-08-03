@@ -8,9 +8,9 @@ export interface Macros {
 }
 
 export interface PartialMacros {
-  protein_g: number | null;
-  fat_g: number | null;
-  carbs_g: number | null;
+  protein_g: number | null | undefined;
+  fat_g: number | null | undefined;
+  carbs_g: number | null | undefined;
 }
 
 export function kcalOf(m: Macros): number {
@@ -99,14 +99,14 @@ function line(
   return { key, current: round(current, 0), target: round(target, 0), remaining, pct, state, warn };
 }
 
+export function known(macro: number | null | undefined): macro is number {
+  return typeof macro === "number" && Number.isFinite(macro);
+}
+
 export function hasMacros(item: PartialMacros): item is Macros {
-  return (
-    item.protein_g !== null && item.fat_g !== null && item.carbs_g !== null
-  );
+  return known(item.protein_g) && known(item.fat_g) && known(item.carbs_g);
 }
 
 export function hasAnyMacro(item: PartialMacros): boolean {
-  return (
-    item.protein_g !== null || item.fat_g !== null || item.carbs_g !== null
-  );
+  return known(item.protein_g) || known(item.fat_g) || known(item.carbs_g);
 }

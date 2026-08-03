@@ -48,7 +48,7 @@ export async function chat(
     instructions,
     messages: turns,
     maxOutputTokens: maxTokens + googleThinkingBudget(ref),
-    providerOptions: reasoningOptions(ref),
+    providerOptions: googleOnlyOptions(ref),
   });
   return text.trim();
 }
@@ -65,6 +65,10 @@ function googleThinkingBudget(ref: ModelRef): number {
   return ref.provider === "google"
     ? GOOGLE_THINKING[ref.reasoningEffort ?? "low"]
     : 0;
+}
+
+function googleOnlyOptions(ref: ModelRef): SharedV4ProviderOptions | undefined {
+  return ref.provider === "google" ? reasoningOptions(ref) : undefined;
 }
 
 function reasoningOptions(ref: ModelRef): SharedV4ProviderOptions | undefined {
