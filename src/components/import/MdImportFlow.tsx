@@ -12,8 +12,23 @@ import { Textarea } from "@/components/ui/Textarea";
 import { ImportCatalogRow } from "@/components/import/ImportCatalogRow";
 import { ImportMealRow } from "@/components/import/ImportMealRow";
 import { ImportWorkoutRow } from "@/components/import/ImportWorkoutRow";
-import { useMdImport } from "@/components/import/useMdImport";
+import {
+  useMdImport,
+  type ImportCounts,
+} from "@/components/import/useMdImport";
 import { formatDayLabel } from "@/lib/dates";
+
+function importLabel(included: ImportCounts | null): string {
+  if (!included) return "Import";
+  const parts = [
+    [included.meals, "meals"],
+    [included.workouts, "workouts"],
+    [included.catalogItems, "items"],
+  ] as const;
+  const kept = parts.filter(([count]) => count > 0);
+  if (!kept.length) return "Import";
+  return `Import ${kept.map(([count, noun]) => `${count} ${noun}`).join(", ")}`;
+}
 
 export function MdImportFlow({ today }: { today: string }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -160,7 +175,7 @@ export function MdImportFlow({ today }: { today: string }) {
   }
 
   return (
-    <div className="space-y-block pb-4">
+    <div className="space-y-block">
       {warnings.length ? (
         <Surface className="border-brand-line p-card">
           <p className="eyebrow">Check these</p>
@@ -217,7 +232,7 @@ export function MdImportFlow({ today }: { today: string }) {
         </Surface>
       ) : null}
 
-      <StickyActions className="grid grid-cols-2 gap-2">
+      <StickyActions className="grid grid-cols-2 gap-2 bg-background">
         <Button variant="outline" disabled={pending} onClick={reset}>
           Back
         </Button>
@@ -229,9 +244,7 @@ export function MdImportFlow({ today }: { today: string }) {
           }
           onClick={commit}
         >
-          {pending
-            ? "Importing..."
-            : `Import ${included?.meals ?? 0} meals, ${included?.workouts ?? 0} workouts`}
+          {pending ? "Importing..." : importLabel(included)}
         </Button>
       </StickyActions>
     </div>
