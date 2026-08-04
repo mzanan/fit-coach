@@ -217,6 +217,7 @@ export const coach_messages = sqliteTable(
     generated: integer("generated", { mode: "boolean" })
       .notNull()
       .default(true),
+    day_summary: text("day_summary"),
     created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
   (t) => [index("coach_messages_user_idx").on(t.user_id, t.created_at)],

@@ -2,6 +2,7 @@ import "server-only";
 
 import { and, asc, desc, eq } from "drizzle-orm";
 
+import type { DaySummary } from "@/lib/ai/coach";
 import { db, schema } from "@/lib/db";
 import { newId } from "@/lib/utils";
 
@@ -15,10 +16,20 @@ export interface CoachMessage {
   content: string;
   generated: boolean;
   created_at: Date;
+  daySummary?: DaySummary;
 }
 
 function toRole(value: string): "user" | "assistant" {
   return value === "user" ? "user" : "assistant";
+}
+
+function parseDaySummary(raw: string | null): DaySummary | undefined {
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw) as DaySummary;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function getConversation(
@@ -63,6 +74,7 @@ export async function getFullConversation(
     content: row.content,
     generated: row.generated,
     created_at: row.created_at,
+    daySummary: parseDaySummary(row.day_summary),
   }));
 }
 
@@ -71,6 +83,7 @@ export async function appendExchange(
   question: string | null,
   answer: string,
   generated: boolean,
+  daySummary?: DaySummary,
 ): Promise<void> {
   const now = Date.now();
   const rows = [
@@ -82,6 +95,7 @@ export async function appendExchange(
             role: "user",
             content: question,
             generated,
+            day_summary: null,
             created_at: new Date(now),
           },
         ]
@@ -92,6 +106,7 @@ export async function appendExchange(
       role: "assistant",
       content: answer,
       generated,
+      day_summary: daySummary ? JSON.stringify(daySummary) : null,
       created_at: new Date(now + 1),
     },
   ];

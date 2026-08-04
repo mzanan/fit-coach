@@ -53,6 +53,7 @@ function toBubbles(messages: CoachMessage[]): ChatBubble[] {
     role: message.role,
     content: message.content,
     generated: message.generated,
+    daySummary: message.daySummary,
   }));
 }
 

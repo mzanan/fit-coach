@@ -356,6 +356,17 @@ async function memoryAndFacts(
   };
 }
 
+function deferLearn(run: () => Promise<void>): void {
+  after(() =>
+    run().catch((err) =>
+      console.error(
+        "coach: background learn failed",
+        err instanceof Error ? err.message : err,
+      ),
+    ),
+  );
+}
+
 async function learn(
   ref: ModelRef,
   userId: string,
@@ -477,7 +488,7 @@ async function toolReply(
           writeAttempted || writeOutputs.some((output) => output.logged),
         );
       if (!signal?.aborted) {
-        after(() =>
+        deferLearn(() =>
           learn(
             ref,
             userId,
@@ -540,7 +551,7 @@ async function contextReply(
     if (text) {
       const exchange = `${ctx.lines.join("\n")}\nUser: ${question?.trim() || "(daily check-in)"}\nCoach: ${text}`;
       if (!signal?.aborted) {
-        after(() => learn(ref, userId, memory, exchange, Boolean(question?.trim())));
+        deferLearn(() => learn(ref, userId, memory, exchange, Boolean(question?.trim())));
       }
     }
     return {
@@ -725,9 +736,15 @@ export async function resolvePendingWrite(
     });
     const answer = text || loggedLines(logged);
     const daySummary = await daySummaryAfterWrite(userId, profile, day);
-    await appendExchange(userId, question ?? null, answer, Boolean(text));
+    await appendExchange(
+      userId,
+      question ?? null,
+      answer,
+      Boolean(text),
+      daySummary,
+    );
     if (text && !signal?.aborted) {
-      after(() =>
+      deferLearn(() =>
         learn(
           ref,
           userId,
