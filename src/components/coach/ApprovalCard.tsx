@@ -20,9 +20,14 @@ interface DisplayOption {
   kcal: number;
 }
 
+function weightOf(name: string): number {
+  const match = /^\s*([\d.,]+)/.exec(name);
+  return match ? parseFloat(match[1].replace(",", ".")) : Number.MAX_SAFE_INTEGER;
+}
+
 function optionsOf(preview: PendingPreview): DisplayOption[] {
   const portions = preview.portions || 1;
-  return [
+  const options = [
     {
       id: preview.itemId,
       name: preview.name,
@@ -33,6 +38,7 @@ function optionsOf(preview: PendingPreview): DisplayOption[] {
     },
     ...preview.variants,
   ];
+  return options.sort((a, b) => weightOf(a.name) - weightOf(b.name));
 }
 
 function scaledOption(option: DisplayOption, portions: number): DisplayOption {
