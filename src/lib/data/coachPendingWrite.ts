@@ -21,6 +21,7 @@ export interface PendingPreview {
   day: string;
   itemId: string;
   variants: SizeVariant[];
+  toolCallId: string;
 }
 
 export interface PendingWrite {

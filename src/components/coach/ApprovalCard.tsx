@@ -21,14 +21,15 @@ interface DisplayOption {
 }
 
 function optionsOf(preview: PendingPreview): DisplayOption[] {
+  const portions = preview.portions || 1;
   return [
     {
       id: preview.itemId,
       name: preview.name,
-      protein_g: preview.protein_g,
-      fat_g: preview.fat_g,
-      carbs_g: preview.carbs_g,
-      kcal: preview.kcal,
+      protein_g: preview.protein_g / portions,
+      fat_g: preview.fat_g / portions,
+      carbs_g: preview.carbs_g / portions,
+      kcal: preview.kcal / portions,
     },
     ...preview.variants,
   ];

@@ -104,6 +104,7 @@ export type CoachEvent =
 
 export interface ApprovalRequest {
   approvalId: string;
+  toolCallId: string;
   toolName: string;
   input: unknown;
 }
@@ -126,7 +127,6 @@ export interface ToolStreamOptions {
   maxTokens?: number;
   onEvent: (event: CoachEvent) => void;
   signal?: AbortSignal;
-  refineWrite?: (input: Record<string, unknown>) => Record<string, unknown>;
 }
 
 function repairToolName(tools: ToolSet): ToolCallRepairFunction<ToolSet> {
@@ -165,10 +165,6 @@ export async function chatToolsStream(
     maxOutputTokens: maxTokens + googleThinkingBudget(ref),
     providerOptions: reasoningOptions(ref),
     abortSignal: options.signal,
-    experimental_refineToolInput:
-      approvalFor && options.refineWrite
-        ? { [approvalFor]: options.refineWrite }
-        : undefined,
   });
 
   const toolLog: string[] = [];
@@ -186,6 +182,7 @@ export async function chatToolsStream(
       );
       approvals.push({
         approvalId: part.approvalId,
+        toolCallId: part.toolCall.toolCallId,
         toolName: part.toolCall.toolName,
         input: part.toolCall.input,
       });

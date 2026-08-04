@@ -32,6 +32,14 @@ export interface ResolvedMeal {
   fat_quality: string | null;
 }
 
+function confidentNameMatch(given: string, stored: string): boolean {
+  const strip = (value: string) => normalizeSearch(value).replace(/\s+/g, "");
+  if (strip(given) === strip(stored)) return true;
+  const words = given.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) return false;
+  return matchesTerm(stored, given);
+}
+
 async function findUniqueByName(
   userId: string,
   itemName: string,
@@ -53,7 +61,7 @@ async function findUniqueByName(
     );
 
   const matches = rows.filter(
-    (row) => hasMacros(row) && sameItemName(itemName, row.name),
+    (row) => hasMacros(row) && confidentNameMatch(itemName, row.name),
   );
   return matches.length === 1 ? matches[0] : null;
 }

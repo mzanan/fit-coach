@@ -447,8 +447,10 @@ async function toolReply(
           generated: false,
         };
       }
-      const previews = resolved.flatMap((preview) =>
-        preview.ok ? [preview.preview] : [],
+      const previews = resolved.flatMap((preview, index) =>
+        preview.ok
+          ? [{ ...preview.preview, toolCallId: approvals[index].toolCallId }]
+          : [],
       );
       if (!signal?.aborted) {
         await savePendingWrite(userId, {
@@ -667,17 +669,21 @@ export async function resolvePendingWrite(
       await chatToolsStream(toolPin ? { ...ref, routeOnly: toolPin } : ref, {
         instructions: setup.instructions,
         messages: [...setup.messages, ...answered],
-        tools: buildCoachTools(userId, profile, day),
+        tools: buildCoachTools(
+          userId,
+          profile,
+          day,
+          chosen
+            ? {
+                toolCallId: pending.previews[0].toolCallId,
+                itemId: chosen.id,
+                itemName: chosen.name,
+              }
+            : undefined,
+        ),
         approvalFor: WRITE_TOOL,
         onEvent: onEvent ?? (() => {}),
         signal,
-        refineWrite: chosen
-          ? (input) => ({
-              ...input,
-              item_id: chosen.id,
-              item_name: chosen.name,
-            })
-          : undefined,
       });
 
     if (approvals.length) {
@@ -702,9 +708,21 @@ export async function resolvePendingWrite(
       };
     }
 
-    const logged = pending.previews
-      .slice(0, written)
-      .map((preview) => (chosen ? { ...preview, name: chosen.name } : preview));
+    const logged = pending.previews.slice(0, written).map((preview, index) => {
+      if (index !== 0 || !chosen) return preview;
+      const portions = preview.portions || 1;
+      const scaled = {
+        protein_g: round(chosen.protein_g * portions),
+        fat_g: round(chosen.fat_g * portions),
+        carbs_g: round(chosen.carbs_g * portions),
+      };
+      return {
+        ...preview,
+        name: chosen.name,
+        ...scaled,
+        kcal: round(kcalOf(scaled)),
+      };
+    });
     const answer = text || loggedLines(logged);
     const daySummary = await daySummaryAfterWrite(userId, profile, day);
     await appendExchange(userId, question ?? null, answer, Boolean(text));
@@ -741,8 +759,10 @@ async function chainApproval(
   const resolved = await Promise.all(
     approvals.map((approval) => previewLogMeal(userId, day, approval.input)),
   );
-  const previews = resolved.flatMap((preview) =>
-    preview.ok ? [preview.preview] : [],
+  const previews = resolved.flatMap((preview, index) =>
+    preview.ok
+      ? [{ ...preview.preview, toolCallId: approvals[index].toolCallId }]
+      : [],
   );
   if (!previews.length) return null;
 

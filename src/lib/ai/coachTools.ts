@@ -127,6 +127,23 @@ function safe<Input, Output>(
   };
 }
 
+function safeWithCallId<Input, Output>(
+  name: string,
+  fn: (input: Input, toolCallId: string) => Promise<Output>,
+): (
+  input: Input,
+  options: { toolCallId: string },
+) => Promise<Output | typeof TOOL_FAILURE> {
+  return async (input, options) => {
+    try {
+      return await fn(input, options.toolCallId);
+    } catch (error) {
+      console.error(`coach tool ${name} failed`, error);
+      return TOOL_FAILURE;
+    }
+  };
+}
+
 const logMealInput = z.object({
   item_id: z.string().min(1),
   item_name: z.string().min(1),
@@ -139,7 +156,7 @@ export async function previewLogMeal(
   today: string,
   input: unknown,
 ): Promise<
-  | { ok: true; preview: PendingPreview }
+  | { ok: true; preview: Omit<PendingPreview, "toolCallId"> }
   | { ok: false; reason: ResolveFailure; error: string }
 > {
   const parsed = logMealInput.safeParse(input);
@@ -184,10 +201,17 @@ export async function previewLogMeal(
   };
 }
 
+export interface LogMealOverride {
+  toolCallId: string;
+  itemId: string;
+  itemName: string;
+}
+
 export function buildCoachTools(
   userId: string,
   profile: Profile,
   today: string,
+  logMealOverride?: LogMealOverride,
 ): ToolSet {
   return {
     get_today: tool({
@@ -315,29 +339,41 @@ export function buildCoachTools(
           .default(1)
           .describe("servings of that item, 1 unless the user says otherwise"),
       }),
-      execute: safe("log_meal", async (input: LogMealInput) => {
-        const resolved = await resolveCatalogMeal(userId, {
-          itemId: input.item_id,
-          itemName: input.item_name,
-          portions: input.portions,
-        });
-        if (!resolved.ok) return { logged: false, error: resolved.error };
+      execute: safeWithCallId(
+        "log_meal",
+        async (input: LogMealInput, toolCallId: string) => {
+          const override =
+            logMealOverride?.toolCallId === toolCallId
+              ? logMealOverride
+              : undefined;
+          const resolved = await resolveCatalogMeal(userId, {
+            itemId: override?.itemId ?? input.item_id,
+            itemName: override?.itemName ?? input.item_name,
+            portions: input.portions,
+          });
+          if (!resolved.ok) return { logged: false, error: resolved.error };
 
-        await insertResolvedMeal(userId, resolved.meal, input.category, today);
-        revalidatePath("/");
-        return {
-          logged: true,
-          meal: {
-            name: resolved.meal.name,
-            category: input.category,
-            portions: resolved.meal.portions,
-            protein_g: resolved.meal.protein_g,
-            fat_g: resolved.meal.fat_g,
-            carbs_g: resolved.meal.carbs_g,
-            kcal: resolved.meal.kcal,
-          },
-        };
-      }),
+          await insertResolvedMeal(
+            userId,
+            resolved.meal,
+            input.category,
+            today,
+          );
+          revalidatePath("/");
+          return {
+            logged: true,
+            meal: {
+              name: resolved.meal.name,
+              category: input.category,
+              portions: resolved.meal.portions,
+              protein_g: resolved.meal.protein_g,
+              fat_g: resolved.meal.fat_g,
+              carbs_g: resolved.meal.carbs_g,
+              kcal: resolved.meal.kcal,
+            },
+          };
+        },
+      ),
     }),
     get_workouts: tool({
       description:
