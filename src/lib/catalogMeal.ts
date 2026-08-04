@@ -201,7 +201,8 @@ export async function sizeVariantsOf(
   const variants: SizeVariant[] = [];
   for (const row of rows) {
     if (row.id === item.id) continue;
-    if (sizeVariantKey(row.name) !== key) continue;
+    const rowKey = sizeVariantKey(row.name);
+    if (rowKey !== key || rowKey === normalizeSearch(row.name)) continue;
     if (!hasMacros(row)) continue;
     variants.push({
       id: row.id,
