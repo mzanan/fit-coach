@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { clearCoachChat, updateReasoningEffortAction } from "@/lib/actions/coach";
+import type { DaySummary } from "@/lib/ai/coach";
 import type { ReasoningEffort } from "@/lib/ai/options";
 import type { CoachMessage } from "@/lib/data/coachMessages";
 import type { PendingPreview } from "@/lib/data/coachPendingWrite";
@@ -15,6 +16,7 @@ export interface ChatBubble {
   content: string;
   generated: boolean;
   reasoning?: string;
+  daySummary?: DaySummary;
 }
 
 export interface PendingApproval {
@@ -27,7 +29,12 @@ type CoachStreamEvent =
   | { type: "status"; tool: string }
   | { type: "reasoning"; text: string }
   | { type: "delta"; text: string }
-  | { type: "done"; text: string; generated: boolean }
+  | {
+      type: "done";
+      text: string;
+      generated: boolean;
+      daySummary?: DaySummary;
+    }
   | { type: "approval"; approvalId: string; previews: PendingPreview[] }
   | { type: "error" };
 
@@ -98,6 +105,7 @@ export function useCoachChat(
       let answer = "";
       let thoughts = "";
       let generated = true;
+      let daySummary: DaySummary | undefined;
       let approval: PendingApproval | null = null;
 
       for await (const event of readNdjson<CoachStreamEvent>(res.body)) {
@@ -113,6 +121,7 @@ export function useCoachChat(
         } else if (event.type === "done") {
           answer = event.text;
           generated = event.generated;
+          daySummary = event.daySummary;
         } else if (event.type === "approval") {
           approval = {
             approvalId: event.approvalId,
@@ -133,6 +142,7 @@ export function useCoachChat(
             ...localBubble("assistant", answer),
             generated,
             reasoning: thoughts.trim() || undefined,
+            daySummary,
           },
         ]);
       }

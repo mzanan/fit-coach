@@ -1,12 +1,17 @@
 import "server-only";
 
-import type { CoachResult } from "@/lib/ai/coach";
+import type { CoachResult, DaySummary } from "@/lib/ai/coach";
 import type { CoachEvent } from "@/lib/ai/provider";
 import type { PendingPreview } from "@/lib/data/coachPendingWrite";
 
 export type CoachStreamEvent =
   | CoachEvent
-  | { type: "done"; text: string; generated: boolean }
+  | {
+      type: "done";
+      text: string;
+      generated: boolean;
+      daySummary?: DaySummary;
+    }
   | { type: "approval"; approvalId: string; previews: PendingPreview[] }
   | { type: "error" };
 
@@ -30,7 +35,12 @@ export function coachNdjsonResponse(
                 approvalId: result.approvalId,
                 previews: result.previews,
               }
-            : { type: "done", text: result.text, generated: result.generated },
+            : {
+                type: "done",
+                text: result.text,
+                generated: result.generated,
+                daySummary: result.daySummary,
+              },
         );
       } catch {
         send({ type: "error" });

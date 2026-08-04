@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { DiningModeAsk } from "@/components/coach/DiningModeAsk";
 import { EffortMenu } from "@/components/coach/EffortMenu";
 import { ApprovalCard } from "@/components/coach/ApprovalCard";
+import { MacroTable } from "@/components/coach/MacroTable";
 import {
   useCoachChat,
   type ChatBubble,
@@ -74,6 +75,7 @@ function Turn({ bubble }: { bubble: ChatBubble }) {
       <p className="whitespace-pre-wrap text-body leading-relaxed">
         {bubble.content}
       </p>
+      {bubble.daySummary ? <MacroTable summary={bubble.daySummary} /> : null}
     </div>
   );
 }

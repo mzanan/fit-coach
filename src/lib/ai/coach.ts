@@ -9,6 +9,7 @@ import type { Profile } from "@/lib/db/schema";
 import { getWhoopConnection } from "@/lib/integrations/whoop";
 import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
 import type { ModelMessage } from "ai";
+import { after } from "next/server";
 
 import type { ResolveFailure } from "@/lib/catalogMeal";
 
@@ -41,7 +42,7 @@ import { toolsRouting } from "@/lib/ai/registry";
 import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
 import { categoryLabel } from "@/lib/constants";
-import { kcalOf } from "@/lib/macros";
+import { kcalOf, type MacroLine } from "@/lib/macros";
 import { round } from "@/lib/utils";
 
 const { meals, body_scans } = schema;
@@ -255,13 +256,33 @@ function limitErrorReply(
 }
 
 export type CoachResult =
-  | { status: "answered"; text: string; generated: boolean }
+  | {
+      status: "answered";
+      text: string;
+      generated: boolean;
+      daySummary?: DaySummary;
+    }
   | { status: "pending"; approvalId: string; previews: PendingPreview[] };
 
 const WRITE_FAILED =
   "The coach tried to log that meal but the request came back malformed. Ask again, or log it from the Today screen.";
 
 const DENIED = "Not logged. Nothing was written.";
+
+export interface DaySummary {
+  lines: MacroLine[];
+  kcal: number;
+  kcalTarget: number;
+}
+
+async function daySummaryAfterWrite(
+  userId: string,
+  profile: Profile,
+  day: string,
+): Promise<DaySummary> {
+  const dayData = await getDayData(userId, profile, day);
+  return dayData.summary;
+}
 
 const RESUME_FAILED =
   "The coach lost the connection while confirming. The meal may or may not have been logged: check Today before asking again.";
@@ -454,12 +475,14 @@ async function toolReply(
           writeAttempted || writeOutputs.some((output) => output.logged),
         );
       if (!signal?.aborted) {
-        await learn(
-          ref,
-          userId,
-          setup.memory,
-          exchangeOf(toolLog, question, answer),
-          Boolean(question?.trim()),
+        after(() =>
+          learn(
+            ref,
+            userId,
+            setup.memory,
+            exchangeOf(toolLog, question, answer),
+            Boolean(question?.trim()),
+          ),
         );
       }
       return { status: "answered", text: answer, generated: true };
@@ -515,7 +538,7 @@ async function contextReply(
     if (text) {
       const exchange = `${ctx.lines.join("\n")}\nUser: ${question?.trim() || "(daily check-in)"}\nCoach: ${text}`;
       if (!signal?.aborted) {
-        await learn(ref, userId, memory, exchange, Boolean(question?.trim()));
+        after(() => learn(ref, userId, memory, exchange, Boolean(question?.trim())));
       }
     }
     return {
@@ -683,17 +706,25 @@ export async function resolvePendingWrite(
       .slice(0, written)
       .map((preview) => (chosen ? { ...preview, name: chosen.name } : preview));
     const answer = text || loggedLines(logged);
+    const daySummary = await daySummaryAfterWrite(userId, profile, day);
     await appendExchange(userId, question ?? null, answer, Boolean(text));
     if (text && !signal?.aborted) {
-      await learn(
-        ref,
-        userId,
-        setup.memory,
-        exchangeOf(toolLog, question, answer),
-        Boolean(question),
+      after(() =>
+        learn(
+          ref,
+          userId,
+          setup.memory,
+          exchangeOf(toolLog, question, answer),
+          Boolean(question),
+        ),
       );
     }
-    return { status: "answered", text: answer, generated: Boolean(text) };
+    return {
+      status: "answered",
+      text: answer,
+      generated: Boolean(text),
+      daySummary,
+    };
   } catch {
     await appendExchange(userId, question ?? null, RESUME_FAILED, false);
     return { status: "answered", text: RESUME_FAILED, generated: false };
