@@ -162,7 +162,7 @@ export async function resolveCatalogMeal(
 
 const SIZE_PREFIX = /^\s*[\d.,]+\s*(g|gr|grs|gram|grams|kg|ml|l|oz)?\b\s*/i;
 
-function sizeVariantKey(name: string): string {
+export function sizeVariantKey(name: string): string {
   return normalizeSearch(name).replace(SIZE_PREFIX, "").trim();
 }
 

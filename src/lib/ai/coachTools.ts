@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import {
   insertResolvedMeal,
   resolveCatalogMeal,
+  sizeVariantKey,
   sizeVariantsOf,
   MAX_PORTIONS,
   type ResolveFailure,
@@ -297,15 +298,18 @@ export function buildCoachTools(
           console.info(
             `coach: search_catalog ${JSON.stringify(terms)} -> ${hits.length} hits (${usableHits.length} usable) of ${items.length}, returning ${chosen.length}`,
           );
+          const sizeFamily = new Set(usableHits.map((item) => sizeVariantKey(item.name)));
           const note = !items.length
             ? "The user's catalog is empty. Tell them so and offer to add items; do not name any food as if it were saved."
             : !chosenUsable
               ? "None of these items has recorded macros, and neither does anything else in the catalog. Say that plainly and offer to fill the macros in; never invent numbers or a dish."
               : !matched
                 ? "Nothing matched those terms, so these are a sample of the catalog across the user's places. Suggest from them; do not say the catalog is empty or that you found nothing."
-                : usableHits.length
-                  ? undefined
-                  : "The matched items have no recorded macros, so a sample of items WITH macros from the rest of the catalog follows them. Suggest from those.";
+                : usableHits.length > 1 && sizeFamily.size === 1
+                  ? "These are the SAME item at different sizes. If the user is asking to log this, call log_meal with ANY one of them right now: the app will show them a card to pick the exact size before writing anything. Do not ask them to specify the size in chat."
+                  : usableHits.length
+                    ? undefined
+                    : "The matched items have no recorded macros, and a sample of items WITH macros from the rest of the catalog follows them. Suggest from those.";
           return {
             query_matched: matched,
             catalog_size: items.length,
