@@ -5,6 +5,9 @@ import {
   generateText,
   isStepCount,
   streamText,
+  NoSuchToolError,
+  type ModelMessage,
+  type ToolCallRepairFunction,
   type ToolSet,
 } from "ai";
 
@@ -99,35 +102,98 @@ export type CoachEvent =
   | { type: "reasoning"; text: string }
   | { type: "delta"; text: string };
 
+export interface ApprovalRequest {
+  approvalId: string;
+  toolCallId: string;
+  toolName: string;
+  input: unknown;
+}
+
+export interface ToolStreamResult {
+  text: string;
+  toolLog: string[];
+  approvals: ApprovalRequest[];
+  messages: ModelMessage[];
+  writeAttempted: boolean;
+  writeOutputs: { logged: boolean; error?: string }[];
+}
+
+export interface ToolStreamOptions {
+  instructions: string;
+  messages: ModelMessage[];
+  tools: ToolSet;
+  approvalFor?: string;
+  maxSteps?: number;
+  maxTokens?: number;
+  onEvent: (event: CoachEvent) => void;
+  signal?: AbortSignal;
+}
+
+function repairToolName(tools: ToolSet): ToolCallRepairFunction<ToolSet> {
+  return async ({ toolCall, error }) => {
+    if (NoSuchToolError.isInstance(error)) {
+      const cleaned = Object.keys(tools).find((name) =>
+        toolCall.toolName.startsWith(name),
+      );
+      console.warn(
+        `coach: malformed tool name ${toolCall.toolName}, ${cleaned ? `repaired to ${cleaned}` : "no match"}`,
+      );
+      return cleaned ? { ...toolCall, toolName: cleaned } : null;
+    }
+    console.warn(
+      `coach: invalid input for ${toolCall.toolName}: ${toolCall.input}`,
+    );
+    return null;
+  };
+}
+
 export async function chatToolsStream(
   ref: ModelRef,
-  options: {
-    instructions: string;
-    messages: { role: "user" | "assistant"; content: string }[];
-    tools: ToolSet;
-    maxSteps?: number;
-    maxTokens?: number;
-    onEvent: (event: CoachEvent) => void;
-  },
-): Promise<{ text: string; toolLog: string[] }> {
+  options: ToolStreamOptions,
+): Promise<ToolStreamResult> {
   const model = resolveModel(ref);
   const maxTokens = options.maxTokens ?? 3000;
+  const approvalFor = options.approvalFor;
   const result = streamText({
     model,
     instructions: options.instructions,
     messages: options.messages,
     tools: options.tools,
+    toolApproval: approvalFor ? { [approvalFor]: "user-approval" } : undefined,
+    repairToolCall: repairToolName(options.tools),
     stopWhen: isStepCount(options.maxSteps ?? 5),
     maxOutputTokens: maxTokens + googleThinkingBudget(ref),
     providerOptions: reasoningOptions(ref),
+    abortSignal: options.signal,
   });
 
   const toolLog: string[] = [];
+  const approvals: ApprovalRequest[] = [];
+  const writeOutputs: { logged: boolean; error?: string }[] = [];
+  let writeAttempted = false;
   let text = "";
   for await (const part of result.fullStream) {
     if (part.type === "tool-call") {
+      if (part.toolName === approvalFor) writeAttempted = true;
       options.onEvent({ type: "status", tool: part.toolName });
+    } else if (part.type === "tool-approval-request") {
+      console.info(
+        `coach: approval requested for ${part.toolCall.toolName} ${JSON.stringify(part.toolCall.input)}`,
+      );
+      approvals.push({
+        approvalId: part.approvalId,
+        toolCallId: part.toolCall.toolCallId,
+        toolName: part.toolCall.toolName,
+        input: part.toolCall.input,
+      });
     } else if (part.type === "tool-result") {
+      if (part.toolName === approvalFor) {
+        const output = part.output as { logged?: unknown; error?: unknown };
+        writeOutputs.push({
+          logged: output?.logged === true,
+          error: typeof output?.error === "string" ? output.error : undefined,
+        });
+      }
       toolLog.push(
         `${part.toolName}(${JSON.stringify(part.input)}) -> ${JSON.stringify(part.output).slice(0, 400)}`,
       );
@@ -139,7 +205,21 @@ export async function chatToolsStream(
     }
   }
 
-  if (text.trim()) return { text: text.trim(), toolLog };
+  const messages = await result.responseMessages;
+  console.info(
+    `coach: ${ref.provider}/${ref.model} finished with ${approvals.length} approval(s), ${toolLog.length} tool result(s), ${text.trim().length} chars`,
+  );
+
+  if (text.trim() || approvals.length) {
+    return {
+      text: text.trim(),
+      toolLog,
+      approvals,
+      messages,
+      writeAttempted,
+      writeOutputs,
+    };
+  }
 
   const gathered = toolLog.length
     ? `Data already read from the app:\n${toolLog.join("\n")}`
@@ -150,12 +230,34 @@ export async function chatToolsStream(
     messages: [...options.messages, { role: "user", content: gathered }],
     maxOutputTokens: maxTokens + googleThinkingBudget(ref),
     providerOptions: reasoningOptions(ref),
+    abortSignal: options.signal,
   });
   for await (const delta of closing.textStream) {
     text += delta;
     options.onEvent({ type: "delta", text: delta });
   }
-  return { text: text.trim(), toolLog };
+  return {
+    text: text.trim(),
+    toolLog,
+    approvals,
+    messages,
+    writeAttempted,
+    writeOutputs,
+  };
+}
+
+export function approvalResponseMessage(
+  approvalIds: string[],
+  approved: boolean,
+): ModelMessage {
+  return {
+    role: "tool",
+    content: approvalIds.map((approvalId) => ({
+      type: "tool-approval-response" as const,
+      approvalId,
+      approved,
+    })),
+  } as unknown as ModelMessage;
 }
 
 export async function chatTools(

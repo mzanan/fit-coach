@@ -83,7 +83,10 @@ export async function retrieveFacts(
   try {
     corrections = await allCorrections(userId);
   } catch (err) {
-    console.error("coach facts: corrections lookup failed", err);
+    console.error(
+      "coach facts: corrections lookup failed",
+      err instanceof Error ? err.message : err,
+    );
   }
 
   let matches: RetrievedFact[] = [];
@@ -91,7 +94,10 @@ export async function retrieveFacts(
     try {
       matches = await semanticMatches(userId, query);
     } catch (err) {
-      console.error("coach facts: semantic lookup failed", err);
+      console.error(
+        "coach facts: semantic lookup failed",
+        err instanceof Error ? err.message : err,
+      );
     }
   }
 
@@ -168,6 +174,9 @@ export async function learnFromExchange(
       await saveFact(userId, content, fact.category, source);
     }
   } catch (err) {
-    console.error("coach facts: learning from exchange failed", err);
+    console.error(
+      "coach facts: learning from exchange failed",
+      err instanceof Error ? err.message : err,
+    );
   }
 }

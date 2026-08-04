@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { clearCoachChat, updateReasoningEffortAction } from "@/lib/actions/coach";
+import type { DaySummary } from "@/lib/ai/coach";
 import type { ReasoningEffort } from "@/lib/ai/options";
 import type { CoachMessage } from "@/lib/data/coachMessages";
+import type { PendingPreview } from "@/lib/data/coachPendingWrite";
 import { readNdjson } from "@/lib/ndjson";
 
 export interface ChatBubble {
@@ -14,13 +16,26 @@ export interface ChatBubble {
   content: string;
   generated: boolean;
   reasoning?: string;
+  daySummary?: DaySummary;
+}
+
+export interface PendingApproval {
+  approvalId: string;
+  previews: PendingPreview[];
+  question: string | null;
 }
 
 type CoachStreamEvent =
   | { type: "status"; tool: string }
   | { type: "reasoning"; text: string }
   | { type: "delta"; text: string }
-  | { type: "done"; text: string; generated: boolean }
+  | {
+      type: "done";
+      text: string;
+      generated: boolean;
+      daySummary?: DaySummary;
+    }
+  | { type: "approval"; approvalId: string; previews: PendingPreview[] }
   | { type: "error" };
 
 const STATUS: Record<string, string> = {
@@ -29,6 +44,7 @@ const STATUS: Record<string, string> = {
   search_catalog: "Searching your catalog",
   get_workouts: "Reading your recent workouts",
   get_body_scans: "Reading your body scans",
+  log_meal: "Preparing to log a meal",
 };
 
 function toBubbles(messages: CoachMessage[]): ChatBubble[] {
@@ -37,15 +53,27 @@ function toBubbles(messages: CoachMessage[]): ChatBubble[] {
     role: message.role,
     content: message.content,
     generated: message.generated,
+    daySummary: message.daySummary,
   }));
+}
+
+function localBubble(role: "user" | "assistant", content: string): ChatBubble {
+  return { id: `local-${Date.now()}-${role}`, role, content, generated: true };
 }
 
 export function useCoachChat(
   initial: CoachMessage[],
   initialEffort: ReasoningEffort | null,
+  initialPending: PendingApproval | null,
 ) {
   const [effort, setEffortState] = useState(initialEffort);
-  const [bubbles, setBubbles] = useState<ChatBubble[]>(() => toBubbles(initial));
+  const [bubbles, setBubbles] = useState<ChatBubble[]>(() => [
+    ...toBubbles(initial),
+    ...(initialPending?.question
+      ? [localBubble("user", initialPending.question)]
+      : []),
+  ]);
+  const [pending, setPending] = useState<PendingApproval | null>(initialPending);
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -57,7 +85,80 @@ export function useCoachChat(
 
   useEffect(() => {
     anchor?.scrollIntoView({ block: "end", behavior: "smooth" });
-  }, [anchor, bubbles, loading, streaming]);
+  }, [anchor, bubbles, loading, streaming, pending]);
+
+  const consume = useCallback(async (url: string, body: unknown) => {
+    setLoading(true);
+    setStatus(STATUS.thinking);
+    setStreaming("");
+
+    const abort = new AbortController();
+    setController(abort);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        signal: abort.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok || !res.body) throw new Error("Coach unavailable");
+
+      let answer = "";
+      let thoughts = "";
+      let generated = true;
+      let daySummary: DaySummary | undefined;
+      let approval: PendingApproval | null = null;
+
+      for await (const event of readNdjson<CoachStreamEvent>(res.body)) {
+        if (event.type === "status") {
+          setStatus(STATUS[event.tool] ?? STATUS.thinking);
+        } else if (event.type === "reasoning") {
+          thoughts += event.text;
+          setReasoning(thoughts);
+        } else if (event.type === "delta") {
+          answer += event.text;
+          setStatus(null);
+          setStreaming(answer);
+        } else if (event.type === "done") {
+          answer = event.text;
+          generated = event.generated;
+          daySummary = event.daySummary;
+        } else if (event.type === "approval") {
+          approval = {
+            approvalId: event.approvalId,
+            previews: event.previews,
+            question: null,
+          };
+        } else {
+          throw new Error("Coach failed");
+        }
+      }
+
+      if (approval) {
+        setPending(approval);
+      } else {
+        setBubbles((current) => [
+          ...current,
+          {
+            ...localBubble("assistant", answer),
+            generated,
+            reasoning: thoughts.trim() || undefined,
+            daySummary,
+          },
+        ]);
+      }
+    } catch (error) {
+      if ((error as Error).name !== "AbortError") {
+        toast.error("Could not reach the coach");
+      }
+    } finally {
+      setController(null);
+      setStreaming("");
+      setReasoning("");
+      setStatus(null);
+      setLoading(false);
+    }
+  }, []);
 
   const ask = useCallback(
     async (text?: string) => {
@@ -65,72 +166,21 @@ export function useCoachChat(
       if (loading) return;
       if (!asked && bubbles.length) return;
       setQuestion("");
-      if (asked) {
-        setBubbles((current) => [
-          ...current,
-          { id: `local-${Date.now()}`, role: "user", content: asked, generated: true },
-        ]);
-      }
-      setLoading(true);
-      setStatus(STATUS.thinking);
-      setStreaming("");
-
-      const abort = new AbortController();
-      setController(abort);
-      try {
-        const res = await fetch("/api/coach", {
-          method: "POST",
-          signal: abort.signal,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question: asked || undefined }),
-        });
-        if (!res.ok || !res.body) throw new Error("Coach unavailable");
-
-        let answer = "";
-        let thoughts = "";
-        let generated = true;
-
-        for await (const event of readNdjson<CoachStreamEvent>(res.body)) {
-          if (event.type === "status") {
-            setStatus(STATUS[event.tool] ?? STATUS.thinking);
-          } else if (event.type === "reasoning") {
-            thoughts += event.text;
-            setReasoning(thoughts);
-          } else if (event.type === "delta") {
-            answer += event.text;
-            setStatus(null);
-            setStreaming(answer);
-          } else if (event.type === "done") {
-            answer = event.text;
-            generated = event.generated;
-          } else {
-            throw new Error("Coach failed");
-          }
-        }
-
-        setBubbles((current) => [
-          ...current,
-          {
-            id: `local-${Date.now()}-a`,
-            role: "assistant",
-            content: answer,
-            generated,
-            reasoning: thoughts.trim() || undefined,
-          },
-        ]);
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") {
-          toast.error("Could not reach the coach");
-        }
-      } finally {
-        setController(null);
-        setStreaming("");
-        setReasoning("");
-        setStatus(null);
-        setLoading(false);
-      }
+      setPending(null);
+      if (asked) setBubbles((current) => [...current, localBubble("user", asked)]);
+      await consume("/api/coach", { question: asked || undefined });
     },
-    [question, loading, bubbles.length],
+    [question, loading, bubbles.length, consume],
+  );
+
+  const decide = useCallback(
+    async (approved: boolean, itemId?: string) => {
+      if (!pending || loading) return;
+      const { approvalId } = pending;
+      setPending(null);
+      await consume("/api/coach/approve", { approvalId, approved, itemId });
+    },
+    [pending, loading, consume],
   );
 
   function stop() {
@@ -155,6 +205,7 @@ export function useCoachChat(
 
   function clear() {
     setBubbles([]);
+    setPending(null);
     setConfirmOpen(false);
     void clearCoachChat().catch(() => toast.error("Could not clear the chat"));
   }
@@ -167,7 +218,9 @@ export function useCoachChat(
     status,
     streaming,
     reasoning,
+    pending,
     ask,
+    decide,
     stop,
     setAnchor,
     confirmOpen,

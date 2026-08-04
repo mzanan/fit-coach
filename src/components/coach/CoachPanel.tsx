@@ -11,7 +11,13 @@ import { Surface } from "@/components/ui/Surface";
 import { cn } from "@/lib/utils";
 import { DiningModeAsk } from "@/components/coach/DiningModeAsk";
 import { EffortMenu } from "@/components/coach/EffortMenu";
-import { useCoachChat, type ChatBubble } from "@/components/coach/useCoachChat";
+import { ApprovalCard } from "@/components/coach/ApprovalCard";
+import { MacroTable } from "@/components/coach/MacroTable";
+import {
+  useCoachChat,
+  type ChatBubble,
+  type PendingApproval,
+} from "@/components/coach/useCoachChat";
 import type { ReasoningEffort } from "@/lib/ai/options";
 import type { CoachMessage } from "@/lib/data/coachMessages";
 
@@ -69,6 +75,7 @@ function Turn({ bubble }: { bubble: ChatBubble }) {
       <p className="whitespace-pre-wrap text-body leading-relaxed">
         {bubble.content}
       </p>
+      {bubble.daySummary ? <MacroTable summary={bubble.daySummary} /> : null}
     </div>
   );
 }
@@ -77,12 +84,14 @@ export function CoachPanel({
   initial,
   effort,
   diningMode,
+  pending,
 }: {
   initial: CoachMessage[];
   effort: ReasoningEffort | null;
   diningMode: string | null;
+  pending: PendingApproval | null;
 }) {
-  const { setAnchor, ...chat } = useCoachChat(initial, effort);
+  const { setAnchor, ...chat } = useCoachChat(initial, effort, pending);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -116,7 +125,7 @@ export function CoachPanel({
         ) : null}
       </div>
 
-      {chat.bubbles.length || chat.loading || chat.streaming ? (
+      {chat.bubbles.length || chat.loading || chat.streaming || chat.pending ? (
         <div className="scroll-slim min-h-0 flex-1 space-y-8 overflow-y-auto pt-block pr-1">
           {chat.bubbles.map((bubble) => (
             <Turn key={bubble.id} bubble={bubble} />
@@ -131,6 +140,16 @@ export function CoachPanel({
             <p className="animate-pulse text-body text-muted-foreground">
               {chat.status}...
             </p>
+          ) : null}
+          {chat.pending ? (
+            <ApprovalCard
+              key={chat.pending.approvalId}
+              previews={chat.pending.previews}
+              busy={chat.loading}
+              onDecide={(approved, itemId) =>
+                void chat.decide(approved, itemId)
+              }
+            />
           ) : null}
           <div ref={setAnchor} />
         </div>

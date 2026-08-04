@@ -8,20 +8,41 @@ import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
 import { getWhoopConnection } from "@/lib/integrations/whoop";
 import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
-import { chat, chatToolsStream, type CoachEvent } from "@/lib/ai/provider";
+import type { ModelMessage } from "ai";
+import { after } from "next/server";
+
+import type { ResolveFailure } from "@/lib/catalogMeal";
+
+import {
+  approvalResponseMessage,
+  chat,
+  chatToolsStream,
+  type ApprovalRequest,
+  type CoachEvent,
+} from "@/lib/ai/provider";
 import {
   appendExchange,
   getConversation,
   type CoachMessage,
 } from "@/lib/data/coachMessages";
-import { buildCoachTools } from "@/lib/ai/coachTools";
+import {
+  clearPendingWrite,
+  savePendingWrite,
+  takePendingWrite,
+  type PendingPreview,
+} from "@/lib/data/coachPendingWrite";
+import {
+  buildCoachTools,
+  previewLogMeal,
+  WRITE_TOOL,
+} from "@/lib/ai/coachTools";
 import { PROVIDER_LABEL } from "@/lib/ai/options";
 import { userModelRef, type ModelRef } from "@/lib/ai/providers";
 import { toolsRouting } from "@/lib/ai/registry";
 import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
 import { categoryLabel } from "@/lib/constants";
-import { kcalOf } from "@/lib/macros";
+import { kcalOf, type MacroLine } from "@/lib/macros";
 import { round } from "@/lib/utils";
 
 const { meals, body_scans } = schema;
@@ -234,11 +255,77 @@ function limitErrorReply(
   return `${label}: ${detail} Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
+export type CoachResult =
+  | {
+      status: "answered";
+      text: string;
+      generated: boolean;
+      daySummary?: DaySummary;
+    }
+  | { status: "pending"; approvalId: string; previews: PendingPreview[] };
+
+const WRITE_FAILED =
+  "The coach tried to log that meal but the request came back malformed. Ask again, or log it from the Today screen.";
+
+const DENIED = "Not logged. Nothing was written.";
+
+export interface DaySummary {
+  lines: MacroLine[];
+  kcal: number;
+  kcalTarget: number;
+}
+
+async function daySummaryAfterWrite(
+  userId: string,
+  profile: Profile,
+  day: string,
+): Promise<DaySummary> {
+  const dayData = await getDayData(userId, profile, day);
+  return dayData.summary;
+}
+
+const RESUME_FAILED =
+  "The coach lost the connection while confirming. The meal may or may not have been logged: check Today before asking again.";
+
+const NOT_WRITTEN =
+  "Nothing was logged. The catalog item may have changed since you were asked. Check Today, and log it from there if it is missing.";
+
+const LOG_INTENT =
+  /\b(registr\w*|anot\w*|logue\w*|loguear|agreg\w*|a[ñn]ad\w*|sum\w*|carg\w*|log)\b/i;
+
+const CLAIMED_WRITE =
+  /\b(registrad[oa]s?|registr[eé]|anotad[oa]s?|a[ñn]adid[oa]s?|agregad[oa]s?|guardad[oa]s?|logged)\b|\b(se procede a|procedo a|voy a)\s+(registrar|anotar|guardar|a[ñn]adir|agregar)/i;
+
+const NOTHING_LOGGED =
+  "\n\n(Nothing was logged. The coach did not actually run the log, so check Today and log it from there if you need it.)";
+
+function unloggedWarning(
+  question: string | undefined,
+  text: string,
+  wrote: boolean,
+): string {
+  if (wrote || !question) return "";
+  if (!LOG_INTENT.test(question)) return "";
+  if (!CLAIMED_WRITE.test(text)) return "";
+  return NOTHING_LOGGED;
+}
+
+function previewFailure(reason: ResolveFailure, error: string): string {
+  if (reason === "no_macros") return error;
+  return "The coach tried to log a meal it could not identify in your catalog. Ask again naming the item.";
+}
+
 const TOOLS_ADDENDUM = `
 
 Data access: you have tools that read the user's live data (today's meals and targets, the food catalog, recent workouts, body scans). Call only the tools the question actually needs, then answer that question directly and concretely. Never invent data you did not read from a tool.
 
 What the user tells you outranks what the tools read. The app only knows the meals the user typed into it, and they often eat without logging, so an empty day from get_today means "nothing was logged", NEVER "nothing was eaten". If the user states what they have consumed, or gives you totals, take those numbers as the truth for this conversation and answer from them. Do not ask them to log anything first, do not ask them to confirm what they already said, and do not repeat the day back to them: they asked a question, answer it.
+
+You can also log a meal with log_meal, but only when the user asks you to. Pass the id and the exact name of a catalog item a search returned: the app resolves the macros from that item itself, so you never send macro numbers and never guess them. The user confirms before anything is written, so do not ask them to confirm yourself.
+
+Two rules about logging, both absolute:
+- If the user asks you to log something, CALL log_meal. Saying you will log it, or describing what you are about to log, does nothing: only the tool call reaches the app. Never announce a log you did not call the tool for, and never ask the user to specify a size or portion in chat instead of calling it.
+- If several catalog items match what they named and they differ only in size or portion (100G vs 200G, half vs full), CALL log_meal with any one of them anyway: the app shows the user a card to pick the exact size before anything is written, so the tool call is what triggers that choice. Only ask in chat when the items are genuinely different foods, not sizes of the same one.
 
 Whenever you suggest what to eat, search the catalog first and build the suggestion from the user's own saved items and their exact macros. One search call is enough: pass every term worth trying at once. When the search reports it found no match and returned the user's most eaten items instead, say so before suggesting anything else.
 
@@ -269,6 +356,17 @@ async function memoryAndFacts(
   };
 }
 
+function deferLearn(run: () => Promise<void>): void {
+  after(() =>
+    run().catch((err) =>
+      console.error(
+        "coach: background learn failed",
+        err instanceof Error ? err.message : err,
+      ),
+    ),
+  );
+}
+
 async function learn(
   ref: ModelRef,
   userId: string,
@@ -282,6 +380,47 @@ async function learn(
   }
 }
 
+function askOf(question?: string): string {
+  return question?.trim()
+    ? question.trim()
+    : "Give a short read on how today and the week are going, and the next action.";
+}
+
+async function toolSetup(
+  userId: string,
+  profile: Profile,
+  history: CoachMessage[],
+  question?: string,
+) {
+  const { memory, parts } = await memoryAndFacts(userId, question);
+  return {
+    memory,
+    today: todayLogicalDay(dayConfig(profile)),
+    instructions: [
+      COACH_FRAME +
+        diningRule(profile) +
+        coachingRules(profile) +
+        TOOLS_ADDENDUM,
+      ...parts,
+    ].join("\n\n"),
+    messages: [
+      ...history.map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
+      { role: "user" as const, content: askOf(question) },
+    ] as ModelMessage[],
+  };
+}
+
+function exchangeOf(toolLog: string[], question: string | undefined, text: string): string {
+  return [
+    ...(toolLog.length ? ["Data the coach read from the app:", ...toolLog] : []),
+    `User: ${question?.trim() || "(daily check-in)"}`,
+    `Coach: ${text}`,
+  ].join("\n");
+}
+
 async function toolReply(
   ref: ModelRef,
   routeOnly: string[] | undefined,
@@ -291,44 +430,87 @@ async function toolReply(
   question?: string,
   onEvent?: (event: CoachEvent) => void,
   signal?: AbortSignal,
-): Promise<{ text: string; generated: boolean }> {
-  const { memory, parts } = await memoryAndFacts(userId, question);
-  const ask = question?.trim()
-    ? question.trim()
-    : "Give a short read on how today and the week are going, and the next action.";
+): Promise<CoachResult> {
+  const setup = await toolSetup(userId, profile, history, question);
 
   try {
-    const { text, toolLog } = await chatToolsStream(
-      routeOnly ? { ...ref, routeOnly } : ref,
-      {
-        instructions: [COACH_FRAME + diningRule(profile) + coachingRules(profile) + TOOLS_ADDENDUM, ...parts].join("\n\n"),
-        messages: [
-          ...history.map((message) => ({
-            role: message.role,
-            content: message.content,
-          })),
-          { role: "user" as const, content: ask },
-        ],
-        tools: buildCoachTools(userId, profile, todayLogicalDay(dayConfig(profile))),
+    const { text, toolLog, approvals, messages, writeAttempted, writeOutputs } =
+      await chatToolsStream(routeOnly ? { ...ref, routeOnly } : ref, {
+        instructions: setup.instructions,
+        messages: setup.messages,
+        tools: buildCoachTools(userId, profile, setup.today),
+        approvalFor: WRITE_TOOL,
         onEvent: onEvent ?? (() => {}),
-      },
-    );
-    if (text) {
-      const exchange = [
-        ...(toolLog.length ? ["Data the coach read from the app:", ...toolLog] : []),
-        `User: ${question?.trim() || "(daily check-in)"}`,
-        `Coach: ${text}`,
-      ].join("\n");
-      if (!signal?.aborted) {
-        await learn(ref, userId, memory, exchange, Boolean(question?.trim()));
+        signal,
+      });
+
+    if (approvals.length) {
+      const resolved = await Promise.all(
+        approvals.map((approval) =>
+          previewLogMeal(userId, setup.today, approval.input),
+        ),
+      );
+      const failed = resolved.find((preview) => !preview.ok);
+      if (failed && !failed.ok) {
+        return {
+          status: "answered",
+          text: previewFailure(failed.reason, failed.error),
+          generated: false,
+        };
       }
-      return { text, generated: true };
+      const previews = resolved.flatMap((preview, index) =>
+        preview.ok
+          ? [{ ...preview.preview, toolCallId: approvals[index].toolCallId }]
+          : [],
+      );
+      if (!signal?.aborted) {
+        await savePendingWrite(userId, {
+          approvalId: approvals[0].approvalId,
+          approvalIds: approvals.map((approval) => approval.approvalId),
+          question: question?.trim() || null,
+          messages,
+          previews,
+        });
+      }
+      return {
+        status: "pending",
+        approvalId: approvals[0].approvalId,
+        previews,
+      };
     }
+
+    if (text) {
+      const answer =
+        text +
+        unloggedWarning(
+          question,
+          text,
+          writeAttempted || writeOutputs.some((output) => output.logged),
+        );
+      if (!signal?.aborted) {
+        deferLearn(() =>
+          learn(
+            ref,
+            userId,
+            setup.memory,
+            exchangeOf(toolLog, question, answer),
+            Boolean(question?.trim()),
+          ),
+        );
+      }
+      return { status: "answered", text: answer, generated: true };
+    }
+
     const ctx = await buildContext(userId, profile);
-    return { text: aiErrorReply(ctx), generated: false };
+    return {
+      status: "answered",
+      text: writeAttempted ? WRITE_FAILED : aiErrorReply(ctx),
+      generated: false,
+    };
   } catch (error) {
     const ctx = await buildContext(userId, profile);
     return {
+      status: "answered",
       text: limitErrorReply(ref.provider, error, ctx) ?? aiErrorReply(ctx),
       generated: false,
     };
@@ -342,15 +524,13 @@ async function contextReply(
   history: CoachMessage[],
   question?: string,
   signal?: AbortSignal,
-): Promise<{ text: string; generated: boolean }> {
+): Promise<CoachResult> {
   const ctx = await buildContext(userId, profile);
   const { memory, parts } = await memoryAndFacts(userId, question);
 
   const userMsg = [
     ...ctx.lines,
-    question?.trim()
-      ? `User question: ${question.trim()}`
-      : "Give a short read on how today and the week are going, and the next action.",
+    question?.trim() ? `User question: ${question.trim()}` : askOf(question),
   ].join("\n");
 
   try {
@@ -371,12 +551,17 @@ async function contextReply(
     if (text) {
       const exchange = `${ctx.lines.join("\n")}\nUser: ${question?.trim() || "(daily check-in)"}\nCoach: ${text}`;
       if (!signal?.aborted) {
-        await learn(ref, userId, memory, exchange, Boolean(question?.trim()));
+        deferLearn(() => learn(ref, userId, memory, exchange, Boolean(question?.trim())));
       }
     }
-    return { text: text || aiErrorReply(ctx), generated: Boolean(text) };
+    return {
+      status: "answered",
+      text: text || aiErrorReply(ctx),
+      generated: Boolean(text),
+    };
   } catch (error) {
     return {
+      status: "answered",
       text: limitErrorReply(ref.provider, error, ctx) ?? aiErrorReply(ctx),
       generated: false,
     };
@@ -389,7 +574,9 @@ export async function coachReply(
   question?: string,
   onEvent?: (event: CoachEvent) => void,
   signal?: AbortSignal,
-): Promise<{ text: string; generated: boolean }> {
+): Promise<CoachResult> {
+  await clearPendingWrite(userId);
+
   const ref = await userModelRef(userId);
   if (!ref) {
     const ctx = await buildContext(userId, profile);
@@ -397,7 +584,7 @@ export async function coachReply(
     if (!signal?.aborted) {
       await appendExchange(userId, question?.trim() || null, text, false);
     }
-    return { text, generated: false };
+    return { status: "answered", text, generated: false };
   }
 
   const history = await getConversation(userId);
@@ -423,7 +610,7 @@ export async function coachReply(
         )
       : await contextReply(ref, userId, profile, history, question, signal);
 
-  if (signal?.aborted) return result;
+  if (signal?.aborted || result.status === "pending") return result;
 
   await appendExchange(
     userId,
@@ -432,4 +619,189 @@ export async function coachReply(
     result.generated,
   );
   return result;
+}
+
+export async function resolvePendingWrite(
+  userId: string,
+  profile: Profile,
+  approvalId: string,
+  approved: boolean,
+  itemId?: string,
+  onEvent?: (event: CoachEvent) => void,
+  signal?: AbortSignal,
+): Promise<CoachResult> {
+  const pending = await takePendingWrite(userId, approvalId);
+  if (!pending) {
+    return {
+      status: "answered",
+      text: "That confirmation is no longer valid. Ask again.",
+      generated: false,
+    };
+  }
+
+  const question = pending.question ?? undefined;
+
+  if (!approved) {
+    await appendExchange(userId, question ?? null, DENIED, false);
+    return { status: "answered", text: DENIED, generated: false };
+  }
+
+  const ref = await userModelRef(userId);
+  if (!ref) {
+    await savePendingWrite(userId, pending);
+    return {
+      status: "answered",
+      text: "Add your AI provider key in Settings > AI to use the coach.",
+      generated: false,
+    };
+  }
+
+  let toolPin: string[] | null | undefined = null;
+  try {
+    toolPin = await toolsRouting(ref.provider, ref.model);
+  } catch {
+    toolPin = null;
+  }
+
+  const history = await getConversation(userId);
+  const setup = await toolSetup(userId, profile, history, question);
+
+  try {
+    const answered = [
+      ...pending.messages,
+      approvalResponseMessage(pending.approvalIds, true),
+    ];
+    const day = pending.previews[0].day;
+    const chosen = itemId
+      ? pending.previews[0].variants.find((variant) => variant.id === itemId)
+      : undefined;
+
+    const { text, toolLog, writeOutputs, approvals, messages } =
+      await chatToolsStream(toolPin ? { ...ref, routeOnly: toolPin } : ref, {
+        instructions: setup.instructions,
+        messages: [...setup.messages, ...answered],
+        tools: buildCoachTools(
+          userId,
+          profile,
+          day,
+          chosen
+            ? {
+                toolCallId: pending.previews[0].toolCallId,
+                itemId: chosen.id,
+                itemName: chosen.name,
+              }
+            : undefined,
+        ),
+        approvalFor: WRITE_TOOL,
+        onEvent: onEvent ?? (() => {}),
+        signal,
+      });
+
+    if (approvals.length) {
+      const chained = await chainApproval(
+        userId,
+        day,
+        question,
+        [...answered, ...messages],
+        approvals,
+      );
+      if (chained) return chained;
+    }
+
+    const written = writeOutputs.filter((output) => output.logged).length;
+    if (!written) {
+      const failure = writeOutputs.find((output) => output.error)?.error;
+      await appendExchange(userId, question ?? null, failure ?? NOT_WRITTEN, false);
+      return {
+        status: "answered",
+        text: failure ?? NOT_WRITTEN,
+        generated: false,
+      };
+    }
+
+    const logged = pending.previews.slice(0, written).map((preview, index) => {
+      if (index !== 0 || !chosen) return preview;
+      const portions = preview.portions || 1;
+      const scaled = {
+        protein_g: round(chosen.protein_g * portions),
+        fat_g: round(chosen.fat_g * portions),
+        carbs_g: round(chosen.carbs_g * portions),
+      };
+      return {
+        ...preview,
+        name: chosen.name,
+        ...scaled,
+        kcal: round(kcalOf(scaled)),
+      };
+    });
+    const answer = text || loggedLines(logged);
+    const daySummary = await daySummaryAfterWrite(userId, profile, day);
+    await appendExchange(
+      userId,
+      question ?? null,
+      answer,
+      Boolean(text),
+      daySummary,
+    );
+    if (text && !signal?.aborted) {
+      deferLearn(() =>
+        learn(
+          ref,
+          userId,
+          setup.memory,
+          exchangeOf(toolLog, question, answer),
+          Boolean(question),
+        ),
+      );
+    }
+    return {
+      status: "answered",
+      text: answer,
+      generated: Boolean(text),
+      daySummary,
+    };
+  } catch {
+    await appendExchange(userId, question ?? null, RESUME_FAILED, false);
+    return { status: "answered", text: RESUME_FAILED, generated: false };
+  }
+}
+
+async function chainApproval(
+  userId: string,
+  day: string,
+  question: string | undefined,
+  messages: ModelMessage[],
+  approvals: ApprovalRequest[],
+): Promise<CoachResult | null> {
+  const resolved = await Promise.all(
+    approvals.map((approval) => previewLogMeal(userId, day, approval.input)),
+  );
+  const previews = resolved.flatMap((preview, index) =>
+    preview.ok
+      ? [{ ...preview.preview, toolCallId: approvals[index].toolCallId }]
+      : [],
+  );
+  if (!previews.length) return null;
+
+  await savePendingWrite(userId, {
+    approvalId: approvals[0].approvalId,
+    approvalIds: approvals.map((approval) => approval.approvalId),
+    question: question ?? null,
+    messages,
+    previews,
+  });
+  return {
+    status: "pending",
+    approvalId: approvals[0].approvalId,
+    previews,
+  };
+}
+
+function loggedLines(previews: PendingPreview[]): string {
+  return previews
+    .map((preview) => {
+      const portions = preview.portions === 1 ? "" : ` x${preview.portions}`;
+      return `Logged ${preview.name}${portions} as ${categoryLabel(preview.category).toLowerCase()}: ${preview.protein_g}g protein, ${preview.fat_g}g fat, ${preview.carbs_g}g carbs, ${preview.kcal} kcal.`;
+    })
+    .join("\n");
 }
