@@ -32,6 +32,32 @@ export interface ResolvedMeal {
   fat_quality: string | null;
 }
 
+async function findUniqueByName(
+  userId: string,
+  itemName: string,
+): Promise<{ id: string; name: string } | null> {
+  const rows = await db
+    .select({
+      id: catalog_items.id,
+      name: catalog_items.name,
+      protein_g: catalog_items.protein_g,
+      fat_g: catalog_items.fat_g,
+      carbs_g: catalog_items.carbs_g,
+    })
+    .from(catalog_items)
+    .where(
+      and(
+        eq(catalog_items.user_id, userId),
+        eq(catalog_items.archived, false),
+      ),
+    );
+
+  const matches = rows.filter(
+    (row) => hasMacros(row) && sameItemName(itemName, row.name),
+  );
+  return matches.length === 1 ? matches[0] : null;
+}
+
 export interface ResolveInput {
   itemId: string;
   itemName?: string;
@@ -74,6 +100,15 @@ export async function resolveCatalogMeal(
     .limit(1);
 
   if (!item) {
+    const recovered = input.itemName
+      ? await findUniqueByName(userId, input.itemName)
+      : null;
+    if (recovered) {
+      console.warn(
+        `coach: log_meal id "${input.itemId}" not found, recovered "${input.itemName}" -> ${recovered.id}`,
+      );
+      return resolveCatalogMeal(userId, { ...input, itemId: recovered.id });
+    }
     return { ok: false, reason: "not_found", error: "Catalog item not found" };
   }
 
@@ -123,10 +158,19 @@ function sizeVariantKey(name: string): string {
   return normalizeSearch(name).replace(SIZE_PREFIX, "").trim();
 }
 
+export interface SizeVariant {
+  id: string;
+  name: string;
+  protein_g: number;
+  fat_g: number;
+  carbs_g: number;
+  kcal: number;
+}
+
 export async function sizeVariantsOf(
   userId: string,
   item: { id: string; name: string },
-): Promise<{ id: string; name: string }[]> {
+): Promise<SizeVariant[]> {
   const key = sizeVariantKey(item.name);
   if (!key || key === normalizeSearch(item.name)) return [];
 
@@ -146,12 +190,21 @@ export async function sizeVariantsOf(
       ),
     );
 
-  return rows
-    .filter(
-      (row) =>
-        row.id !== item.id && hasMacros(row) && sizeVariantKey(row.name) === key,
-    )
-    .map((row) => ({ id: row.id, name: row.name }));
+  const variants: SizeVariant[] = [];
+  for (const row of rows) {
+    if (row.id === item.id) continue;
+    if (sizeVariantKey(row.name) !== key) continue;
+    if (!hasMacros(row)) continue;
+    variants.push({
+      id: row.id,
+      name: row.name,
+      protein_g: row.protein_g,
+      fat_g: row.fat_g,
+      carbs_g: row.carbs_g,
+      kcal: round(kcalOf(row)),
+    });
+  }
+  return variants;
 }
 
 export async function insertResolvedMeal(

@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import type { ModelMessage } from "ai";
 
 import { db, schema } from "@/lib/db";
+import type { SizeVariant } from "@/lib/catalogMeal";
 
 const { coach_pending_writes } = schema;
 
@@ -19,7 +20,7 @@ export interface PendingPreview {
   kcal: number;
   day: string;
   itemId: string;
-  variants: { id: string; name: string }[];
+  variants: SizeVariant[];
 }
 
 export interface PendingWrite {
