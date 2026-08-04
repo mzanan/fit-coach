@@ -294,7 +294,7 @@ const LOG_INTENT =
   /\b(registr\w*|anot\w*|logue\w*|loguear|agreg\w*|a[ñn]ad\w*|sum\w*|carg\w*|log)\b/i;
 
 const CLAIMED_WRITE =
-  /\b(registrad[oa]s?|registr[eé]|registrar|anotad[oa]s?|anotar|a[ñn]adid[oa]s?|a[ñn]adir|agregad[oa]s?|agregar|guardad[oa]s?|guardar|logged|proced\w*)\b/i;
+  /\b(registrad[oa]s?|registr[eé]|anotad[oa]s?|a[ñn]adid[oa]s?|agregad[oa]s?|guardad[oa]s?|logged)\b|\b(se procede a|procedo a|voy a)\s+(registrar|anotar|guardar|a[ñn]adir|agregar)/i;
 
 const NOTHING_LOGGED =
   "\n\n(Nothing was logged. The coach did not actually run the log, so check Today and log it from there if you need it.)";
