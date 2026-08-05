@@ -4,6 +4,8 @@ Multi-user nutrition and training tracker (installable PWA) with an AI coach tha
 
 Built mobile-first: the core loop is logging a meal from a personal catalog in a few taps, seeing the day's macros against targets, and asking the coach a question that is answered from real rows, not from a pre-assembled text blob.
 
+> **[WORKFLOW.md](./WORKFLOW.md) documents how this was built**: the review process in front of every merge, the experiments run before each architectural decision, what they measured, and the designs that failed. Start there if you care more about the reasoning than the result.
+
 ## Stack
 
 | Layer | Choice |
@@ -78,7 +80,9 @@ The decisive detail is that the model is asked what a fact is *about*, never whe
 
 Components that can be built more than one way get an isolated experiment before they touch this repo, kept in a separate `labs` repository: the provider abstraction, the tool loop, human-in-the-loop approval, and the memory supersession question above were each measured before being integrated. Several findings only surfaced that way, including that one free model never calls a write tool at all under a prompt that makes two others call it reliably.
 
-Every change that touches logic goes through two review agents in parallel before merge, one attacking the new code and one guarding the existing flows. `WORKFLOW.md` documents that process, including findings the gate caught before they reached `main`.
+Every change that touches logic goes through two review agents in parallel before merge, one attacking the new code and one guarding the existing flows.
+
+[WORKFLOW.md](./WORKFLOW.md) is the full record: both phases of how the project has been built, the bugs the review gate caught before they reached `main`, what each experiment measured, and the design that passed its lab and still failed in production.
 
 ## Known gaps
 

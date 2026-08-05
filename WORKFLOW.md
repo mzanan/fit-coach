@@ -1,21 +1,42 @@
-# Agentic workflow review: fit-coach redesign (PR #6-#13)
+# How this project is built
 
-This document records the working process used to build fit-coach's PR #6
-through #13 (2026-07-27), from the point an adversarial-review gate was
-introduced into the flow through the close of the full UI redesign backlog.
-It exists to make the process auditable: what agents were used, what they
-were asked to do, what decisions were made and by whom, and what the gate
-actually caught before code reached `main`.
+This document records the working process behind fit-coach, so that the
+process is auditable and not just the output: what was decided, by whom,
+on what evidence, and what was caught before code reached `main`.
 
-All facts below are taken directly from the project vault log
-(`personal-brain/01-Projects/15-fit-coach/tasks.md`) and this repo's commit
+It is deliberately split in two, because the way this project is built
+changed partway through:
+
+- **Part 1 (PR #6 to #19)** is a process I designed and ran on my own: a
+  two-agent adversarial review gate in front of every merge.
+- **Part 2 (PR #20 onward)** follows a directive I was given on
+  2026-07-29 by Gabriel Aguilera, an engineer who mentors me, in a call
+  whose transcript I worked from directly. The instruction was to stop
+  building the first thing that works and start evaluating alternatives
+  with measurements. Part 1's gate stayed in force underneath it.
+
+The distinction matters for reading the rest: Part 1 is my own judgment
+about verification, Part 2 is a method I was handed and then applied.
+
+To be explicit about the tooling, since the rest of this document assumes
+it: this project is built with Claude Code. The reviewers, designer and
+research agents described below are subagents I defined and run there,
+and implementation is AI-assisted throughout. What stays mine is the
+direction: which alternatives get evaluated, which findings get fixed
+versus deferred, what is accepted visually, and what ships.
+
+All facts below come from the project vault log and this repo's commit
 history. Nothing here is reconstructed from memory.
+
+---
+
+# Part 1: the review gate (PR #6 to #19)
 
 ## The problem this process addresses
 
 Before 2026-07-27, PRs were reviewed by a single pass: write code, run
 `tsc`/`lint`/`build`, optionally run a `personal-standards-reviewer` agent
-for code-standard conformance, then merge on the developer's own read of the
+for code-standard conformance, then merge on my own read of the
 diff. That catches type errors and style drift. It does not catch behavior:
 whether the new code actually survives bad input, and whether it actually
 leaves old flows working. Both classes of bug had shipped before under
@@ -27,7 +48,7 @@ Four distinct agents are used, each with a single job and no overlap:
 
 | Agent | Job | Output |
 |---|---|---|
-| `ui-designer` | Owns UI/UX decisions for a screen or flow. Reads the current code and design tokens, proposes an implementable spec (layout, hierarchy, states, tokens, motion, accessibility). Never writes code. | A written spec, reviewed by the developer before implementation starts. |
+| `ui-designer` | Owns UI/UX decisions for a screen or flow. Reads the current code and design tokens, proposes an implementable spec (layout, hierarchy, states, tokens, motion, accessibility). Never writes code. | A written spec, which I review before implementation starts. |
 | `personal-standards-reviewer` | Checks a diff against the repo's engineering standards (reuse, SRP, DRY, design tokens, file structure). | Pass/fail against a fixed checklist. |
 | `adversarial-reviewer` | Given a diff and the claim of what it does, tries to break it: bad input, stale state, race conditions, missing auth checks, silent data loss. | Ranked list of break scenarios, each CONFIRMED (reproduced by reading the code path) or PLAUSIBLE (a real risk not fully traced). |
 | `regression-scanner` | Given the same diff, maps its blast radius (every file, prop and shared component it touches) and verifies every existing caller and flow still behaves as it did before. | Per-flow verdict: INTACT / BROKEN / AT-RISK. |
@@ -58,10 +79,10 @@ whole backlog, and a much larger diff for the gate agents to reason about
 
 ### Gate design, 2026-07-27 11:00 ICT
 
-Decided and built the same session, immediately before PR #6: two
-standalone Sonnet-model agents (`adversarial-reviewer`,
+I decided on and built this the same session, immediately before PR #6:
+two standalone Sonnet-model agents (`adversarial-reviewer`,
 `regression-scanner`) created as reusable subagents, gate policy written
-into the project's engineering standards. Deliberately kept independent
+into my engineering standards. Deliberately kept independent
 from the existing `/ship-pr` merge-mechanics command rather than wired into
 it, so the two remain separately invokable.
 
@@ -76,17 +97,16 @@ push. 1 was tested live and refuted (a concern about `reasoning_effort:
 
 ### PR #7, full UI redesign + Body dashboard, 2026-07-27 15:03 ICT
 
-**Design process.** The user's first framing was blunt: "quiero cambiar la
-ui del proyecto, no me gusta nada" (I want to change the UI, I don't like
-any of it). A `ui-designer` agent was created for this specifically,
-spec-only, never code, so design judgment stays a distinct step from
-implementation.
+**Design process.** My starting brief was blunt: "quiero cambiar la ui del
+proyecto, no me gusta nada" (I want to change the UI, I don't like any of
+it). I created a `ui-designer` agent for this specifically, spec-only,
+never code, so design judgment stays a distinct step from implementation.
 
-The first design pass was rejected outright by the user after seeing it
-running: it changed the dark background (which the user explicitly liked)
-and introduced green/teal as a primary color. That work was reverted before
+I rejected the first design pass outright after seeing it running: it
+changed the dark background, which I wanted kept, and introduced
+green/teal as a primary color. That work was reverted before
 ever being pushed (a hard reset on an unpushed commit, no shared state was
-touched). The agent was re-briefed with hard constraints: do not touch the
+touched). I re-briefed the agent with hard constraints: do not touch the
 dark background, no green, direction "expensive, aesthetic, premium"
 referenced against Whoop, Linear and Teenage Engineering. The second pass
 was accepted and implemented: a monochrome system with one brass accent
@@ -112,7 +132,7 @@ and a missing avatar image fallback.
 
 ### PR #8, navigation-speed fix, 2026-07-27 16:10 ICT
 
-**Process.** The user reported navigation "feels slow" with no other
+**Process.** All I had was that navigation "feels slow", with no other
 detail. Rather than optimizing on guesses, the first step was measurement:
 confirmed the Vercel function region and the Turso database region were
 both Tokyo (no network mismatch), checked bundle size, image handling and
@@ -199,9 +219,9 @@ a middle set is deleted) was newly load-bearing because a new prefill
 feature started depending on set ordering being correct. All four fixed
 pre-merge.
 
-**Post-merge fix.** The user visually reviewed the merged build and
-reported one control read as visually too large. Fixed same-session,
-verified, pushed directly (single-file change).
+**Post-merge fix.** Reviewing the merged build in a browser, I found one
+control read as visually too large. Fixed same-session, verified, pushed
+directly (single-file change).
 
 ### PR #13, Add-meal in fewer taps, 2026-07-27 20:15 ICT
 
@@ -221,11 +241,33 @@ list, so a stale reference could still successfully re-add an archived
 item. And a failed "undo" action failed silently instead of showing an
 error. All three fixed pre-merge.
 
-## What the gate actually caught, in numbers
+### PR #14 to #19, features and polish, 2026-07-29 to 2026-07-30
+
+The same gate ran on each: an exercise catalog with animated
+demonstrations, the coach's long-term vector memory, component editing for
+composable catalog items, and three rounds of visual polish.
+
+Two things from this stretch are worth recording because they were
+process failures, not gate findings:
+
+- **A design direction was built and rejected live.** A two-column
+  dashboard layout was implemented across every route, and I rejected it
+  the moment I saw it running. It was reverted the same session; only the
+  incidental polish from that branch shipped. The gate cannot catch this
+  class of problem, which is why the visual QA step stays separate from
+  it.
+- **Two branches independently generated a colliding `0006` migration**,
+  and both had already been applied to a shared database. The fix was to
+  rebase the second branch, delete its migration artifacts, regenerate as
+  `0007`, and verify the hash was already recorded as applied before
+  merging. The lesson kept for later: with a shared database, migration
+  numbering is a cross-branch resource, not a per-branch one.
+
+## What the gate caught in Part 1, in numbers
 
 Across PR #6 through PR #13 (8 pull requests), the adversarial and
-regression gate found, and the developer fixed, 30 concrete, reproducible
-bugs before any of them reached `main`, ranging from data-loss-adjacent
+regression gate found 30 concrete, reproducible bugs, all fixed before
+any of them reached `main`, ranging from data-loss-adjacent
 issues (silent cache staleness, a set-index collision) to correctness bugs
 (missing auth checks server-side, broken keyboard interaction, wrong unit
 labels) to visual defects (invisible text, broken animations). None of
@@ -233,22 +275,167 @@ these were caught by `tsc`, `eslint`, or `next build`, all of which passed
 cleanly on every PR before the gate ran; they require reasoning about
 behavior, not syntax.
 
-## Honest limitations
+---
+
+# Part 2: architecture-first (PR #20 onward)
+
+## The directive, 2026-07-29
+
+The gate in Part 1 verifies that what I built works. It says nothing
+about whether I built the right thing, because by the time a diff exists
+the design decision is already made and the gate is reviewing its
+consequences.
+
+The directive I was given was aimed at exactly that gap, and had three
+parts: for any component that can be built more than one way, evaluate the
+real alternatives instead of defaulting to the first one; prove each one
+with an isolated experiment before it touches the real codebase; and stop
+treating the AI layer as a prompt, because an assistant that never chooses
+which query to run is a chatbot with memory, not an agent.
+
+Applying the definition honestly to my own code was the uncomfortable
+part: at that point the coach assembled its context in deterministic
+TypeScript before a single model call and had zero tool use. By the
+standard I had just been handed, it was not an agent.
+
+## How the method changes the work
+
+Three things became standing practice:
+
+**Alternatives are enumerated before one is picked, and the losers are
+recorded with the reason.** A rejected option with a stated reason is
+reusable knowledge; a silently discarded one has to be rediscovered.
+
+**Each component gets a throwaway experiment first, in a separate `labs`
+repository, before any of it lands here.** The labs are kept rather than
+deleted: a lab whose conclusion shipped is more valuable afterwards,
+because it carries the measurement that justified the decision.
+
+**Claims are measured, including the ones from the person giving the
+directive.** The clearest example: the directive came with the assertion
+that retrieval-augmented memory was obsolete, citing an unnamed paper. I
+went looking for that source. It does not exist as described, and the
+2026 evidence points the other way. That finding is recorded as a
+refutation rather than quietly dropped, and it changed nothing about the
+value of the rest of the directive.
+
+## What the labs actually measured
+
+Four experiments, each answering one question that could not be settled by
+reading documentation:
+
+| Lab | Question | What it found |
+|---|---|---|
+| `p0-provider-layer` | Does one SDK really abstract different provider APIs, with a per-request key? | Yes, across two genuinely different wire formats. **But capability varies per model, not per provider**: two models on the same provider and endpoint disagreed on whether they accept a JSON schema. That turned a capability registry from a theory into a requirement. |
+| `p1-tool-loop` | Does the SDK's native tool loop work on free models for a multi-tool agent? | 20 of 20 measurable cells passed. The operational ceiling was the free tier: a tool loop spends 2 to 3 requests per question, and the daily cap died mid-run, so the app has to surface quota errors honestly rather than degrade in silence. |
+| `p1b-tool-approval` | Does human-in-the-loop approval before a write work on those models? | Yes on two models, and **not at all on a third, which never called the write tool under the prompt that made the others call it reliably.** Declaring tool support and choosing to use a write tool are different properties, and no catalog publishes the second one. |
+| `p2-memory-supersession` | Can a correction be made to invalidate the belief it replaces? | Both mechanisms tested failed, which is covered below. |
+
+The third row is the one that most changed how I write these features: a
+capability flag is a claim about the API surface, not a prediction of
+behavior, so a feature that depends on behavior has to name the models it
+was measured on.
+
+## The rule that came out of this phase
+
+Several bugs in this phase shared one shape: a rule stated in a prompt,
+obeyed inconsistently, with no code path enforcing it. The model picked a
+portion size the user had not chosen. The model announced it had logged a
+meal it never logged. Each time, the fix that held was not better prompt
+wording but moving the rule into code: the portion became an app-rendered
+picker whose choice is applied server-side at the tool's own execution,
+and the false claim became an app-side check against whether the tool
+actually ran.
+
+The general form: **if correctness depends on a model following an
+instruction, it is not enforced.** Prompts express intent; only code
+enforces it.
+
+## Where that rule was learned the hard way
+
+The memory work is the clearest single example, because the first
+implementation passed its lab and still failed.
+
+The problem: a vector store models similarity, not time. When a user
+corrected a stored preference, both the old belief and the correction
+stayed retrievable, ranked only by similarity, so the coach could keep
+citing something the user had already overturned.
+
+The first design keyed the fix on the fact category: a fact classified as
+a `correction` would deactivate the belief nearest to it. It passed the
+lab cleanly. It failed on its first real input, and the reason is worth
+stating precisely: **the lab supplied the category, while the real app has
+a model infer it.** The extraction prompt defines a preference as "what
+the user likes, dislikes, wants" and a correction as "telling the coach it
+was wrong or to stop doing something". The sentence "I do not like salmon,
+stop suggesting it" satisfies both definitions exactly. The model chose
+one, reasonably, and the trigger never fired.
+
+That is not a misclassification to fix with wording. The categories
+overlap by construction, and the design had hung a destructive action on
+which side of the overlap a model happened to land.
+
+The second design asks the model a question it can actually answer: not
+*is this a correction*, but *what is this fact about*. Each fact carries a
+normalized subject key, and a new fact deactivates every active fact
+sharing it, by exact string match, with no similarity threshold anywhere
+in the decision. Measured against the real database on a topic with no
+prior history, it superseded correctly on a pair where neither fact was
+classified as a correction, which is precisely the case the first design
+could not handle.
+
+A separate measurement explains why the obvious alternative was never
+built: letting similarity alone decide what supersedes what. Real
+same-topic contradictions measured between 0.1152 and 0.2056 cosine
+distance, and a genuinely unrelated pair measured 0.1754, inside that
+range. No threshold separates the two classes, so no amount of tuning
+would have worked.
+
+The invariant that came out of it, at most one active fact per user and
+subject, is now enforced twice: in application code, and by a partial
+unique index that makes the invalid state unrepresentable regardless of
+what the code does.
+
+## The gate still applies, and caught this
+
+The two review agents ran on the final memory design and found two real
+bugs before anything was committed: the deduplication path could erase a
+fact's subject silently, and could leave two active facts sharing one
+subject, which is a direct violation of the invariant the feature exists
+to guarantee. Both were fixed before the first commit, and the unique
+index was added as a backstop for the second.
+
+Worth noting for honesty: the gate had already run once earlier on the
+first design, and that run was discarded rather than counted, because the
+design it reviewed no longer existed. A review of code you then replace is
+not evidence about the code you ship.
+
+---
+
+# Honest limitations
 
 - **No automated test suite backs this repo.** The gate's regression
   baseline is the agent reading the base-ref code, not a suite of
-  assertions. It is a strong second opinion, not a replacement for tests.
-- **The gate does not replace human visual QA.** Every PR in this log was
-  also checked live in a browser by the user before merge; the gate found
-  functional and logic bugs, not "does this look right" bugs (the one
-  post-merge visual fix in PR #12 came from that human check, not the
-  gate).
+  assertions. It is a strong second opinion, not a replacement for tests,
+  and it is the largest single gap in everything described above.
+- **The gate does not replace human visual QA.** I checked every PR in
+  this log live in a browser before merge; the gate found functional and
+  logic bugs, not "does this look right" bugs (the one post-merge visual
+  fix in PR #12 came from that human check, not the gate).
 - **PLAUSIBLE findings require judgment, not automatic action.** A few
   findings across these PRs were flagged as risk rather than confirmed bug
   (for example a visual "double footer bar" concern in PR #13, flagged as
-  needing a live check rather than fixed blind); the developer decides
-  whether to act on them, the gate does not force it.
+  needing a live check rather than fixed blind); I decide whether to act
+  on them, the gate does not force it.
 - **The reviewer agents themselves are not infallible.** The badge-contrast
-  revert in PR #11 is an example of the developer, not the gate, catching a
-  scope-creep side effect during self-review before the gate agents even
-  ran.
+  revert in PR #11 was caught during self-review before the gate agents
+  even ran, not by the gate.
+- **A lab proves what it was given, not what production supplies.** The
+  memory lab passed a design that then failed in the app, because the lab
+  handed the code an input the real system has a model produce. The
+  correction is to make a lab's inputs come from the same place the app's
+  will, and I did not do that the first time.
+- **Sample sizes in the labs are small.** They are large enough to
+  disprove a claim (one measured counterexample kills a threshold) and too
+  small to establish a rate. Where a lab's verdict is provisional, it says
+  so in that lab's own README.
