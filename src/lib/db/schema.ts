@@ -6,7 +6,10 @@ import {
   real,
   sqliteTable,
   text,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
+
+import { sql } from "drizzle-orm";
 
 import { EMBEDDING_DIM } from "@/lib/constants";
 
@@ -245,10 +248,18 @@ export const coach_facts = sqliteTable(
     category: text("category").notNull(),
     embedding: vector("embedding"),
     source: text("source"),
+    subject: text("subject"),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    superseded_by: text("superseded_by"),
     created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
-  (t) => [index("coach_facts_user_idx").on(t.user_id)],
+  (t) => [
+    index("coach_facts_user_idx").on(t.user_id),
+    uniqueIndex("coach_facts_active_subject_idx")
+      .on(t.user_id, t.subject)
+      .where(sql`${t.active} = 1 AND ${t.subject} IS NOT NULL`),
+  ],
 );
 
 export const workouts = sqliteTable(
