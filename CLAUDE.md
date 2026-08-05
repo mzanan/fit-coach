@@ -2,9 +2,11 @@
 
 Multi-user nutrition + training tracker (PWA) with an AI coach. Vault tracking: `personal-brain/01-Projects/15-fit-coach/`.
 
+Architecture and setup: `README.md`. How the project is built (review gate, architecture-first method, what each lab measured): `WORKFLOW.md`. Read both before changing the AI layer.
+
 ## Stack
 
-Next 16 (App Router) + React 19 + Tailwind v4 + shadcn/radix. Turso via Drizzle. Better Auth (email OTP) gated by `src/proxy.ts`. AI coach: Groq (Llama) through the OpenAI-compatible client in `lib/ai/`.
+Next 16 (App Router) + React 19 + Tailwind v4 + shadcn/radix. Turso via Drizzle. Better Auth (Google OAuth primary, email OTP secondary) gated by `src/proxy.ts`. AI: Vercel AI SDK v7 with three separate provider slots, text on per-user BYOK (Groq/OpenRouter/Google, key encrypted per user, no system fallback), vision and embeddings on system Gemini keys. Coach runs the SDK's native tool loop; `log_meal` is the only write and sits behind `toolApproval`. Architecture detail: `README.md`.
 
 ## Commands
 
@@ -16,6 +18,7 @@ Next 16 (App Router) + React 19 + Tailwind v4 + shadcn/radix. Turso via Drizzle.
 - `src/app/(app)/` app routes (today, catalog, coach, workout, settings); `src/app/login/`; `src/app/api/{auth,coach}/`
 - `src/components/<feature>/` feature UI + colocated hooks; `src/components/ui/` primitives
 - `src/lib/` actions, ai, data, db (schema + drizzle), auth/session, macros/dates helpers
+- `src/lib/ai/` provider registry + capability gating (`provider`, `providers`, `registry`, `groqCaps`, `googleCaps`), coach loop + tools (`coach`, `coachTools`), memory (`memory` summary, `facts` + `embeddings`), ingestion (`vision`, `inbody`, `mdExtract`, `mdImport`)
 
 ## Conventions
 
