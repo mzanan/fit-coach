@@ -1,13 +1,15 @@
 import "server-only";
 
-import { sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 import { chatJson } from "@/lib/ai/provider";
 import type { ModelRef } from "@/lib/ai/providers";
 import { embed, hasEmbeddings, toVectorLiteral } from "@/lib/ai/embeddings";
-import { db } from "@/lib/db";
+import { db, schema } from "@/lib/db";
 import { COACH_FACT_CATEGORY_KEYS, type CoachFactCategory } from "@/lib/constants";
 import { newId } from "@/lib/utils";
+
+const { coach_facts } = schema;
 
 const DEDUP_MAX_DISTANCE = 0.06;
 const RETRIEVAL_MAX_DISTANCE = 0.45;
@@ -137,6 +139,15 @@ export async function retrieveFacts(
 
   const seen = new Set(corrections.map((f) => f.content));
   return [...corrections, ...matches.filter((f) => !seen.has(f.content))];
+}
+
+export async function listActiveFacts(userId: string): Promise<string[]> {
+  const rows = await db
+    .select({ content: coach_facts.content })
+    .from(coach_facts)
+    .where(and(eq(coach_facts.user_id, userId), eq(coach_facts.active, true)))
+    .orderBy(desc(coach_facts.updated_at));
+  return rows.map((r) => r.content);
 }
 
 async function nearestFactId(

@@ -89,13 +89,13 @@ function coachingRules(profile: Profile): string {
     : DEFAULT_COACHING;
 }
 
-interface CoachContext {
+export interface CoachContext {
   profile: Profile;
   today: string;
   lines: string[];
 }
 
-async function buildContext(
+export async function buildContext(
   userId: string,
   profile: Profile,
 ): Promise<CoachContext> {

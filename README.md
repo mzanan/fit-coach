@@ -76,6 +76,15 @@ The invariant is *at most one active fact per (user, subject)*, and it is enforc
 
 The decisive detail is that the model is asked what a fact is *about*, never whether it *contradicts* something. An isolated experiment measured that similarity alone cannot carry that decision: genuine same-topic contradictions landed between 0.1152 and 0.2056 cosine distance, while a genuinely unrelated pair landed at 0.1754, inside that range. No threshold separates the two classes, so the resolution is an exact key match with no distance involved.
 
+### Background maintenance
+
+Until now, nothing in this app ran unless a user sent a chat message: the per-turn memory refresh and fact extraction both fire from inside a request. A daily Vercel Cron (`/api/cron/maintenance`, `CRON_SECRET`-gated) now does two things that need to happen whether or not the user is active:
+
+- **Stale-fact cleanup.** A `coach_facts` row untouched for 30+ days gets deactivated, same code path as supersession. `category = 'correction'` is exempt: a correction is defined as the thing that matters most, so it never silently expires just because the user hasn't repeated it.
+- **Memory consolidation.** `coach_memory` re-grounds from the user's active facts and recent logged data (targets, today's meals, the week's protein hit-rate, Whoop, latest scan), so it doesn't drift stale for a user who logs data without chatting. This merges into the existing memory rather than replacing it: the model is told what changed, not asked to reconstruct the summary from scratch, since facts and structured data cannot capture everything a conversation accumulates.
+
+Both run per-user through the same BYOK model reference every other AI call uses; a user with no saved key is skipped, not defaulted to a system key. The trigger itself (plain Vercel Cron over Workflow DevKit and Inngest) was chosen in an isolated lab, same method as everything else in this section.
+
 ## Method
 
 Components that can be built more than one way get an isolated experiment before they touch this repo, kept in a separate `labs` repository: the provider abstraction, the tool loop, human-in-the-loop approval, and the memory supersession question above were each measured before being integrated. Several findings only surfaced that way, including that one free model never calls a write tool at all under a prompt that makes two others call it reliably.
