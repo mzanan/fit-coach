@@ -4,5 +4,6 @@
     "src/app/api/coach/route.ts": { "supportsCancellation": true },
     "src/app/api/coach/approve/route.ts": { "supportsCancellation": true },
     "src/app/api/import/extract/route.ts": { "supportsCancellation": true }
-  }
+  },
+  "crons": [{ "path": "/api/cron/maintenance", "schedule": "0 0 * * *" }]
 }
