@@ -15,10 +15,10 @@ Next 16 (App Router) + React 19 + Tailwind v4 + shadcn/radix. Turso via Drizzle.
 
 ## Structure
 
-- `src/app/(app)/` app routes (today, catalog, coach, workout, settings); `src/app/login/`; `src/app/api/{auth,coach}/`
+- `src/app/(app)/` app routes (today, catalog, coach, workout, settings); `src/app/login/`; `src/app/api/{auth,coach,cron}/`
 - `src/components/<feature>/` feature UI + colocated hooks; `src/components/ui/` primitives
 - `src/lib/` actions, ai, data, db (schema + drizzle), auth/session, macros/dates helpers
-- `src/lib/ai/` provider registry + capability gating (`provider`, `providers`, `registry`, `groqCaps`, `googleCaps`), coach loop + tools (`coach`, `coachTools`), memory (`memory` summary, `facts` + `embeddings`), ingestion (`vision`, `inbody`, `mdExtract`, `mdImport`)
+- `src/lib/ai/` provider registry + capability gating (`provider`, `providers`, `registry`, `groqCaps`, `googleCaps`), coach loop + tools (`coach`, `coachTools`), memory (`memory` summary, `facts` + `embeddings`), background maintenance (`maintenance`: daily stale-fact expiry + memory consolidation via `/api/cron/maintenance`), ingestion (`vision`, `inbody`, `mdExtract`, `mdImport`)
 
 ## Conventions
 

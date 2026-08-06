@@ -410,6 +410,51 @@ first design, and that run was discarded rather than counted, because the
 design it reviewed no longer existed. A review of code you then replace is
 not evidence about the code you ship.
 
+### PR #29 and the memory-consolidation branch, P3 background maintenance, 2026-08-06
+
+Everything in this app up to this point only ran because a user sent a
+message: the per-turn memory refresh and fact extraction both fire inside
+a request. P3 is the piece that runs whether or not anyone is chatting,
+which the architecture doc calls the line between a production system
+and a chatbot with extra steps.
+
+**The trigger question got its own lab before any app code was written**,
+same method as everything above: `p3-background-jobs` deployed Vercel
+Cron and Vercel Workflow DevKit to a throwaway Vercel project and
+confirmed both fire correctly (Vercel's own `vercel crons run` triggers a
+registered cron on demand, closing what looked like a 24-hour wait on the
+Hobby plan). Workflow DevKit works, but its durability guarantee (step
+retry, resuming across deploys) is not needed for a job this size; plain
+Cron shipped, Workflow DevKit is the documented upgrade path if that
+changes. Inngest was deliberately not tested: its only edge over the
+other two, sub-daily precision or event triggers, is not something this
+job needs, and standing up a third account to re-confirm a settled answer
+was not worth it.
+
+PR #29 shipped the first job on that trigger: `coach_facts` untouched for
+30+ days gets deactivated, the same mechanism supersession already uses.
+`category = 'correction'` is exempt by a product decision made mid-build:
+the extraction prompt defines a correction as the thing that matters
+most, so letting it silently expire because the user never repeated it
+would be the app forgetting the one category it promises never to forget.
+
+**The gate caught a real bug on the memory-consolidation branch that
+follows the same shape as the quinoa bug from the supersession work**:
+the background re-grounding of `coach_memory` (built from a user's
+active facts plus their recent logged data, so memory does not go stale
+for a user who logs meals without chatting) was written to construct the
+new summary from facts and data alone, with no reference to the memory
+already there. Both review agents flagged it independently: a nightly
+cron would silently replace weeks of conversational nuance, an open
+question, a coaching decision, with a summary derived only from
+structured sources that were never meant to be complete on their own.
+The fix reframes the job as a merge, not a rewrite: the existing memory
+is passed into the prompt and the instruction is to keep everything that
+still holds, revise only what the current facts or data contradict. The
+transferable lesson is the same one supersession already taught from a
+different angle: a background job that touches a single source of truth
+has to be told what already exists, not just what changed.
+
 ---
 
 # Honest limitations
