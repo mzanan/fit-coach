@@ -68,11 +68,20 @@ function Turn({ bubble }: { bubble: ChatBubble }) {
     );
   }
 
+  const stopped = bubble.status === "stopped";
+
   return (
     <div className="space-y-2">
-      {bubble.generated ? null : <Pill tone="muted">Rule-based</Pill>}
+      {bubble.generated || stopped ? null : (
+        <Pill tone="muted">Rule-based</Pill>
+      )}
       {bubble.reasoning ? <Thoughts text={bubble.reasoning} /> : null}
-      <p className="whitespace-pre-wrap text-body leading-relaxed">
+      <p
+        className={cn(
+          "whitespace-pre-wrap text-body leading-relaxed",
+          stopped && "italic text-muted-foreground",
+        )}
+      >
         {bubble.content}
       </p>
       {bubble.daySummary ? <MacroTable summary={bubble.daySummary} /> : null}

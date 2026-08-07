@@ -6,8 +6,11 @@ import { toast } from "sonner";
 import { clearCoachChat, updateReasoningEffortAction } from "@/lib/actions/coach";
 import type { DaySummary } from "@/lib/ai/coach";
 import type { ReasoningEffort } from "@/lib/ai/options";
-import { STOPPED_ANSWER } from "@/lib/constants";
-import type { CoachMessage } from "@/lib/data/coachMessages";
+import { INTERRUPTED_ANSWER } from "@/lib/constants";
+import type {
+  CoachMessage,
+  CoachMessageStatus,
+} from "@/lib/data/coachMessages";
 import type { PendingPreview } from "@/lib/data/coachPendingWrite";
 import { readNdjson } from "@/lib/ndjson";
 
@@ -16,6 +19,7 @@ export interface ChatBubble {
   role: "user" | "assistant";
   content: string;
   generated: boolean;
+  status: CoachMessageStatus;
   reasoning?: string;
   daySummary?: DaySummary;
 }
@@ -56,12 +60,19 @@ function toBubbles(messages: CoachMessage[]): ChatBubble[] {
     role: message.role,
     content: message.content,
     generated: message.generated,
+    status: message.status,
     daySummary: message.daySummary,
   }));
 }
 
 function localBubble(role: "user" | "assistant", content: string): ChatBubble {
-  return { id: `local-${Date.now()}-${role}`, role, content, generated: true };
+  return {
+    id: `local-${Date.now()}-${role}`,
+    role,
+    content,
+    generated: true,
+    status: "done",
+  };
 }
 
 export function useCoachChat(
@@ -90,14 +101,13 @@ export function useCoachChat(
     anchor?.scrollIntoView({ block: "end", behavior: "smooth" });
   }, [anchor, bubbles, loading, streaming, pending]);
 
-  const consume = useCallback(async (url: string, body: unknown, hasUserMessage = false) => {
+  const consume = useCallback(async (url: string, body: unknown) => {
     setLoading(true);
     setStatus(STATUS.thinking);
     setStreaming("");
 
     const abort = new AbortController();
     setController(abort);
-    let asked = hasUserMessage;
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -117,7 +127,6 @@ export function useCoachChat(
         if (event.type === "status") {
           setStatus(STATUS[event.tool] ?? STATUS.thinking);
         } else if (event.type === "question") {
-          asked = true;
           setBubbles((current) => [
             ...current,
             localBubble("user", event.text),
@@ -159,12 +168,14 @@ export function useCoachChat(
       }
     } catch (error) {
       if ((error as Error).name === "AbortError") {
-        if (asked) {
-          setBubbles((current) => [
-            ...current,
-            { ...localBubble("assistant", STOPPED_ANSWER), generated: false },
-          ]);
-        }
+        setBubbles((current) => [
+          ...current,
+          {
+            ...localBubble("assistant", INTERRUPTED_ANSWER),
+            generated: false,
+            status: "stopped",
+          },
+        ]);
       } else {
         toast.error("Could not reach the coach");
       }
@@ -185,7 +196,7 @@ export function useCoachChat(
       setQuestion("");
       setPending(null);
       if (asked) setBubbles((current) => [...current, localBubble("user", asked)]);
-      await consume("/api/coach", { question: asked || undefined }, Boolean(asked));
+      await consume("/api/coach", { question: asked || undefined });
     },
     [question, loading, bubbles.length, consume],
   );
