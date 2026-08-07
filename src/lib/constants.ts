@@ -218,3 +218,5 @@ export function isChatLanguage(value: unknown): value is string {
     CHAT_LANGUAGE_SHAPE.test(value)
   );
 }
+
+export const STOPPED_ANSWER = "You stopped this answer.";
