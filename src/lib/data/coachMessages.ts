@@ -23,6 +23,7 @@ export interface CoachMessage {
 }
 
 export interface ExchangeRef {
+  userId: string;
   ids: string[];
   assistantId: string;
 }
@@ -163,6 +164,7 @@ export async function beginExchange(
   ];
   await db.insert(coach_messages).values(rows);
   return {
+    userId,
     ids: [...(questionId ? [questionId] : []), assistantId],
     assistantId,
   };
@@ -181,16 +183,33 @@ export async function finishExchange(
         content: answer,
         day_summary: daySummary ? JSON.stringify(daySummary) : null,
       })
-      .where(eq(coach_messages.id, ref.assistantId));
+      .where(
+        and(
+          eq(coach_messages.id, ref.assistantId),
+          eq(coach_messages.user_id, ref.userId),
+        ),
+      );
     await tx
       .update(coach_messages)
       .set({ generated, status: "done" })
-      .where(inArray(coach_messages.id, ref.ids));
+      .where(
+        and(
+          inArray(coach_messages.id, ref.ids),
+          eq(coach_messages.user_id, ref.userId),
+        ),
+      );
   });
 }
 
 export async function discardExchange(ref: ExchangeRef): Promise<void> {
-  await db.delete(coach_messages).where(inArray(coach_messages.id, ref.ids));
+  await db
+    .delete(coach_messages)
+    .where(
+      and(
+        inArray(coach_messages.id, ref.ids),
+        eq(coach_messages.user_id, ref.userId),
+      ),
+    );
 }
 
 export async function clearConversation(userId: string): Promise<void> {
