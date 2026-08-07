@@ -547,6 +547,7 @@ async function contextReply(
   history: CoachMessage[],
   question?: string,
   signal?: AbortSignal,
+  appGenerated = false,
 ): Promise<CoachResult> {
   const ctx = await buildContext(userId, profile);
   const { memory, parts } = await memoryAndFacts(userId, question);
@@ -572,9 +573,20 @@ async function contextReply(
       { role: "user", content: userMsg },
     ]);
     if (text) {
-      const exchange = `${ctx.lines.join("\n")}\nUser: ${question?.trim() || "(daily check-in)"}\nCoach: ${text}`;
+      const asked = appGenerated
+        ? "(tapped the weekly summary button)"
+        : question?.trim() || "(daily check-in)";
+      const exchange = `${ctx.lines.join("\n")}\nUser: ${asked}\nCoach: ${text}`;
       if (!signal?.aborted) {
-        deferLearn(() => learn(ref, userId, memory, exchange, Boolean(question?.trim())));
+        deferLearn(() =>
+          learn(
+            ref,
+            userId,
+            memory,
+            exchange,
+            Boolean(question?.trim()) && !appGenerated,
+          ),
+        );
       }
     }
     return {
@@ -638,7 +650,15 @@ export async function coachReply(
           signal,
           summary,
         )
-      : await contextReply(ref, userId, profile, history, question, signal);
+      : await contextReply(
+          ref,
+          userId,
+          profile,
+          history,
+          question,
+          signal,
+          summary,
+        );
 
   if (signal?.aborted || result.status === "pending") return result;
 
