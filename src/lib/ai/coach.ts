@@ -41,7 +41,7 @@ import { userModelRef, type ModelRef } from "@/lib/ai/providers";
 import { toolsRouting } from "@/lib/ai/registry";
 import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
-import { categoryLabel } from "@/lib/constants";
+import { categoryLabel, STOPPED_ANSWER } from "@/lib/constants";
 import { kcalOf, type MacroLine } from "@/lib/macros";
 import { round } from "@/lib/utils";
 
@@ -683,7 +683,14 @@ export async function coachReply(
           summary,
         );
 
-  if (signal?.aborted || result.status === "pending") return result;
+  if (result.status === "pending") return result;
+
+  if (signal?.aborted) {
+    if (question?.trim()) {
+      await appendExchange(userId, question.trim(), STOPPED_ANSWER, false);
+    }
+    return result;
+  }
 
   await appendExchange(
     userId,
