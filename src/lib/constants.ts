@@ -207,3 +207,5 @@ export const COACH_FACT_CATEGORY_KEYS = COACH_FACT_CATEGORIES.map((c) => c.key);
 
 export const COACH_RULES_MAX = 20_000;
 export const SUMMARY_RULES_MAX = 20_000;
+export const CHAT_LANGUAGE_MAX = 40;
+export const CHAT_LANGUAGE_PATTERN = /^[\p{L}\p{M} '-]+$/u;

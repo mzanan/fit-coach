@@ -1,3 +1,4 @@
+import { ChatLanguageField } from "@/components/settings/ChatLanguageField";
 import { DiningModeField } from "@/components/settings/DiningModeField";
 import { TextRulesForm } from "@/components/settings/TextRulesForm";
 import { Page } from "@/components/ui/Page";
@@ -19,6 +20,7 @@ export default async function CoachRulesPage() {
     >
       <div className="space-y-card">
         <DiningModeField initial={profile.dining_mode} />
+        <ChatLanguageField initial={profile.chat_language} />
         <TextRulesForm
           initial={profile.coach_rules}
           action={updateCoachRules}

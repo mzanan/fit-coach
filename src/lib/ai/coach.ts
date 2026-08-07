@@ -392,6 +392,29 @@ async function learn(
 const SUMMARY_FALLBACK_ASK =
   "Give me my weekly progress summary: the week so far and overall progress since I started.";
 
+const SUMMARY_QUESTION_SYSTEM = `You write one short chat message on behalf of a fitness app user who just tapped their "weekly summary" button. The message asks their coach for the weekly progress summary: how the week is going so far, and overall progress since they started. Write it in the first person, in the language named below. Output only the message, nothing else.`;
+
+async function summaryQuestion(
+  ref: ModelRef,
+  profile: Profile,
+): Promise<string> {
+  const language = profile.chat_language?.trim();
+  if (!language) return SUMMARY_FALLBACK_ASK;
+  try {
+    const text = await chat(
+      ref,
+      [
+        { role: "system", content: SUMMARY_QUESTION_SYSTEM },
+        { role: "user", content: `The user's language: ${language}.` },
+      ],
+      150,
+    );
+    return text?.trim() || SUMMARY_FALLBACK_ASK;
+  } catch {
+    return SUMMARY_FALLBACK_ASK;
+  }
+}
+
 function askOf(question?: string): string {
   return question?.trim()
     ? question.trim()
@@ -626,7 +649,7 @@ export async function coachReply(
   const history = await getConversation(userId);
 
   if (summary) {
-    question = SUMMARY_FALLBACK_ASK;
+    question = await summaryQuestion(ref, profile);
     onEvent?.({ type: "question", text: question });
   }
 

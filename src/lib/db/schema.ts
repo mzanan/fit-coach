@@ -104,6 +104,7 @@ export const profiles = sqliteTable("profiles", {
   coach_rules: text("coach_rules"),
   summary_rules: text("summary_rules"),
   dining_mode: text("dining_mode"),
+  chat_language: text("chat_language"),
   created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 });
