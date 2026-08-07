@@ -18,8 +18,8 @@ export function ChatLanguageField({ initial }: { initial: string | null }) {
       <p className="text-body font-medium">Chat language</p>
       <p className="mt-0.5 mb-card text-meta text-muted-foreground">
         The language the coach writes app-generated messages in, like the
-        weekly summary request. Detected automatically from your own messages;
-        set it here to override.
+        weekly summary request. Detected once from your own messages and never
+        changed again on its own. What you set here always wins.
       </p>
       <form
         onSubmit={(e) => {

@@ -6,12 +6,8 @@ import { chatJson } from "@/lib/ai/provider";
 import type { ModelRef } from "@/lib/ai/providers";
 import { embed, hasEmbeddings, toVectorLiteral } from "@/lib/ai/embeddings";
 import { db, schema } from "@/lib/db";
-import {
-  CHAT_LANGUAGE_MAX,
-  CHAT_LANGUAGE_PATTERN,
-  COACH_FACT_CATEGORY_KEYS,
-  type CoachFactCategory,
-} from "@/lib/constants";
+import { COACH_FACT_CATEGORY_KEYS, type CoachFactCategory } from "@/lib/constants";
+import { detectChatLanguage } from "@/lib/profile";
 import { newId } from "@/lib/utils";
 
 const { coach_facts } = schema;
@@ -148,25 +144,6 @@ export async function retrieveFacts(
   return [...corrections, ...matches.filter((f) => !seen.has(f.content))];
 }
 
-async function saveChatLanguage(
-  userId: string,
-  language: string | undefined,
-): Promise<void> {
-  const value = language?.trim().slice(0, CHAT_LANGUAGE_MAX);
-  if (!value || !CHAT_LANGUAGE_PATTERN.test(value)) return;
-  try {
-    await db
-      .update(schema.profiles)
-      .set({ chat_language: value, updated_at: new Date() })
-      .where(eq(schema.profiles.user_id, userId));
-  } catch (err) {
-    console.error(
-      "coach facts: saving chat language failed",
-      err instanceof Error ? err.message : err,
-    );
-  }
-}
-
 export async function listActiveFacts(userId: string): Promise<string[]> {
   const rows = await db
     .select({ content: coach_facts.content })
@@ -262,7 +239,7 @@ export async function learnFromExchange(
       800,
     );
 
-    await saveChatLanguage(userId, language);
+    await detectChatLanguage(userId, language);
 
     if (!facts?.length) return;
 
