@@ -6,9 +6,8 @@ import { z } from "zod";
 
 import { db, schema } from "@/lib/db";
 import {
-  CHAT_LANGUAGE_MAX,
-  CHAT_LANGUAGE_PATTERN,
   COACH_RULES_MAX,
+  isChatLanguage,
   SUMMARY_RULES_MAX,
 } from "@/lib/constants";
 import { requireUser } from "@/lib/session";
@@ -75,9 +74,8 @@ export async function updateSummaryRules(input: unknown) {
 const chatLanguageSchema = z.object({
   language: z
     .string()
-    .max(CHAT_LANGUAGE_MAX)
-    .refine((value) => !value.trim() || CHAT_LANGUAGE_PATTERN.test(value.trim()), {
-      message: "Use a language name, letters only",
+    .refine((value) => !value.trim() || isChatLanguage(value.trim()), {
+      message: "Use a language name, up to three words",
     }),
 });
 

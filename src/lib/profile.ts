@@ -3,7 +3,7 @@ import "server-only";
 import { and, eq, isNull } from "drizzle-orm";
 import { cache } from "react";
 
-import { CHAT_LANGUAGE_MAX, CHAT_LANGUAGE_PATTERN } from "@/lib/constants";
+import { isChatLanguage } from "@/lib/constants";
 import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
 import { SEED_CATALOG } from "@/lib/seedData";
@@ -13,10 +13,10 @@ const { profiles, catalog_items, catalog_components } = schema;
 
 export async function detectChatLanguage(
   userId: string,
-  language: string | undefined,
+  language: unknown,
 ): Promise<void> {
-  const value = language?.trim().slice(0, CHAT_LANGUAGE_MAX);
-  if (!value || !CHAT_LANGUAGE_PATTERN.test(value)) return;
+  const value = typeof language === "string" ? language.trim() : "";
+  if (!isChatLanguage(value)) return;
   try {
     await db
       .update(profiles)
