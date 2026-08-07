@@ -222,6 +222,7 @@ export const coach_messages = sqliteTable(
     generated: integer("generated", { mode: "boolean" })
       .notNull()
       .default(true),
+    status: text("status").notNull().default("done"),
     day_summary: text("day_summary"),
     created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
