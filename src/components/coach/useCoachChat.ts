@@ -29,6 +29,7 @@ type CoachStreamEvent =
   | { type: "status"; tool: string }
   | { type: "reasoning"; text: string }
   | { type: "delta"; text: string }
+  | { type: "question"; text: string }
   | {
       type: "done";
       text: string;
@@ -44,6 +45,7 @@ const STATUS: Record<string, string> = {
   search_catalog: "Searching your catalog",
   get_workouts: "Reading your recent workouts",
   get_body_scans: "Reading your body scans",
+  get_progress_overview: "Reading your full progress history",
   log_meal: "Preparing to log a meal",
 };
 
@@ -112,6 +114,11 @@ export function useCoachChat(
       for await (const event of readNdjson<CoachStreamEvent>(res.body)) {
         if (event.type === "status") {
           setStatus(STATUS[event.tool] ?? STATUS.thinking);
+        } else if (event.type === "question") {
+          setBubbles((current) => [
+            ...current,
+            localBubble("user", event.text),
+          ]);
         } else if (event.type === "reasoning") {
           thoughts += event.text;
           setReasoning(thoughts);
@@ -173,6 +180,12 @@ export function useCoachChat(
     [question, loading, bubbles.length, consume],
   );
 
+  const askSummary = useCallback(async () => {
+    if (loading) return;
+    setPending(null);
+    await consume("/api/coach", { summary: true });
+  }, [loading, consume]);
+
   const decide = useCallback(
     async (approved: boolean, itemId?: string) => {
       if (!pending || loading) return;
@@ -220,6 +233,7 @@ export function useCoachChat(
     reasoning,
     pending,
     ask,
+    askSummary,
     decide,
     stop,
     setAnchor,

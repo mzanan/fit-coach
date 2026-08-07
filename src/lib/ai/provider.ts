@@ -100,7 +100,8 @@ function reasoningOptions(ref: ModelRef): SharedV4ProviderOptions | undefined {
 export type CoachEvent =
   | { type: "status"; tool: string }
   | { type: "reasoning"; text: string }
-  | { type: "delta"; text: string };
+  | { type: "delta"; text: string }
+  | { type: "question"; text: string };
 
 export interface ApprovalRequest {
   approvalId: string;

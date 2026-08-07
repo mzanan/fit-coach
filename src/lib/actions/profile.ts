@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db, schema } from "@/lib/db";
-import { COACH_RULES_MAX } from "@/lib/constants";
+import { COACH_RULES_MAX, SUMMARY_RULES_MAX } from "@/lib/constants";
 import { requireUser } from "@/lib/session";
 
 const { profiles } = schema;
@@ -44,6 +44,23 @@ export async function updateCoachRules(input: unknown) {
   await db
     .update(profiles)
     .set({ coach_rules: rules.trim() || null, updated_at: new Date() })
+    .where(eq(profiles.user_id, user.id));
+  revalidatePath("/coach");
+  revalidatePath("/settings");
+  revalidatePath("/settings/coach");
+}
+
+const summaryRulesSchema = z.object({
+  rules: z.string().max(SUMMARY_RULES_MAX),
+});
+
+export async function updateSummaryRules(input: unknown) {
+  const user = await requireUser();
+  const { rules } = summaryRulesSchema.parse(input);
+
+  await db
+    .update(profiles)
+    .set({ summary_rules: rules.trim() || null, updated_at: new Date() })
     .where(eq(profiles.user_id, user.id));
   revalidatePath("/coach");
   revalidatePath("/settings");

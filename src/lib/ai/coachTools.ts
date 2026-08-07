@@ -1,6 +1,6 @@
 import "server-only";
 
-import { count, desc, eq } from "drizzle-orm";
+import { count, countDistinct, desc, eq } from "drizzle-orm";
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 
@@ -25,7 +25,7 @@ import { hasMacros } from "@/lib/macros";
 import { matchesTerm } from "@/lib/search";
 import { round } from "@/lib/utils";
 
-const { body_scans, meals } = schema;
+const { body_scans, meals, workouts } = schema;
 
 export const WRITE_TOOL = "log_meal";
 
@@ -45,6 +45,7 @@ const HYDRATED_WORKOUTS = 3;
 const CATALOG_RESULTS = 8;
 const CATALOG_SAMPLE = 12;
 const SCAN_LIMIT = 2;
+const PROGRESS_SCAN_LIMIT = 24;
 const MAX_QUERY_TERMS = 12;
 
 async function mostEaten<T extends { id: string }>(
@@ -423,6 +424,55 @@ export function buildCoachTools(
           .orderBy(desc(body_scans.taken_at))
           .limit(SCAN_LIMIT);
         return {
+          scans: scans.map((scan) => ({
+            taken_at: scan.taken_at.toISOString().slice(0, 10),
+            weight_kg: scan.weight_kg,
+            skeletal_muscle_kg: scan.skeletal_muscle_kg,
+            body_fat_pct: scan.body_fat_pct,
+            visceral_fat_level: scan.visceral_fat_level,
+          })),
+        };
+      }),
+    }),
+    get_progress_overview: tool({
+      description:
+        "Get the user's full progress arc since they started using the app: every InBody scan on record, not just the latest, the day they first logged a meal or workout, and how many distinct days they have logged meals since. Use this for a weekly or overall progress summary, comparing against where the user started, never for a single day's question.",
+      inputSchema: z.object({}),
+      execute: safe("get_progress_overview", async () => {
+        const scans = await db
+          .select()
+          .from(body_scans)
+          .where(eq(body_scans.user_id, userId))
+          .orderBy(desc(body_scans.taken_at))
+          .limit(PROGRESS_SCAN_LIMIT);
+
+        const [firstMeal] = await db
+          .select({ day: meals.logical_day })
+          .from(meals)
+          .where(eq(meals.user_id, userId))
+          .orderBy(meals.logical_day)
+          .limit(1);
+        const [firstWorkout] = await db
+          .select({ day: workouts.logical_day })
+          .from(workouts)
+          .where(eq(workouts.user_id, userId))
+          .orderBy(workouts.logical_day)
+          .limit(1);
+        const starts = [firstMeal?.day, firstWorkout?.day].filter(
+          (day): day is string => Boolean(day),
+        );
+        const firstLoggedDay = starts.length
+          ? starts.reduce((a, b) => (a < b ? a : b))
+          : null;
+
+        const [activeDays] = await db
+          .select({ value: countDistinct(meals.logical_day) })
+          .from(meals)
+          .where(eq(meals.user_id, userId));
+
+        return {
+          first_logged_day: firstLoggedDay,
+          distinct_days_with_meals_logged: activeDays?.value ?? 0,
           scans: scans.map((scan) => ({
             taken_at: scan.taken_at.toISOString().slice(0, 10),
             weight_kg: scan.weight_kg,
