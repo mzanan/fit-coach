@@ -162,6 +162,13 @@
       "when": 1786078098496,
       "tag": "0022_add_chat_language",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1786093539988,
+      "tag": "0023_coach_message_status",
+      "breakpoints": true
     }
   ]
 }

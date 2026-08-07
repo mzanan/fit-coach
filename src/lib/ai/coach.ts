@@ -21,7 +21,9 @@ import {
   type CoachEvent,
 } from "@/lib/ai/provider";
 import {
-  appendExchange,
+  beginExchange,
+  discardExchange,
+  finishExchange,
   getConversation,
   type CoachMessage,
 } from "@/lib/data/coachMessages";
@@ -41,7 +43,7 @@ import { userModelRef, type ModelRef } from "@/lib/ai/providers";
 import { toolsRouting } from "@/lib/ai/registry";
 import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
-import { categoryLabel } from "@/lib/constants";
+import { categoryLabel, INTERRUPTED_ANSWER } from "@/lib/constants";
 import { kcalOf, type MacroLine } from "@/lib/macros";
 import { round } from "@/lib/utils";
 
@@ -271,7 +273,12 @@ export type CoachResult =
       generated: boolean;
       daySummary?: DaySummary;
     }
-  | { status: "pending"; approvalId: string; previews: PendingPreview[] };
+  | {
+      status: "pending";
+      approvalId: string;
+      previews: PendingPreview[];
+      saved: boolean;
+    };
 
 const WRITE_FAILED =
   "The coach tried to log that meal but the request came back malformed. Ask again, or log it from the Today screen.";
@@ -508,7 +515,8 @@ async function toolReply(
           ? [{ ...preview.preview, toolCallId: approvals[index].toolCallId }]
           : [],
       );
-      if (!signal?.aborted) {
+      const saved = !signal?.aborted;
+      if (saved) {
         await savePendingWrite(userId, {
           approvalId: approvals[0].approvalId,
           approvalIds: approvals.map((approval) => approval.approvalId),
@@ -522,6 +530,7 @@ async function toolReply(
         status: "pending",
         approvalId: approvals[0].approvalId,
         previews,
+        saved,
       };
     }
 
@@ -638,12 +647,21 @@ export async function coachReply(
 
   const ref = await userModelRef(userId);
   if (!ref) {
-    const ctx = await buildContext(userId, profile);
-    const text = deterministicReply(ctx);
-    if (!signal?.aborted) {
-      await appendExchange(userId, question?.trim() || null, text, false);
+    const exchange = await beginExchange(
+      userId,
+      question?.trim() || null,
+      INTERRUPTED_ANSWER,
+    );
+    try {
+      const ctx = await buildContext(userId, profile);
+      const text = deterministicReply(ctx);
+      if (signal?.aborted) return { status: "answered", text, generated: false };
+      await finishExchange(exchange, text, false);
+      return { status: "answered", text, generated: false };
+    } catch (error) {
+      await discardExchange(exchange);
+      throw error;
     }
-    return { status: "answered", text, generated: false };
   }
 
   const history = await getConversation(userId);
@@ -660,37 +678,49 @@ export async function coachReply(
     toolPin = null;
   }
 
-  const result =
-    toolPin !== null
-      ? await toolReply(
-          ref,
-          toolPin,
-          userId,
-          profile,
-          history,
-          question,
-          onEvent,
-          signal,
-          summary,
-        )
-      : await contextReply(
-          ref,
-          userId,
-          profile,
-          history,
-          question,
-          signal,
-          summary,
-        );
-
-  if (signal?.aborted || result.status === "pending") return result;
-
-  await appendExchange(
+  const exchange = await beginExchange(
     userId,
     question?.trim() || null,
-    result.text,
-    result.generated,
+    INTERRUPTED_ANSWER,
   );
+
+  let result: CoachResult;
+  try {
+    result =
+      toolPin !== null
+        ? await toolReply(
+            ref,
+            toolPin,
+            userId,
+            profile,
+            history,
+            question,
+            onEvent,
+            signal,
+            summary,
+          )
+        : await contextReply(
+            ref,
+            userId,
+            profile,
+            history,
+            question,
+            signal,
+            summary,
+          );
+  } catch (error) {
+    await discardExchange(exchange);
+    throw error;
+  }
+
+  if (result.status === "pending") {
+    if (result.saved) await discardExchange(exchange);
+    return result;
+  }
+
+  if (signal?.aborted) return result;
+
+  await finishExchange(exchange, result.text, result.generated);
   return result;
 }
 
@@ -716,31 +746,44 @@ export async function resolvePendingWrite(
   const appGenerated = pending.appGenerated;
 
   if (!approved) {
-    await appendExchange(userId, question ?? null, DENIED, false);
-    return { status: "answered", text: DENIED, generated: false };
+    const exchange = await beginExchange(userId, question ?? null, INTERRUPTED_ANSWER);
+    try {
+      await finishExchange(exchange, DENIED, false);
+      return { status: "answered", text: DENIED, generated: false };
+    } catch (error) {
+      await discardExchange(exchange);
+      throw error;
+    }
   }
 
-  const ref = await userModelRef(userId);
-  if (!ref) {
-    await savePendingWrite(userId, pending);
-    return {
-      status: "answered",
-      text: "Add your AI provider key in Settings > AI to use the coach.",
-      generated: false,
-    };
-  }
-
-  let toolPin: string[] | null | undefined = null;
-  try {
-    toolPin = await toolsRouting(ref.provider, ref.model);
-  } catch {
-    toolPin = null;
-  }
-
-  const history = await getConversation(userId);
-  const setup = await toolSetup(userId, profile, history, question);
+  const exchange = await beginExchange(
+    userId,
+    question ?? null,
+    INTERRUPTED_ANSWER,
+  );
 
   try {
+    const ref = await userModelRef(userId);
+    if (!ref) {
+      await savePendingWrite(userId, pending);
+      await discardExchange(exchange);
+      return {
+        status: "answered",
+        text: "Add your AI provider key in Settings > AI to use the coach.",
+        generated: false,
+      };
+    }
+
+    let toolPin: string[] | null | undefined = null;
+    try {
+      toolPin = await toolsRouting(ref.provider, ref.model);
+    } catch {
+      toolPin = null;
+    }
+
+    const history = await getConversation(userId);
+    const setup = await toolSetup(userId, profile, history, question);
+
     const answered = [
       ...pending.messages,
       approvalResponseMessage(pending.approvalIds, true),
@@ -771,6 +814,10 @@ export async function resolvePendingWrite(
         signal,
       });
 
+    if (signal?.aborted) {
+      return { status: "answered", text: INTERRUPTED_ANSWER, generated: false };
+    }
+
     if (approvals.length) {
       const chained = await chainApproval(
         userId,
@@ -779,14 +826,20 @@ export async function resolvePendingWrite(
         [...answered, ...messages],
         approvals,
         appGenerated,
+        signal,
       );
-      if (chained) return chained;
+      if (chained) {
+        if (chained.status === "pending" && chained.saved) {
+          await discardExchange(exchange);
+        }
+        return chained;
+      }
     }
 
     const written = writeOutputs.filter((output) => output.logged).length;
     if (!written) {
       const failure = writeOutputs.find((output) => output.error)?.error;
-      await appendExchange(userId, question ?? null, failure ?? NOT_WRITTEN, false);
+      await finishExchange(exchange, failure ?? NOT_WRITTEN, false);
       return {
         status: "answered",
         text: failure ?? NOT_WRITTEN,
@@ -811,13 +864,7 @@ export async function resolvePendingWrite(
     });
     const answer = text || loggedLines(logged);
     const daySummary = await daySummaryAfterWrite(userId, profile, day);
-    await appendExchange(
-      userId,
-      question ?? null,
-      answer,
-      Boolean(text),
-      daySummary,
-    );
+    await finishExchange(exchange, answer, Boolean(text), daySummary);
     if (text && !signal?.aborted) {
       deferLearn(() =>
         learn(
@@ -836,7 +883,10 @@ export async function resolvePendingWrite(
       daySummary,
     };
   } catch {
-    await appendExchange(userId, question ?? null, RESUME_FAILED, false);
+    if (signal?.aborted) {
+      return { status: "answered", text: INTERRUPTED_ANSWER, generated: false };
+    }
+    await finishExchange(exchange, RESUME_FAILED, false);
     return { status: "answered", text: RESUME_FAILED, generated: false };
   }
 }
@@ -848,6 +898,7 @@ async function chainApproval(
   messages: ModelMessage[],
   approvals: ApprovalRequest[],
   appGenerated: boolean,
+  signal?: AbortSignal,
 ): Promise<CoachResult | null> {
   const resolved = await Promise.all(
     approvals.map((approval) => previewLogMeal(userId, day, approval.input)),
@@ -859,18 +910,22 @@ async function chainApproval(
   );
   if (!previews.length) return null;
 
-  await savePendingWrite(userId, {
-    approvalId: approvals[0].approvalId,
-    approvalIds: approvals.map((approval) => approval.approvalId),
-    question: question ?? null,
-    appGenerated,
-    messages,
-    previews,
-  });
+  const saved = !signal?.aborted;
+  if (saved) {
+    await savePendingWrite(userId, {
+      approvalId: approvals[0].approvalId,
+      approvalIds: approvals.map((approval) => approval.approvalId),
+      question: question ?? null,
+      appGenerated,
+      messages,
+      previews,
+    });
+  }
   return {
     status: "pending",
     approvalId: approvals[0].approvalId,
     previews,
+    saved,
   };
 }
 

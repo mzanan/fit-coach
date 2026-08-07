@@ -1,0 +1,1 @@
+ALTER TABLE `coach_messages` ADD `status` text DEFAULT 'done' NOT NULL;
