@@ -21,7 +21,6 @@ import {
   type CoachEvent,
 } from "@/lib/ai/provider";
 import {
-  appendExchange,
   beginExchange,
   discardExchange,
   finishExchange,
@@ -656,6 +655,7 @@ export async function coachReply(
     try {
       const ctx = await buildContext(userId, profile);
       const text = deterministicReply(ctx);
+      if (signal?.aborted) return { status: "answered", text, generated: false };
       await finishExchange(exchange, text, false);
       return { status: "answered", text, generated: false };
     } catch (error) {
@@ -746,8 +746,14 @@ export async function resolvePendingWrite(
   const appGenerated = pending.appGenerated;
 
   if (!approved) {
-    await appendExchange(userId, question ?? null, DENIED, false);
-    return { status: "answered", text: DENIED, generated: false };
+    const exchange = await beginExchange(userId, question ?? null, INTERRUPTED_ANSWER);
+    try {
+      await finishExchange(exchange, DENIED, false);
+      return { status: "answered", text: DENIED, generated: false };
+    } catch (error) {
+      await discardExchange(exchange);
+      throw error;
+    }
   }
 
   const exchange = await beginExchange(
@@ -807,6 +813,10 @@ export async function resolvePendingWrite(
         onEvent: onEvent ?? (() => {}),
         signal,
       });
+
+    if (signal?.aborted) {
+      return { status: "answered", text: INTERRUPTED_ANSWER, generated: false };
+    }
 
     if (approvals.length) {
       const chained = await chainApproval(
@@ -873,6 +883,9 @@ export async function resolvePendingWrite(
       daySummary,
     };
   } catch {
+    if (signal?.aborted) {
+      return { status: "answered", text: INTERRUPTED_ANSWER, generated: false };
+    }
     await finishExchange(exchange, RESUME_FAILED, false);
     return { status: "answered", text: RESUME_FAILED, generated: false };
   }
