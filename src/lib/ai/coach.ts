@@ -89,6 +89,15 @@ function coachingRules(profile: Profile): string {
     : DEFAULT_COACHING;
 }
 
+const DEFAULT_SUMMARY_FOCUS = `\n\nWhen the user asks for a weekly or progress summary, cover two things: how the week so far went on diet and training (adherence, what worked, what to fix), and overall progress since the user started, using get_progress_overview to compare their InBody scans and how long they have been logging rather than only the last few days.`;
+
+function summaryRules(profile: Profile): string {
+  const own = profile.summary_rules?.trim();
+  return own
+    ? `\n\nWhat the user wants in their weekly/progress summary. This is what they asked for, follow it over the default shape below, but still call get_progress_overview for anything about long-term progress:\n\n${own}`
+    : DEFAULT_SUMMARY_FOCUS;
+}
+
 export interface CoachContext {
   profile: Profile;
   today: string;
@@ -291,7 +300,7 @@ const NOT_WRITTEN =
   "Nothing was logged. The catalog item may have changed since you were asked. Check Today, and log it from there if it is missing.";
 
 const LOG_INTENT =
-  /\b(registr\w*|anot\w*|logue\w*|loguear|agreg\w*|a[ñn]ad\w*|sum\w*|carg\w*|log)\b/i;
+  /\b(registr\w*|anot\w*|logue\w*|loguear|agreg\w*|a[ñn]ad\w*|sum(?!mar)\w*|carg\w*|log)\b/i;
 
 const CLAIMED_WRITE =
   /\b(registrad[oa]s?|registr[eé]|anotad[oa]s?|a[ñn]adid[oa]s?|agregad[oa]s?|guardad[oa]s?|logged)\b|\b(se procede a|procedo a|voy a)\s+(registrar|anotar|guardar|a[ñn]adir|agregar)/i;
@@ -317,7 +326,7 @@ function previewFailure(reason: ResolveFailure, error: string): string {
 
 const TOOLS_ADDENDUM = `
 
-Data access: you have tools that read the user's live data (today's meals and targets, the food catalog, recent workouts, body scans). Call only the tools the question actually needs, then answer that question directly and concretely. Never invent data you did not read from a tool.
+Data access: you have tools that read the user's live data (today's meals and targets, the food catalog, recent workouts, the latest body scans, and the user's full progress history for weekly/overall summaries). Call only the tools the question actually needs, then answer that question directly and concretely. Never invent data you did not read from a tool.
 
 What the user tells you outranks what the tools read. The app only knows the meals the user typed into it, and they often eat without logging, so an empty day from get_today means "nothing was logged", NEVER "nothing was eaten". If the user states what they have consumed, or gives you totals, take those numbers as the truth for this conversation and answer from them. Do not ask them to log anything first, do not ask them to confirm what they already said, and do not repeat the day back to them: they asked a question, answer it.
 
@@ -380,6 +389,9 @@ async function learn(
   }
 }
 
+const SUMMARY_FALLBACK_ASK =
+  "Give me my weekly progress summary: the week so far and overall progress since I started.";
+
 function askOf(question?: string): string {
   return question?.trim()
     ? question.trim()
@@ -400,6 +412,7 @@ async function toolSetup(
       COACH_FRAME +
         diningRule(profile) +
         coachingRules(profile) +
+        summaryRules(profile) +
         TOOLS_ADDENDUM,
       ...parts,
     ].join("\n\n"),
@@ -413,10 +426,18 @@ async function toolSetup(
   };
 }
 
-function exchangeOf(toolLog: string[], question: string | undefined, text: string): string {
+function exchangeOf(
+  toolLog: string[],
+  question: string | undefined,
+  text: string,
+  appGenerated = false,
+): string {
+  const asked = appGenerated
+    ? "(tapped the weekly summary button)"
+    : question?.trim() || "(daily check-in)";
   return [
     ...(toolLog.length ? ["Data the coach read from the app:", ...toolLog] : []),
-    `User: ${question?.trim() || "(daily check-in)"}`,
+    `User: ${asked}`,
     `Coach: ${text}`,
   ].join("\n");
 }
@@ -430,6 +451,7 @@ async function toolReply(
   question?: string,
   onEvent?: (event: CoachEvent) => void,
   signal?: AbortSignal,
+  appGenerated = false,
 ): Promise<CoachResult> {
   const setup = await toolSetup(userId, profile, history, question);
 
@@ -468,6 +490,7 @@ async function toolReply(
           approvalId: approvals[0].approvalId,
           approvalIds: approvals.map((approval) => approval.approvalId),
           question: question?.trim() || null,
+          appGenerated,
           messages,
           previews,
         });
@@ -493,8 +516,8 @@ async function toolReply(
             ref,
             userId,
             setup.memory,
-            exchangeOf(toolLog, question, answer),
-            Boolean(question?.trim()),
+            exchangeOf(toolLog, question, answer, appGenerated),
+            Boolean(question?.trim()) && !appGenerated,
           ),
         );
       }
@@ -524,6 +547,7 @@ async function contextReply(
   history: CoachMessage[],
   question?: string,
   signal?: AbortSignal,
+  appGenerated = false,
 ): Promise<CoachResult> {
   const ctx = await buildContext(userId, profile);
   const { memory, parts } = await memoryAndFacts(userId, question);
@@ -549,9 +573,20 @@ async function contextReply(
       { role: "user", content: userMsg },
     ]);
     if (text) {
-      const exchange = `${ctx.lines.join("\n")}\nUser: ${question?.trim() || "(daily check-in)"}\nCoach: ${text}`;
+      const asked = appGenerated
+        ? "(tapped the weekly summary button)"
+        : question?.trim() || "(daily check-in)";
+      const exchange = `${ctx.lines.join("\n")}\nUser: ${asked}\nCoach: ${text}`;
       if (!signal?.aborted) {
-        deferLearn(() => learn(ref, userId, memory, exchange, Boolean(question?.trim())));
+        deferLearn(() =>
+          learn(
+            ref,
+            userId,
+            memory,
+            exchange,
+            Boolean(question?.trim()) && !appGenerated,
+          ),
+        );
       }
     }
     return {
@@ -574,6 +609,7 @@ export async function coachReply(
   question?: string,
   onEvent?: (event: CoachEvent) => void,
   signal?: AbortSignal,
+  summary = false,
 ): Promise<CoachResult> {
   await clearPendingWrite(userId);
 
@@ -588,6 +624,11 @@ export async function coachReply(
   }
 
   const history = await getConversation(userId);
+
+  if (summary) {
+    question = SUMMARY_FALLBACK_ASK;
+    onEvent?.({ type: "question", text: question });
+  }
 
   let toolPin: string[] | null | undefined = null;
   try {
@@ -607,8 +648,17 @@ export async function coachReply(
           question,
           onEvent,
           signal,
+          summary,
         )
-      : await contextReply(ref, userId, profile, history, question, signal);
+      : await contextReply(
+          ref,
+          userId,
+          profile,
+          history,
+          question,
+          signal,
+          summary,
+        );
 
   if (signal?.aborted || result.status === "pending") return result;
 
@@ -640,6 +690,7 @@ export async function resolvePendingWrite(
   }
 
   const question = pending.question ?? undefined;
+  const appGenerated = pending.appGenerated;
 
   if (!approved) {
     await appendExchange(userId, question ?? null, DENIED, false);
@@ -704,6 +755,7 @@ export async function resolvePendingWrite(
         question,
         [...answered, ...messages],
         approvals,
+        appGenerated,
       );
       if (chained) return chained;
     }
@@ -749,8 +801,8 @@ export async function resolvePendingWrite(
           ref,
           userId,
           setup.memory,
-          exchangeOf(toolLog, question, answer),
-          Boolean(question),
+          exchangeOf(toolLog, question, answer, appGenerated),
+          Boolean(question) && !appGenerated,
         ),
       );
     }
@@ -772,6 +824,7 @@ async function chainApproval(
   question: string | undefined,
   messages: ModelMessage[],
   approvals: ApprovalRequest[],
+  appGenerated: boolean,
 ): Promise<CoachResult | null> {
   const resolved = await Promise.all(
     approvals.map((approval) => previewLogMeal(userId, day, approval.input)),
@@ -787,6 +840,7 @@ async function chainApproval(
     approvalId: approvals[0].approvalId,
     approvalIds: approvals.map((approval) => approval.approvalId),
     question: question ?? null,
+    appGenerated,
     messages,
     previews,
   });

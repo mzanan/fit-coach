@@ -6,20 +6,42 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Surface } from "@/components/ui/Surface";
 import { Textarea } from "@/components/ui/Textarea";
-import { updateCoachRules } from "@/lib/actions/profile";
-import { COACH_RULES_MAX } from "@/lib/constants";
 import { useAction } from "@/hooks/useAction";
 
-export function CoachRulesForm({ initial }: { initial: string | null }) {
+export function TextRulesForm({
+  initial,
+  action,
+  maxLength,
+  rows,
+  minHeightClass,
+  placeholder,
+  ariaLabel,
+  savedMessage,
+  resetMessage,
+  resetLabel,
+  confirmTitle,
+  confirmBody,
+}: {
+  initial: string | null;
+  action: (input: { rules: string }) => Promise<unknown>;
+  maxLength: number;
+  rows: number;
+  minHeightClass: string;
+  placeholder: string;
+  ariaLabel: string;
+  savedMessage: string;
+  resetMessage: string;
+  resetLabel: string;
+  confirmTitle: string;
+  confirmBody: string;
+}) {
   const { pending, run } = useAction();
   const [rules, setRules] = useState(initial ?? "");
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   function save(next: string) {
-    run(() => updateCoachRules({ rules: next }), {
-      success: next.trim()
-        ? "Coach rules saved"
-        : "Back to the built-in coaching rules",
+    run(() => action({ rules: next }), {
+      success: next.trim() ? savedMessage : resetMessage,
     });
   }
 
@@ -35,11 +57,11 @@ export function CoachRulesForm({ initial }: { initial: string | null }) {
         <Textarea
           value={rules}
           onChange={(e) => setRules(e.target.value)}
-          placeholder="Paste the markdown your coach wrote. It replaces the built-in macro and meal rules; the language, length and no-invented-data rules stay."
-          rows={20}
-          maxLength={COACH_RULES_MAX}
-          className="min-h-[60vh] font-mono text-meta"
-          aria-label="Coach rules"
+          placeholder={placeholder}
+          rows={rows}
+          maxLength={maxLength}
+          className={`${minHeightClass} font-mono text-meta`}
+          aria-label={ariaLabel}
         />
         <div className="flex items-center gap-2">
           <Button type="submit" disabled={pending}>
@@ -52,12 +74,11 @@ export function CoachRulesForm({ initial }: { initial: string | null }) {
               disabled={pending}
               onClick={() => setConfirmOpen(true)}
             >
-              Use the built-in rules
+              {resetLabel}
             </Button>
           ) : null}
           <span className="ml-auto text-meta text-muted-foreground">
-            {rules.length.toLocaleString()} / {COACH_RULES_MAX.toLocaleString()}{" "}
-            chars
+            {rules.length.toLocaleString()} / {maxLength.toLocaleString()} chars
           </span>
         </div>
       </form>
@@ -65,8 +86,8 @@ export function CoachRulesForm({ initial }: { initial: string | null }) {
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="Drop your coaching rules?"
-        body="The coach goes back to the built-in macro and meal rules. What you pasted is deleted."
+        title={confirmTitle}
+        body={confirmBody}
         confirmLabel="Drop them"
         tone="destructive"
         pending={pending}

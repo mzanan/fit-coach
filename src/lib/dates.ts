@@ -41,6 +41,11 @@ export function isGymWeekday(day: string): boolean {
   return weekday === 1 || weekday === 2 || weekday === 4 || weekday === 5;
 }
 
+export function daysSinceMonday(day: string): number {
+  const weekday = parseISO(day).getDay();
+  return (weekday + 6) % 7;
+}
+
 export function formatDayLabel(day: string, todayDay: string): string {
   if (day === todayDay) return "Today";
   if (day === shiftDay(todayDay, -1)) return "Yesterday";

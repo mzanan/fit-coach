@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Page } from "@/components/ui/Page";
 import { getAiSettings } from "@/lib/ai/providers";
+import { canTools } from "@/lib/ai/registry";
 import { getFullConversation } from "@/lib/data/coachMessages";
 import { getPendingPreview } from "@/lib/data/coachPendingWrite";
+import { dayConfig, daysSinceMonday, todayLogicalDay } from "@/lib/dates";
 import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
 
@@ -18,6 +20,15 @@ export default async function CoachPage() {
     ensureProfile(user.id),
     getPendingPreview(user.id),
   ]);
+  const weekDays = daysSinceMonday(todayLogicalDay(dayConfig(profile))) + 1;
+  let weeklySummaryAvailable = false;
+  if (ai) {
+    try {
+      weeklySummaryAvailable = await canTools(ai.provider, ai.model);
+    } catch {
+      weeklySummaryAvailable = false;
+    }
+  }
 
   return (
     <Page
@@ -43,6 +54,7 @@ export default async function CoachPage() {
           effort={ai?.reasoningEffort ?? null}
           diningMode={profile.dining_mode}
           pending={pending}
+          weekDays={weeklySummaryAvailable ? weekDays : null}
         />
       </div>
     </Page>

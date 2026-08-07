@@ -85,18 +85,36 @@ export function CoachPanel({
   effort,
   diningMode,
   pending,
+  weekDays,
 }: {
   initial: CoachMessage[];
   effort: ReasoningEffort | null;
   diningMode: string | null;
   pending: PendingApproval | null;
+  weekDays: number | null;
 }) {
   const { setAnchor, ...chat } = useCoachChat(initial, effort, pending);
+  const weeklySummaryLabel =
+    weekDays != null
+      ? `Weekly summary (last ${weekDays} day${weekDays === 1 ? "" : "s"})`
+      : null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {diningMode ? null : <DiningModeAsk />}
       <div className="flex flex-wrap items-center gap-2">
+        {weeklySummaryLabel ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={chat.loading}
+            onClick={() => void chat.askSummary()}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {weeklySummaryLabel}
+          </Button>
+        ) : null}
         {QUICK.map((q) => (
           <Button
             key={q}

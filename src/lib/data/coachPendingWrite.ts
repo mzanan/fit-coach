@@ -28,6 +28,7 @@ export interface PendingWrite {
   approvalId: string;
   approvalIds: string[];
   question: string | null;
+  appGenerated: boolean;
   messages: ModelMessage[];
   previews: PendingPreview[];
 }
@@ -40,6 +41,7 @@ function toRow(userId: string, pending: PendingWrite) {
     messages: JSON.stringify({
       messages: pending.messages,
       approvalIds: pending.approvalIds,
+      appGenerated: pending.appGenerated,
     }),
     preview: JSON.stringify(pending.previews),
     created_at: new Date(),
@@ -66,18 +68,22 @@ function parsePreviews(raw: string): PendingPreview[] | null {
   }
 }
 
-function parseMessages(
-  raw: string,
-): { messages: ModelMessage[]; approvalIds: string[] } | null {
+function parseMessages(raw: string): {
+  messages: ModelMessage[];
+  approvalIds: string[];
+  appGenerated: boolean;
+} | null {
   try {
     const parsed = JSON.parse(raw) as {
       messages?: ModelMessage[];
       approvalIds?: string[];
+      appGenerated?: boolean;
     };
     if (!Array.isArray(parsed.messages)) return null;
     return {
       messages: parsed.messages,
       approvalIds: Array.isArray(parsed.approvalIds) ? parsed.approvalIds : [],
+      appGenerated: parsed.appGenerated === true,
     };
   } catch {
     return null;
@@ -135,6 +141,7 @@ export async function takePendingWrite(
       ? parsed.approvalIds
       : [row.approval_id],
     question: row.question,
+    appGenerated: parsed.appGenerated,
     messages: parsed.messages,
     previews,
   };

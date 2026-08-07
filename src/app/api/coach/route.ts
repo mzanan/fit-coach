@@ -12,9 +12,14 @@ export async function POST(request: Request) {
   }
 
   let question: string | undefined;
+  let summary = false;
   try {
-    const body = (await request.json()) as { question?: string };
+    const body = (await request.json()) as {
+      question?: string;
+      summary?: boolean;
+    };
     question = body.question;
+    summary = body.summary === true;
   } catch {
     question = undefined;
   }
@@ -22,6 +27,6 @@ export async function POST(request: Request) {
   const profile = await ensureProfile(user.id);
 
   return coachNdjsonResponse((send) =>
-    coachReply(user.id, profile, question, send, request.signal),
+    coachReply(user.id, profile, question, send, request.signal, summary),
   );
 }

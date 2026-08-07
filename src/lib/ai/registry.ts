@@ -148,3 +148,10 @@ export async function canStructured(
 ): Promise<boolean> {
   return (await structuredRouting(provider, model)) !== null;
 }
+
+export async function canTools(
+  provider: AiProvider,
+  model: string,
+): Promise<boolean> {
+  return (await toolsRouting(provider, model)) !== null;
+}
