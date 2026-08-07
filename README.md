@@ -64,7 +64,7 @@ Three stores, each solving a different problem:
 
 | Store | Shape | Purpose |
 |---|---|---|
-| `coach_messages` | Full turns, verbatim | Conversation continuity. The last N turns go into every call. |
+| `coach_messages` | Full turns, verbatim (a turn interrupted before it finished keeps a placeholder instead) | Conversation continuity. The last N turns go into every call. |
 | `coach_memory` | One rolling ~150-word summary per user | Cheap always-on context that survives clearing the chat and works without an embeddings key. |
 | `coach_facts` | Discrete facts, one row each, with a 768-dim embedding | Durable preferences, constraints, corrections and routines, retrieved by cosine similarity. |
 
