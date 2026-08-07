@@ -207,3 +207,14 @@ export const COACH_FACT_CATEGORY_KEYS = COACH_FACT_CATEGORIES.map((c) => c.key);
 
 export const COACH_RULES_MAX = 20_000;
 export const SUMMARY_RULES_MAX = 20_000;
+export const CHAT_LANGUAGE_MAX = 32;
+
+const CHAT_LANGUAGE_SHAPE = /^[\p{L}\p{M}]+(?:[ '-][\p{L}\p{M}]+){0,2}$/u;
+
+export function isChatLanguage(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= CHAT_LANGUAGE_MAX &&
+    CHAT_LANGUAGE_SHAPE.test(value)
+  );
+}

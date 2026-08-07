@@ -1,14 +1,36 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { cache } from "react";
 
+import { isChatLanguage } from "@/lib/constants";
 import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
 import { SEED_CATALOG } from "@/lib/seedData";
 import { newId } from "@/lib/utils";
 
 const { profiles, catalog_items, catalog_components } = schema;
+
+export async function detectChatLanguage(
+  userId: string,
+  language: unknown,
+): Promise<void> {
+  const value = typeof language === "string" ? language.trim() : "";
+  if (!isChatLanguage(value)) return;
+  try {
+    await db
+      .update(profiles)
+      .set({ chat_language: value, updated_at: new Date() })
+      .where(
+        and(eq(profiles.user_id, userId), isNull(profiles.chat_language)),
+      );
+  } catch (err) {
+    console.error(
+      "profile: saving detected chat language failed",
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
 
 export const ensureProfile = cache(
   async (userId: string): Promise<Profile> => {

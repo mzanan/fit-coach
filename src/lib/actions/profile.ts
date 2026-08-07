@@ -5,7 +5,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db, schema } from "@/lib/db";
-import { COACH_RULES_MAX, SUMMARY_RULES_MAX } from "@/lib/constants";
+import {
+  COACH_RULES_MAX,
+  isChatLanguage,
+  SUMMARY_RULES_MAX,
+} from "@/lib/constants";
 import { requireUser } from "@/lib/session";
 
 const { profiles } = schema;
@@ -64,6 +68,26 @@ export async function updateSummaryRules(input: unknown) {
     .where(eq(profiles.user_id, user.id));
   revalidatePath("/coach");
   revalidatePath("/settings");
+  revalidatePath("/settings/coach");
+}
+
+const chatLanguageSchema = z.object({
+  language: z
+    .string()
+    .refine((value) => !value.trim() || isChatLanguage(value.trim()), {
+      message: "Use a language name, up to three words",
+    }),
+});
+
+export async function updateChatLanguage(input: unknown) {
+  const user = await requireUser();
+  const { language } = chatLanguageSchema.parse(input);
+
+  await db
+    .update(profiles)
+    .set({ chat_language: language.trim() || null, updated_at: new Date() })
+    .where(eq(profiles.user_id, user.id));
+  revalidatePath("/coach");
   revalidatePath("/settings/coach");
 }
 
