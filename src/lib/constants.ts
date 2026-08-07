@@ -219,4 +219,4 @@ export function isChatLanguage(value: unknown): value is string {
   );
 }
 
-export const STOPPED_ANSWER = "You stopped this answer.";
+export const INTERRUPTED_ANSWER = "This answer was interrupted.";
