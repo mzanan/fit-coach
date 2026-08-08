@@ -179,14 +179,11 @@ export async function chatToolsStream(
   const writeOutputs: { logged: boolean; error?: string }[] = [];
   let writeAttempted = false;
   let text = "";
-  let firstPart = true;
+  let firstTextDelta = true;
   for await (const part of result.fullStream) {
-    if (firstPart) {
-      firstPart = false;
-      console.info(
-        `coach: [stage] first stream part (${part.type}) arrived ${Date.now() - callT0}ms after call`,
-      );
-    }
+    console.info(
+      `coach: [stage] fullStream part "${part.type}" at ${Date.now() - callT0}ms`,
+    );
     if (part.type === "tool-call") {
       if (part.toolName === approvalFor) writeAttempted = true;
       options.onEvent({ type: "status", tool: part.toolName });
@@ -214,6 +211,12 @@ export async function chatToolsStream(
     } else if (part.type === "reasoning-delta") {
       options.onEvent({ type: "reasoning", text: part.text });
     } else if (part.type === "text-delta") {
+      if (firstTextDelta) {
+        firstTextDelta = false;
+        console.info(
+          `coach: [stage] first real text-delta at ${Date.now() - callT0}ms`,
+        );
+      }
       text += part.text;
       options.onEvent({ type: "delta", text: part.text });
     }
