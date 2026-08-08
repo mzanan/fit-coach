@@ -44,6 +44,7 @@ export async function chat(
   ref: ModelRef,
   messages: ChatMessage[],
   maxTokens = 600,
+  signal?: AbortSignal,
 ): Promise<string> {
   const { instructions, turns } = split(messages);
   const { text } = await generateText({
@@ -52,10 +53,10 @@ export async function chat(
     messages: turns,
     maxOutputTokens: maxTokens + googleThinkingBudget(ref),
     providerOptions: googleOnlyOptions(ref),
+    abortSignal: signal,
   });
   return text.trim();
 }
-
 
 const GOOGLE_THINKING: Record<ReasoningEffort, number> = {
   none: 0,
@@ -101,7 +102,8 @@ export type CoachEvent =
   | { type: "status"; tool: string }
   | { type: "reasoning"; text: string }
   | { type: "delta"; text: string }
-  | { type: "question"; text: string };
+  | { type: "question"; text: string }
+  | { type: "started"; assistantId: string; ids: string[] };
 
 export interface ApprovalRequest {
   approvalId: string;
@@ -338,7 +340,9 @@ export async function chatJson<T>(
     );
   }
   if (routeOnly === null) {
-    throw new Error(`Model ${ref.model} has no provider with structured output`);
+    throw new Error(
+      `Model ${ref.model} has no provider with structured output`,
+    );
   }
   const { instructions, turns } = split(messages);
   try {

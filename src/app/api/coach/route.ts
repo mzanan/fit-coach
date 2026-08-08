@@ -5,6 +5,8 @@ import { coachNdjsonResponse } from "@/lib/coachStream";
 import { ensureProfile } from "@/lib/profile";
 import { getUser } from "@/lib/session";
 
+export const maxDuration = 300;
+
 export async function POST(request: Request) {
   const user = await getUser();
   if (!user) {
@@ -27,6 +29,6 @@ export async function POST(request: Request) {
   const profile = await ensureProfile(user.id);
 
   return coachNdjsonResponse((send) =>
-    coachReply(user.id, profile, question, send, request.signal, summary),
+    coachReply(user.id, profile, question, send, summary),
   );
 }

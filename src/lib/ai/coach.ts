@@ -25,7 +25,10 @@ import {
   discardExchange,
   finishExchange,
   getConversation,
+  getExchangeStatus,
+  updateExchangeContent,
   type CoachMessage,
+  type ExchangeRef,
 } from "@/lib/data/coachMessages";
 import {
   clearPendingWrite,
@@ -198,10 +201,15 @@ async function buildWhoopLines(userId: string): Promise<string[]> {
   const parts: string[] = [];
 
   const r = snap.recovery;
-  if (r?.recovery_score != null && now - r.recorded_at.getTime() < WHOOP_FRESH_MS) {
+  if (
+    r?.recovery_score != null &&
+    now - r.recorded_at.getTime() < WHOOP_FRESH_MS
+  ) {
     const extras = [
       r.hrv_rmssd_milli != null ? `HRV ${round(r.hrv_rmssd_milli)}ms` : null,
-      r.resting_heart_rate != null ? `RHR ${round(r.resting_heart_rate)}bpm` : null,
+      r.resting_heart_rate != null
+        ? `RHR ${round(r.resting_heart_rate)}bpm`
+        : null,
     ].filter(Boolean);
     parts.push(
       `recovery ${round(r.recovery_score)}%${extras.length ? ` (${extras.join(", ")})` : ""}`,
@@ -234,7 +242,9 @@ async function buildWhoopLines(userId: string): Promise<string[]> {
     const avg = strains.length
       ? `, avg strain ${round(strains.reduce((a, b) => a + b, 0) / strains.length, 1)}`
       : "";
-    parts.push(`${snap.recentWorkouts.length} Whoop workouts last 7 days${avg}`);
+    parts.push(
+      `${snap.recentWorkouts.length} Whoop workouts last 7 days${avg}`,
+    );
   }
 
   if (!parts.length) return [];
@@ -272,6 +282,7 @@ export type CoachResult =
       text: string;
       generated: boolean;
       daySummary?: DaySummary;
+      stopped?: boolean;
     }
   | {
       status: "pending";
@@ -372,6 +383,52 @@ async function memoryAndFacts(
   };
 }
 
+const STOP_POLL_MS = 1000;
+const CONTENT_FLUSH_MS = 1000;
+
+function watchForStop(
+  ref: ExchangeRef,
+  controller: AbortController,
+): () => void {
+  const interval = setInterval(() => {
+    if (controller.signal.aborted) return;
+    getExchangeStatus(ref)
+      .then((status) => {
+        if (status === "stopped") controller.abort();
+      })
+      .catch(() => {});
+  }, STOP_POLL_MS);
+  return () => clearInterval(interval);
+}
+
+function bufferedOnEvent(
+  ref: ExchangeRef,
+  forward: (event: CoachEvent) => void,
+): {
+  onEvent: (event: CoachEvent) => void;
+  buffer: () => string;
+  drain: () => Promise<void>;
+} {
+  let text = "";
+  let lastFlush = 0;
+  let inFlight: Promise<void> = Promise.resolve();
+  return {
+    onEvent(event) {
+      if (event.type === "delta") {
+        text += event.text;
+        const now = Date.now();
+        if (now - lastFlush >= CONTENT_FLUSH_MS) {
+          lastFlush = now;
+          inFlight = updateExchangeContent(ref, text).catch(() => {});
+        }
+      }
+      forward(event);
+    },
+    buffer: () => text,
+    drain: () => inFlight,
+  };
+}
+
 function deferLearn(run: () => Promise<void>): void {
   after(() =>
     run().catch((err) =>
@@ -466,7 +523,9 @@ function exchangeOf(
     ? "(tapped the weekly summary button)"
     : question?.trim() || "(daily check-in)";
   return [
-    ...(toolLog.length ? ["Data the coach read from the app:", ...toolLog] : []),
+    ...(toolLog.length
+      ? ["Data the coach read from the app:", ...toolLog]
+      : []),
     `User: ${asked}`,
     `Coach: ${text}`,
   ].join("\n");
@@ -590,20 +649,25 @@ async function contextReply(
   ].join("\n");
 
   try {
-    const text = await chat(ref, [
-      {
-        role: "system",
-        content: [
-          COACH_FRAME + diningRule(profile) + coachingRules(profile),
-          ...parts,
-        ].join("\n\n"),
-      },
-      ...history.map((message) => ({
-        role: message.role,
-        content: message.content,
-      })),
-      { role: "user", content: userMsg },
-    ]);
+    const text = await chat(
+      ref,
+      [
+        {
+          role: "system",
+          content: [
+            COACH_FRAME + diningRule(profile) + coachingRules(profile),
+            ...parts,
+          ].join("\n\n"),
+        },
+        ...history.map((message) => ({
+          role: message.role,
+          content: message.content,
+        })),
+        { role: "user", content: userMsg },
+      ],
+      600,
+      signal,
+    );
     if (text) {
       const asked = appGenerated
         ? "(tapped the weekly summary button)"
@@ -635,27 +699,28 @@ async function contextReply(
   }
 }
 
+const STOPPED_MID_ANSWER = "(stopped before an answer began)";
+
 export async function coachReply(
   userId: string,
   profile: Profile,
   question?: string,
   onEvent?: (event: CoachEvent) => void,
-  signal?: AbortSignal,
   summary = false,
 ): Promise<CoachResult> {
   await clearPendingWrite(userId);
 
   const ref = await userModelRef(userId);
   if (!ref) {
-    const exchange = await beginExchange(
-      userId,
-      question?.trim() || null,
-      INTERRUPTED_ANSWER,
-    );
+    const exchange = await beginExchange(userId, question?.trim() || null, "");
+    onEvent?.({
+      type: "started",
+      assistantId: exchange.assistantId,
+      ids: exchange.ids,
+    });
     try {
       const ctx = await buildContext(userId, profile);
       const text = deterministicReply(ctx);
-      if (signal?.aborted) return { status: "answered", text, generated: false };
       await finishExchange(exchange, text, false);
       return { status: "answered", text, generated: false };
     } catch (error) {
@@ -678,11 +743,20 @@ export async function coachReply(
     toolPin = null;
   }
 
-  const exchange = await beginExchange(
-    userId,
-    question?.trim() || null,
-    INTERRUPTED_ANSWER,
-  );
+  const exchange = await beginExchange(userId, question?.trim() || null, "");
+  onEvent?.({
+    type: "started",
+    assistantId: exchange.assistantId,
+    ids: exchange.ids,
+  });
+
+  const controller = new AbortController();
+  const stopWatch = watchForStop(exchange, controller);
+  const {
+    onEvent: wrappedOnEvent,
+    buffer,
+    drain,
+  } = bufferedOnEvent(exchange, onEvent ?? (() => {}));
 
   let result: CoachResult;
   try {
@@ -695,8 +769,8 @@ export async function coachReply(
             profile,
             history,
             question,
-            onEvent,
-            signal,
+            wrappedOnEvent,
+            controller.signal,
             summary,
           )
         : await contextReply(
@@ -705,12 +779,27 @@ export async function coachReply(
             profile,
             history,
             question,
-            signal,
+            controller.signal,
             summary,
           );
   } catch (error) {
+    stopWatch();
+    if (controller.signal.aborted) {
+      await drain();
+      const text = buffer() || STOPPED_MID_ANSWER;
+      await updateExchangeContent(exchange, text);
+      return { status: "answered", text, generated: false, stopped: true };
+    }
     await discardExchange(exchange);
     throw error;
+  }
+  stopWatch();
+
+  if (controller.signal.aborted) {
+    await drain();
+    const text = buffer() || STOPPED_MID_ANSWER;
+    await updateExchangeContent(exchange, text);
+    return { status: "answered", text, generated: false, stopped: true };
   }
 
   if (result.status === "pending") {
@@ -718,9 +807,20 @@ export async function coachReply(
     return result;
   }
 
-  if (signal?.aborted) return result;
-
-  await finishExchange(exchange, result.text, result.generated);
+  await drain();
+  const finalized = await finishExchange(
+    exchange,
+    result.text,
+    result.generated,
+  );
+  if (!finalized) {
+    return {
+      status: "answered",
+      text: buffer() || result.text,
+      generated: false,
+      stopped: true,
+    };
+  }
   return result;
 }
 
@@ -746,7 +846,11 @@ export async function resolvePendingWrite(
   const appGenerated = pending.appGenerated;
 
   if (!approved) {
-    const exchange = await beginExchange(userId, question ?? null, INTERRUPTED_ANSWER);
+    const exchange = await beginExchange(
+      userId,
+      question ?? null,
+      INTERRUPTED_ANSWER,
+    );
     try {
       await finishExchange(exchange, DENIED, false);
       return { status: "answered", text: DENIED, generated: false };

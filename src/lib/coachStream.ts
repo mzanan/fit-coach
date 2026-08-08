@@ -11,6 +11,7 @@ export type CoachStreamEvent =
       text: string;
       generated: boolean;
       daySummary?: DaySummary;
+      stopped?: boolean;
     }
   | { type: "approval"; approvalId: string; previews: PendingPreview[] }
   | { type: "error" };
@@ -19,11 +20,17 @@ export function coachNdjsonResponse(
   run: (send: (event: CoachStreamEvent) => void) => Promise<CoachResult>,
 ): Response {
   const encoder = new TextEncoder();
+  let closed = false;
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (event: CoachStreamEvent) => {
-        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        } catch {
+          closed = true;
+        }
       };
       send({ type: "status", tool: "thinking" });
       try {
@@ -40,12 +47,22 @@ export function coachNdjsonResponse(
                 text: result.text,
                 generated: result.generated,
                 daySummary: result.daySummary,
+                stopped: result.stopped,
               },
         );
       } catch {
         send({ type: "error" });
       }
-      controller.close();
+      if (!closed) {
+        try {
+          controller.close();
+        } catch {
+          // already closed by the runtime
+        }
+      }
+    },
+    cancel() {
+      closed = true;
     },
   });
 

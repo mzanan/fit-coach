@@ -69,17 +69,19 @@ function Turn({ bubble }: { bubble: ChatBubble }) {
   }
 
   const stopped = bubble.status === "stopped";
+  const isStreaming = bubble.status === "streaming";
 
   return (
     <div className="space-y-2">
-      {bubble.generated || stopped ? null : (
+      {!bubble.generated && !stopped && !isStreaming ? (
         <Pill tone="muted">Rule-based</Pill>
-      )}
+      ) : null}
       {bubble.reasoning ? <Thoughts text={bubble.reasoning} /> : null}
       <p
         className={cn(
           "whitespace-pre-wrap text-body leading-relaxed",
           stopped && "italic text-muted-foreground",
+          isStreaming && "animate-pulse",
         )}
       >
         {bubble.content}
