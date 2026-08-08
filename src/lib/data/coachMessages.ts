@@ -179,6 +179,7 @@ export async function finishExchange(
   answer: string,
   generated: boolean,
   daySummary?: DaySummary,
+  force = false,
 ): Promise<boolean> {
   let finalized = false;
   await db.transaction(async (tx) => {
@@ -189,7 +190,7 @@ export async function finishExchange(
         and(
           inArray(coach_messages.id, ref.ids),
           eq(coach_messages.user_id, ref.userId),
-          eq(coach_messages.status, ref.pendingStatus),
+          ...(force ? [] : [eq(coach_messages.status, ref.pendingStatus)]),
         ),
       )
       .returning({ id: coach_messages.id });

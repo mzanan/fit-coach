@@ -157,6 +157,7 @@ export async function chatToolsStream(
   const model = resolveModel(ref);
   const maxTokens = options.maxTokens ?? 3000;
   const approvalFor = options.approvalFor;
+  const callT0 = Date.now();
   const result = streamText({
     model,
     instructions: options.instructions,
@@ -169,13 +170,23 @@ export async function chatToolsStream(
     providerOptions: reasoningOptions(ref),
     abortSignal: options.signal,
   });
+  console.info(
+    `coach: [stage] streamText() constructed ${Date.now() - callT0}ms after call`,
+  );
 
   const toolLog: string[] = [];
   const approvals: ApprovalRequest[] = [];
   const writeOutputs: { logged: boolean; error?: string }[] = [];
   let writeAttempted = false;
   let text = "";
+  let firstPart = true;
   for await (const part of result.fullStream) {
+    if (firstPart) {
+      firstPart = false;
+      console.info(
+        `coach: [stage] first stream part (${part.type}) arrived ${Date.now() - callT0}ms after call`,
+      );
+    }
     if (part.type === "tool-call") {
       if (part.toolName === approvalFor) writeAttempted = true;
       options.onEvent({ type: "status", tool: part.toolName });
