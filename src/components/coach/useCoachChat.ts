@@ -9,7 +9,7 @@ import {
 } from "@/lib/actions/coach";
 import type { DaySummary } from "@/lib/ai/coach";
 import type { ReasoningEffort } from "@/lib/ai/options";
-import { INTERRUPTED_ANSWER } from "@/lib/constants";
+import { COACH_MAX_DURATION_S, INTERRUPTED_ANSWER } from "@/lib/constants";
 import type {
   CoachMessage,
   CoachMessageStatus,
@@ -50,7 +50,7 @@ type CoachStreamEvent =
   | { type: "error" };
 
 const REATTACH_POLL_MS = 2000;
-const MAX_FUNCTION_DURATION_MS = 330_000;
+const MAX_FUNCTION_DURATION_MS = (COACH_MAX_DURATION_S + 30) * 1000;
 
 const STATUS: Record<string, string> = {
   thinking: "Thinking",

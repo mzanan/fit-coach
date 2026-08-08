@@ -419,7 +419,10 @@ function bufferedOnEvent(
         const now = Date.now();
         if (now - lastFlush >= CONTENT_FLUSH_MS) {
           lastFlush = now;
-          inFlight = updateExchangeContent(ref, text).catch(() => {});
+          const snapshot = text;
+          inFlight = inFlight.then(() =>
+            updateExchangeContent(ref, snapshot).catch(() => {}),
+          );
         }
       }
       forward(event);
@@ -814,9 +817,10 @@ export async function coachReply(
     result.generated,
   );
   if (!finalized) {
+    await updateExchangeContent(exchange, result.text);
     return {
       status: "answered",
-      text: buffer() || result.text,
+      text: result.text,
       generated: false,
       stopped: true,
     };
@@ -850,6 +854,7 @@ export async function resolvePendingWrite(
       userId,
       question ?? null,
       INTERRUPTED_ANSWER,
+      "stopped",
     );
     try {
       await finishExchange(exchange, DENIED, false);
@@ -864,6 +869,7 @@ export async function resolvePendingWrite(
     userId,
     question ?? null,
     INTERRUPTED_ANSWER,
+    "stopped",
   );
 
   try {

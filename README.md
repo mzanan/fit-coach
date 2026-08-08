@@ -58,13 +58,15 @@ The coach runs on the SDK's native tool loop with five tools: `get_today`, `sear
 
 Where a prompt rule proved insufficient, the rule moved into code. The model choosing a portion size on its own became an app-rendered size picker whose choice is applied at the tool's `execute()`; the model claiming a write it never performed became an app-side check against whether the tool actually ran.
 
+**The answer itself is server-owned, not tied to the request that started it.** `/api/coach` does not use Vercel's opt-in request cancellation, so a refresh, a backgrounded tab or a dropped connection no longer kills the generation: it keeps running to completion server-side, streaming its own partial text into the row every second so a reload can pick it up mid-answer instead of losing it. Stop is its own request (`/api/coach/stop`) rather than a side effect of the client disconnecting, resolved with a single guarded `UPDATE ... WHERE status = 'streaming'` so a genuine Stop and the answer finishing at the same instant can never race into a corrupted state, only one deterministic winner. Whatever had streamed before Stop landed is kept, the same way Claude or ChatGPT keep a stopped answer rather than discarding it. `/api/coach/approve` (the write-confirmation flow) still uses the older request-bound cancellation; unifying it is open work.
+
 ### Memory
 
 Three stores, each solving a different problem:
 
 | Store | Shape | Purpose |
 |---|---|---|
-| `coach_messages` | Full turns, verbatim (a turn interrupted before it finished keeps a placeholder instead) | Conversation continuity. The last N turns go into every call. |
+| `coach_messages` | Full turns, verbatim once done; a row mid-generation carries live partial text and a `streaming` status until it finalizes or is stopped | Conversation continuity. The last N turns go into every call. |
 | `coach_memory` | One rolling ~150-word summary per user | Cheap always-on context that survives clearing the chat and works without an embeddings key. |
 | `coach_facts` | Discrete facts, one row each, with a 768-dim embedding | Durable preferences, constraints, corrections and routines, retrieved by cosine similarity. |
 

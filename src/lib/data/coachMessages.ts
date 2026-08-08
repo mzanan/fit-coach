@@ -26,6 +26,7 @@ export interface ExchangeRef {
   userId: string;
   ids: string[];
   assistantId: string;
+  pendingStatus: "streaming" | "stopped";
 }
 
 function toRole(value: string): "user" | "assistant" {
@@ -133,6 +134,7 @@ export async function beginExchange(
   userId: string,
   question: string | null,
   placeholder: string,
+  status: "streaming" | "stopped" = "streaming",
 ): Promise<ExchangeRef> {
   const now = Date.now();
   const assistantId = newId();
@@ -146,7 +148,7 @@ export async function beginExchange(
             role: "user",
             content: question,
             generated: false,
-            status: "streaming",
+            status,
             day_summary: null,
             created_at: new Date(now),
           },
@@ -158,7 +160,7 @@ export async function beginExchange(
       role: "assistant",
       content: placeholder,
       generated: false,
-      status: "streaming",
+      status,
       day_summary: null,
       created_at: new Date(now + 1),
     },
@@ -168,6 +170,7 @@ export async function beginExchange(
     userId,
     ids: [...(questionId ? [questionId] : []), assistantId],
     assistantId,
+    pendingStatus: status,
   };
 }
 
@@ -186,7 +189,7 @@ export async function finishExchange(
         and(
           inArray(coach_messages.id, ref.ids),
           eq(coach_messages.user_id, ref.userId),
-          eq(coach_messages.status, "streaming"),
+          eq(coach_messages.status, ref.pendingStatus),
         ),
       )
       .returning({ id: coach_messages.id });

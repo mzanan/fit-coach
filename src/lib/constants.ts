@@ -220,3 +220,5 @@ export function isChatLanguage(value: unknown): value is string {
 }
 
 export const INTERRUPTED_ANSWER = "This answer was interrupted.";
+
+export const COACH_MAX_DURATION_S = 300;
