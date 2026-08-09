@@ -243,9 +243,13 @@ export async function chatToolsStream(
     providerOptions: reasoningOptions(ref),
     abortSignal: options.signal,
   });
-  for await (const delta of closing.textStream) {
-    text += delta;
-    options.onEvent({ type: "delta", text: delta });
+  for await (const part of closing.fullStream) {
+    if (part.type === "text-delta") {
+      text += part.text;
+      options.onEvent({ type: "delta", text: part.text });
+    } else if (part.type === "abort") {
+      interrupted = true;
+    }
   }
   return {
     text: text.trim(),
@@ -254,7 +258,7 @@ export async function chatToolsStream(
     messages,
     writeAttempted,
     writeOutputs,
-    interrupted: interrupted || Boolean(options.signal?.aborted),
+    interrupted,
   };
 }
 
