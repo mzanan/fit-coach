@@ -19,7 +19,6 @@ import { decryptSecret, encryptSecret } from "@/lib/integrations/crypto";
 
 const { ai_credentials, profiles } = schema;
 
-
 export interface ModelRef {
   provider: AiProvider;
   model: string;
@@ -39,14 +38,46 @@ export interface AiSetup {
   saved: AiCredential[];
 }
 
-export function resolveModel(ref: ModelRef): LanguageModel {
+const RETRYABLE_STATUS = new Set([408, 409, 429]);
+
+function retryDelayMs(headers: Headers): number | undefined {
+  const ms = headers.get("retry-after-ms");
+  if (ms) {
+    const parsed = Number(ms);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  const seconds = headers.get("retry-after");
+  if (!seconds) return undefined;
+  const parsedSeconds = Number(seconds);
+  if (!Number.isNaN(parsedSeconds)) return parsedSeconds * 1000;
+  const date = Date.parse(seconds);
+  return Number.isNaN(date) ? undefined : date - Date.now();
+}
+
+function withRetryNotice(
+  onRetry: (retryAfterMs: number | undefined) => void,
+): typeof fetch {
+  return async (input, init) => {
+    const response = await fetch(input, init);
+    if (RETRYABLE_STATUS.has(response.status) || response.status >= 500) {
+      onRetry(retryDelayMs(response.headers));
+    }
+    return response;
+  };
+}
+
+export function resolveModel(
+  ref: ModelRef,
+  onRetry?: (retryAfterMs: number | undefined) => void,
+): LanguageModel {
+  const fetch = onRetry ? withRetryNotice(onRetry) : undefined;
   if (ref.provider === "groq") {
-    return createGroq({ apiKey: ref.apiKey })(ref.model);
+    return createGroq({ apiKey: ref.apiKey, fetch })(ref.model);
   }
   if (ref.provider === "google") {
-    return createGoogleGenerativeAI({ apiKey: ref.apiKey })(ref.model);
+    return createGoogleGenerativeAI({ apiKey: ref.apiKey, fetch })(ref.model);
   }
-  return createOpenRouter({ apiKey: ref.apiKey })(
+  return createOpenRouter({ apiKey: ref.apiKey, fetch })(
     ref.model,
     ref.routeOnly?.length ? { provider: { only: ref.routeOnly } } : {},
   );

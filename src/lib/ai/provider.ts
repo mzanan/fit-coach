@@ -103,7 +103,8 @@ export type CoachEvent =
   | { type: "reasoning"; text: string }
   | { type: "delta"; text: string }
   | { type: "question"; text: string }
-  | { type: "started"; assistantId: string; ids: string[] };
+  | { type: "started"; assistantId: string; ids: string[] }
+  | { type: "rate_limited"; retryAfterMs?: number };
 
 export interface ApprovalRequest {
   approvalId: string;
@@ -154,7 +155,9 @@ export async function chatToolsStream(
   ref: ModelRef,
   options: ToolStreamOptions,
 ): Promise<ToolStreamResult> {
-  const model = resolveModel(ref);
+  const model = resolveModel(ref, (retryAfterMs) =>
+    options.onEvent({ type: "rate_limited", retryAfterMs }),
+  );
   const maxTokens = options.maxTokens ?? 3000;
   const approvalFor = options.approvalFor;
   const callT0 = Date.now();

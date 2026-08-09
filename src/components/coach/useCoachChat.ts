@@ -39,6 +39,7 @@ type CoachStreamEvent =
   | { type: "delta"; text: string }
   | { type: "question"; text: string }
   | { type: "started"; assistantId: string; ids: string[] }
+  | { type: "rate_limited"; retryAfterMs?: number }
   | {
       type: "done";
       text: string;
@@ -204,6 +205,15 @@ export function useCoachChat(
           setStatus(STATUS[event.tool] ?? STATUS.thinking);
         } else if (event.type === "started") {
           setStreamingExchange({ ids: event.ids });
+        } else if (event.type === "rate_limited") {
+          const seconds = event.retryAfterMs
+            ? Math.ceil(event.retryAfterMs / 1000)
+            : null;
+          setStatus(
+            seconds
+              ? `Waiting for model quota (~${seconds}s)`
+              : "Waiting for model quota",
+          );
         } else if (event.type === "question") {
           setBubbles((current) => [
             ...current,
