@@ -56,9 +56,7 @@ export function coachNdjsonResponse(
       if (!closed) {
         try {
           controller.close();
-        } catch {
-          // already closed by the runtime
-        }
+        } catch {}
       }
     },
     cancel() {
