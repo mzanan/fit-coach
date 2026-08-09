@@ -58,9 +58,17 @@ function withRetryNotice(
   onRetry: (retryAfterMs: number | undefined) => void,
 ): typeof fetch {
   return async (input, init) => {
+    const t0 = Date.now();
     const response = await fetch(input, init);
+    console.info(
+      `coach: [stage] provider fetch -> ${response.status} in ${Date.now() - t0}ms`,
+    );
     if (RETRYABLE_STATUS.has(response.status) || response.status >= 500) {
-      onRetry(retryDelayMs(response.headers));
+      const delay = retryDelayMs(response.headers);
+      console.info(
+        `coach: [stage] provider returned ${response.status}, retry delay ${delay ?? "unknown"}ms`,
+      );
+      onRetry(delay);
     }
     return response;
   };
