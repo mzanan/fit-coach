@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { COACH_MAX_DURATION_S } from "@/lib/constants";
+import { COACH_MAX_DURATION_SECONDS } from "@/lib/constants";
 import { expireStaleMessage, getMessage } from "@/lib/data/coachMessages";
 import { getUser } from "@/lib/session";
 
-const MAX_STREAM_AGE_MS = (COACH_MAX_DURATION_S + 30) * 1000;
+const MAX_STREAM_AGE_MS = (COACH_MAX_DURATION_SECONDS + 30) * 1000;
 
 export async function GET(
   _request: Request,
