@@ -25,7 +25,10 @@ import {
   discardExchange,
   finishExchange,
   getConversation,
+  getExchangeStatus,
+  updateExchangeContent,
   type CoachMessage,
+  type ExchangeRef,
 } from "@/lib/data/coachMessages";
 import {
   clearPendingWrite,
@@ -198,10 +201,15 @@ async function buildWhoopLines(userId: string): Promise<string[]> {
   const parts: string[] = [];
 
   const r = snap.recovery;
-  if (r?.recovery_score != null && now - r.recorded_at.getTime() < WHOOP_FRESH_MS) {
+  if (
+    r?.recovery_score != null &&
+    now - r.recorded_at.getTime() < WHOOP_FRESH_MS
+  ) {
     const extras = [
       r.hrv_rmssd_milli != null ? `HRV ${round(r.hrv_rmssd_milli)}ms` : null,
-      r.resting_heart_rate != null ? `RHR ${round(r.resting_heart_rate)}bpm` : null,
+      r.resting_heart_rate != null
+        ? `RHR ${round(r.resting_heart_rate)}bpm`
+        : null,
     ].filter(Boolean);
     parts.push(
       `recovery ${round(r.recovery_score)}%${extras.length ? ` (${extras.join(", ")})` : ""}`,
@@ -234,7 +242,9 @@ async function buildWhoopLines(userId: string): Promise<string[]> {
     const avg = strains.length
       ? `, avg strain ${round(strains.reduce((a, b) => a + b, 0) / strains.length, 1)}`
       : "";
-    parts.push(`${snap.recentWorkouts.length} Whoop workouts last 7 days${avg}`);
+    parts.push(
+      `${snap.recentWorkouts.length} Whoop workouts last 7 days${avg}`,
+    );
   }
 
   if (!parts.length) return [];
@@ -272,6 +282,8 @@ export type CoachResult =
       text: string;
       generated: boolean;
       daySummary?: DaySummary;
+      stopped?: boolean;
+      truncated?: boolean;
     }
   | {
       status: "pending";
@@ -372,6 +384,55 @@ async function memoryAndFacts(
   };
 }
 
+const STOP_POLL_MS = 1000;
+const CONTENT_FLUSH_MS = 1000;
+
+function watchForStop(
+  ref: ExchangeRef,
+  controller: AbortController,
+): () => void {
+  const interval = setInterval(() => {
+    if (controller.signal.aborted) return;
+    getExchangeStatus(ref)
+      .then((status) => {
+        if (status === "stopped") controller.abort();
+      })
+      .catch(() => {});
+  }, STOP_POLL_MS);
+  return () => clearInterval(interval);
+}
+
+function bufferedOnEvent(
+  ref: ExchangeRef,
+  forward: (event: CoachEvent) => void,
+): {
+  onEvent: (event: CoachEvent) => void;
+  buffer: () => string;
+  drain: () => Promise<void>;
+} {
+  let text = "";
+  let lastFlush = 0;
+  let inFlight: Promise<void> = Promise.resolve();
+  return {
+    onEvent(event) {
+      if (event.type === "delta") {
+        text += event.text;
+        const now = Date.now();
+        if (now - lastFlush >= CONTENT_FLUSH_MS) {
+          lastFlush = now;
+          const snapshot = text;
+          inFlight = inFlight.then(() =>
+            updateExchangeContent(ref, snapshot).catch(() => {}),
+          );
+        }
+      }
+      forward(event);
+    },
+    buffer: () => text,
+    drain: () => inFlight,
+  };
+}
+
 function deferLearn(run: () => Promise<void>): void {
   after(() =>
     run().catch((err) =>
@@ -466,7 +527,9 @@ function exchangeOf(
     ? "(tapped the weekly summary button)"
     : question?.trim() || "(daily check-in)";
   return [
-    ...(toolLog.length ? ["Data the coach read from the app:", ...toolLog] : []),
+    ...(toolLog.length
+      ? ["Data the coach read from the app:", ...toolLog]
+      : []),
     `User: ${asked}`,
     `Coach: ${text}`,
   ].join("\n");
@@ -478,6 +541,7 @@ async function toolReply(
   userId: string,
   profile: Profile,
   history: CoachMessage[],
+  exchange: ExchangeRef,
   question?: string,
   onEvent?: (event: CoachEvent) => void,
   signal?: AbortSignal,
@@ -486,15 +550,22 @@ async function toolReply(
   const setup = await toolSetup(userId, profile, history, question);
 
   try {
-    const { text, toolLog, approvals, messages, writeAttempted, writeOutputs } =
-      await chatToolsStream(routeOnly ? { ...ref, routeOnly } : ref, {
-        instructions: setup.instructions,
-        messages: setup.messages,
-        tools: buildCoachTools(userId, profile, setup.today),
-        approvalFor: WRITE_TOOL,
-        onEvent: onEvent ?? (() => {}),
-        signal,
-      });
+    const {
+      text,
+      toolLog,
+      approvals,
+      messages,
+      writeAttempted,
+      writeOutputs,
+      interrupted,
+    } = await chatToolsStream(routeOnly ? { ...ref, routeOnly } : ref, {
+      instructions: setup.instructions,
+      messages: setup.messages,
+      tools: buildCoachTools(userId, profile, setup.today),
+      approvalFor: WRITE_TOOL,
+      onEvent: onEvent ?? (() => {}),
+      signal,
+    });
 
     if (approvals.length) {
       const resolved = await Promise.all(
@@ -515,7 +586,8 @@ async function toolReply(
           ? [{ ...preview.preview, toolCallId: approvals[index].toolCallId }]
           : [],
       );
-      const saved = !signal?.aborted;
+      const saved =
+        !signal?.aborted && (await getExchangeStatus(exchange)) !== "stopped";
       if (saved) {
         await savePendingWrite(userId, {
           approvalId: approvals[0].approvalId,
@@ -553,7 +625,12 @@ async function toolReply(
           ),
         );
       }
-      return { status: "answered", text: answer, generated: true };
+      return {
+        status: "answered",
+        text: answer,
+        generated: true,
+        truncated: interrupted,
+      };
     }
 
     const ctx = await buildContext(userId, profile);
@@ -590,20 +667,25 @@ async function contextReply(
   ].join("\n");
 
   try {
-    const text = await chat(ref, [
-      {
-        role: "system",
-        content: [
-          COACH_FRAME + diningRule(profile) + coachingRules(profile),
-          ...parts,
-        ].join("\n\n"),
-      },
-      ...history.map((message) => ({
-        role: message.role,
-        content: message.content,
-      })),
-      { role: "user", content: userMsg },
-    ]);
+    const text = await chat(
+      ref,
+      [
+        {
+          role: "system",
+          content: [
+            COACH_FRAME + diningRule(profile) + coachingRules(profile),
+            ...parts,
+          ].join("\n\n"),
+        },
+        ...history.map((message) => ({
+          role: message.role,
+          content: message.content,
+        })),
+        { role: "user", content: userMsg },
+      ],
+      600,
+      signal,
+    );
     if (text) {
       const asked = appGenerated
         ? "(tapped the weekly summary button)"
@@ -635,12 +717,13 @@ async function contextReply(
   }
 }
 
+const STOPPED_MID_ANSWER = "(stopped before an answer began)";
+
 export async function coachReply(
   userId: string,
   profile: Profile,
   question?: string,
   onEvent?: (event: CoachEvent) => void,
-  signal?: AbortSignal,
   summary = false,
 ): Promise<CoachResult> {
   await clearPendingWrite(userId);
@@ -652,11 +735,16 @@ export async function coachReply(
       question?.trim() || null,
       INTERRUPTED_ANSWER,
     );
+    onEvent?.({
+      type: "started",
+      assistantId: exchange.assistantId,
+      ids: exchange.ids,
+    });
     try {
       const ctx = await buildContext(userId, profile);
       const text = deterministicReply(ctx);
-      if (signal?.aborted) return { status: "answered", text, generated: false };
-      await finishExchange(exchange, text, false);
+      const finalized = await finishExchange(exchange, text, false);
+      if (!finalized) await updateExchangeContent(exchange, text);
       return { status: "answered", text, generated: false };
     } catch (error) {
       await discardExchange(exchange);
@@ -683,6 +771,19 @@ export async function coachReply(
     question?.trim() || null,
     INTERRUPTED_ANSWER,
   );
+  onEvent?.({
+    type: "started",
+    assistantId: exchange.assistantId,
+    ids: exchange.ids,
+  });
+
+  const controller = new AbortController();
+  const stopWatch = watchForStop(exchange, controller);
+  const {
+    onEvent: wrappedOnEvent,
+    buffer,
+    drain,
+  } = bufferedOnEvent(exchange, onEvent ?? (() => {}));
 
   let result: CoachResult;
   try {
@@ -694,9 +795,10 @@ export async function coachReply(
             userId,
             profile,
             history,
+            exchange,
             question,
-            onEvent,
-            signal,
+            wrappedOnEvent,
+            controller.signal,
             summary,
           )
         : await contextReply(
@@ -705,22 +807,53 @@ export async function coachReply(
             profile,
             history,
             question,
-            signal,
+            controller.signal,
             summary,
           );
   } catch (error) {
+    stopWatch();
+    if (controller.signal.aborted) {
+      await drain();
+      const text = buffer() || STOPPED_MID_ANSWER;
+      await updateExchangeContent(exchange, text);
+      return { status: "answered", text, generated: false, stopped: true };
+    }
     await discardExchange(exchange);
     throw error;
   }
+  stopWatch();
 
   if (result.status === "pending") {
     if (result.saved) await discardExchange(exchange);
     return result;
   }
 
-  if (signal?.aborted) return result;
+  const genuinelyStopped =
+    controller.signal.aborted && (result.truncated ?? !result.generated);
+  if (genuinelyStopped) {
+    await drain();
+    const text = buffer() || STOPPED_MID_ANSWER;
+    await updateExchangeContent(exchange, text);
+    return { status: "answered", text, generated: false, stopped: true };
+  }
 
-  await finishExchange(exchange, result.text, result.generated);
+  await drain();
+  const finalized = await finishExchange(
+    exchange,
+    result.text,
+    result.generated,
+    undefined,
+    true,
+  );
+  if (!finalized) {
+    await updateExchangeContent(exchange, result.text);
+    return {
+      status: "answered",
+      text: result.text,
+      generated: false,
+      stopped: true,
+    };
+  }
   return result;
 }
 
@@ -746,7 +879,12 @@ export async function resolvePendingWrite(
   const appGenerated = pending.appGenerated;
 
   if (!approved) {
-    const exchange = await beginExchange(userId, question ?? null, INTERRUPTED_ANSWER);
+    const exchange = await beginExchange(
+      userId,
+      question ?? null,
+      INTERRUPTED_ANSWER,
+      "stopped",
+    );
     try {
       await finishExchange(exchange, DENIED, false);
       return { status: "answered", text: DENIED, generated: false };
@@ -760,6 +898,7 @@ export async function resolvePendingWrite(
     userId,
     question ?? null,
     INTERRUPTED_ANSWER,
+    "stopped",
   );
 
   try {

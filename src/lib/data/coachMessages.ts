@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt } from "drizzle-orm";
 
 import type { DaySummary } from "@/lib/ai/coach";
 import { db, schema } from "@/lib/db";
@@ -10,7 +10,7 @@ const { coach_messages } = schema;
 
 export const HISTORY_TURNS = 12;
 
-export type CoachMessageStatus = "done" | "stopped";
+export type CoachMessageStatus = "done" | "stopped" | "streaming";
 
 export interface CoachMessage {
   id: string;
@@ -26,6 +26,7 @@ export interface ExchangeRef {
   userId: string;
   ids: string[];
   assistantId: string;
+  pendingStatus: "streaming" | "stopped";
 }
 
 function toRole(value: string): "user" | "assistant" {
@@ -33,7 +34,8 @@ function toRole(value: string): "user" | "assistant" {
 }
 
 function toStatus(value: string): CoachMessageStatus {
-  return value === "stopped" ? "stopped" : "done";
+  if (value === "stopped" || value === "streaming") return value;
+  return "done";
 }
 
 function parseDaySummary(raw: string | null): DaySummary | undefined {
@@ -132,6 +134,7 @@ export async function beginExchange(
   userId: string,
   question: string | null,
   placeholder: string,
+  status: "streaming" | "stopped" = "streaming",
 ): Promise<ExchangeRef> {
   const now = Date.now();
   const assistantId = newId();
@@ -145,7 +148,7 @@ export async function beginExchange(
             role: "user",
             content: question,
             generated: false,
-            status: "stopped",
+            status,
             day_summary: null,
             created_at: new Date(now),
           },
@@ -157,7 +160,7 @@ export async function beginExchange(
       role: "assistant",
       content: placeholder,
       generated: false,
-      status: "stopped",
+      status,
       day_summary: null,
       created_at: new Date(now + 1),
     },
@@ -167,6 +170,7 @@ export async function beginExchange(
     userId,
     ids: [...(questionId ? [questionId] : []), assistantId],
     assistantId,
+    pendingStatus: status,
   };
 }
 
@@ -175,8 +179,23 @@ export async function finishExchange(
   answer: string,
   generated: boolean,
   daySummary?: DaySummary,
-): Promise<void> {
+  force = false,
+): Promise<boolean> {
+  let finalized = false;
   await db.transaction(async (tx) => {
+    const updated = await tx
+      .update(coach_messages)
+      .set({ generated, status: "done" })
+      .where(
+        and(
+          inArray(coach_messages.id, ref.ids),
+          eq(coach_messages.user_id, ref.userId),
+          ...(force ? [] : [eq(coach_messages.status, ref.pendingStatus)]),
+        ),
+      )
+      .returning({ id: coach_messages.id });
+    finalized = updated.length > 0;
+    if (!finalized) return;
     await tx
       .update(coach_messages)
       .set({
@@ -189,16 +208,97 @@ export async function finishExchange(
           eq(coach_messages.user_id, ref.userId),
         ),
       );
-    await tx
-      .update(coach_messages)
-      .set({ generated, status: "done" })
-      .where(
-        and(
-          inArray(coach_messages.id, ref.ids),
-          eq(coach_messages.user_id, ref.userId),
-        ),
-      );
   });
+  return finalized;
+}
+
+export async function updateExchangeContent(
+  ref: ExchangeRef,
+  content: string,
+): Promise<void> {
+  await db
+    .update(coach_messages)
+    .set({ content })
+    .where(
+      and(
+        eq(coach_messages.id, ref.assistantId),
+        eq(coach_messages.user_id, ref.userId),
+      ),
+    );
+}
+
+export async function stopExchange(
+  userId: string,
+  ids: string[],
+): Promise<boolean> {
+  if (!ids.length) return false;
+  const updated = await db
+    .update(coach_messages)
+    .set({ status: "stopped" })
+    .where(
+      and(
+        inArray(coach_messages.id, ids),
+        eq(coach_messages.user_id, userId),
+        eq(coach_messages.status, "streaming"),
+      ),
+    )
+    .returning({ id: coach_messages.id });
+  return updated.length > 0;
+}
+
+export async function getExchangeStatus(
+  ref: ExchangeRef,
+): Promise<CoachMessageStatus | null> {
+  const [row] = await db
+    .select({ status: coach_messages.status })
+    .from(coach_messages)
+    .where(
+      and(
+        eq(coach_messages.id, ref.assistantId),
+        eq(coach_messages.user_id, ref.userId),
+      ),
+    )
+    .limit(1);
+  return row ? toStatus(row.status) : null;
+}
+
+export async function getMessage(
+  userId: string,
+  id: string,
+): Promise<CoachMessage | null> {
+  const [row] = await db
+    .select()
+    .from(coach_messages)
+    .where(and(eq(coach_messages.id, id), eq(coach_messages.user_id, userId)))
+    .limit(1);
+  if (!row) return null;
+  return {
+    id: row.id,
+    role: toRole(row.role),
+    content: row.content,
+    generated: row.generated,
+    status: toStatus(row.status),
+    created_at: row.created_at,
+    daySummary: parseDaySummary(row.day_summary),
+  };
+}
+
+export async function expireStaleMessage(
+  userId: string,
+  id: string,
+  maxAgeMs: number,
+): Promise<void> {
+  await db
+    .update(coach_messages)
+    .set({ status: "stopped" })
+    .where(
+      and(
+        eq(coach_messages.id, id),
+        eq(coach_messages.user_id, userId),
+        eq(coach_messages.status, "streaming"),
+        lt(coach_messages.created_at, new Date(Date.now() - maxAgeMs)),
+      ),
+    );
 }
 
 export async function discardExchange(ref: ExchangeRef): Promise<void> {

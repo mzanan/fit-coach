@@ -1,7 +1,6 @@
 {
   "regions": ["hnd1"],
   "functions": {
-    "src/app/api/coach/route.ts": { "supportsCancellation": true },
     "src/app/api/coach/approve/route.ts": { "supportsCancellation": true },
     "src/app/api/import/extract/route.ts": { "supportsCancellation": true }
   },

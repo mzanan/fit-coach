@@ -44,6 +44,7 @@ export async function chat(
   ref: ModelRef,
   messages: ChatMessage[],
   maxTokens = 600,
+  signal?: AbortSignal,
 ): Promise<string> {
   const { instructions, turns } = split(messages);
   const { text } = await generateText({
@@ -52,10 +53,10 @@ export async function chat(
     messages: turns,
     maxOutputTokens: maxTokens + googleThinkingBudget(ref),
     providerOptions: googleOnlyOptions(ref),
+    abortSignal: signal,
   });
   return text.trim();
 }
-
 
 const GOOGLE_THINKING: Record<ReasoningEffort, number> = {
   none: 0,
@@ -101,7 +102,9 @@ export type CoachEvent =
   | { type: "status"; tool: string }
   | { type: "reasoning"; text: string }
   | { type: "delta"; text: string }
-  | { type: "question"; text: string };
+  | { type: "question"; text: string }
+  | { type: "started"; assistantId: string; ids: string[] }
+  | { type: "rate_limited"; retryAfterMs?: number };
 
 export interface ApprovalRequest {
   approvalId: string;
@@ -117,6 +120,7 @@ export interface ToolStreamResult {
   messages: ModelMessage[];
   writeAttempted: boolean;
   writeOutputs: { logged: boolean; error?: string }[];
+  interrupted: boolean;
 }
 
 export interface ToolStreamOptions {
@@ -152,7 +156,9 @@ export async function chatToolsStream(
   ref: ModelRef,
   options: ToolStreamOptions,
 ): Promise<ToolStreamResult> {
-  const model = resolveModel(ref);
+  const model = resolveModel(ref, (retryAfterMs) =>
+    options.onEvent({ type: "rate_limited", retryAfterMs }),
+  );
   const maxTokens = options.maxTokens ?? 3000;
   const approvalFor = options.approvalFor;
   const result = streamText({
@@ -173,6 +179,8 @@ export async function chatToolsStream(
   const writeOutputs: { logged: boolean; error?: string }[] = [];
   let writeAttempted = false;
   let text = "";
+  let sawAbort = false;
+  let sawFinish = false;
   for await (const part of result.fullStream) {
     if (part.type === "tool-call") {
       if (part.toolName === approvalFor) writeAttempted = true;
@@ -203,15 +211,20 @@ export async function chatToolsStream(
     } else if (part.type === "text-delta") {
       text += part.text;
       options.onEvent({ type: "delta", text: part.text });
+    } else if (part.type === "abort") {
+      sawAbort = true;
+    } else if (part.type === "finish") {
+      sawFinish = true;
     }
   }
+  let interrupted = sawAbort && !sawFinish;
 
   const messages = await result.responseMessages;
   console.info(
     `coach: ${ref.provider}/${ref.model} finished with ${approvals.length} approval(s), ${toolLog.length} tool result(s), ${text.trim().length} chars`,
   );
 
-  if (text.trim() || approvals.length) {
+  if (text.trim() || approvals.length || interrupted) {
     return {
       text: text.trim(),
       toolLog,
@@ -219,6 +232,7 @@ export async function chatToolsStream(
       messages,
       writeAttempted,
       writeOutputs,
+      interrupted,
     };
   }
 
@@ -233,10 +247,19 @@ export async function chatToolsStream(
     providerOptions: reasoningOptions(ref),
     abortSignal: options.signal,
   });
-  for await (const delta of closing.textStream) {
-    text += delta;
-    options.onEvent({ type: "delta", text: delta });
+  sawAbort = false;
+  sawFinish = false;
+  for await (const part of closing.fullStream) {
+    if (part.type === "text-delta") {
+      text += part.text;
+      options.onEvent({ type: "delta", text: part.text });
+    } else if (part.type === "abort") {
+      sawAbort = true;
+    } else if (part.type === "finish") {
+      sawFinish = true;
+    }
   }
+  interrupted = sawAbort && !sawFinish;
   return {
     text: text.trim(),
     toolLog,
@@ -244,6 +267,7 @@ export async function chatToolsStream(
     messages,
     writeAttempted,
     writeOutputs,
+    interrupted,
   };
 }
 
@@ -338,7 +362,9 @@ export async function chatJson<T>(
     );
   }
   if (routeOnly === null) {
-    throw new Error(`Model ${ref.model} has no provider with structured output`);
+    throw new Error(
+      `Model ${ref.model} has no provider with structured output`,
+    );
   }
   const { instructions, turns } = split(messages);
   try {
