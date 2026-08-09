@@ -541,6 +541,7 @@ async function toolReply(
   userId: string,
   profile: Profile,
   history: CoachMessage[],
+  exchange: ExchangeRef,
   question?: string,
   onEvent?: (event: CoachEvent) => void,
   signal?: AbortSignal,
@@ -585,7 +586,8 @@ async function toolReply(
           ? [{ ...preview.preview, toolCallId: approvals[index].toolCallId }]
           : [],
       );
-      const saved = !signal?.aborted;
+      const saved =
+        !signal?.aborted && (await getExchangeStatus(exchange)) !== "stopped";
       if (saved) {
         await savePendingWrite(userId, {
           approvalId: approvals[0].approvalId,
@@ -728,7 +730,11 @@ export async function coachReply(
 
   const ref = await userModelRef(userId);
   if (!ref) {
-    const exchange = await beginExchange(userId, question?.trim() || null, "");
+    const exchange = await beginExchange(
+      userId,
+      question?.trim() || null,
+      INTERRUPTED_ANSWER,
+    );
     onEvent?.({
       type: "started",
       assistantId: exchange.assistantId,
@@ -737,7 +743,8 @@ export async function coachReply(
     try {
       const ctx = await buildContext(userId, profile);
       const text = deterministicReply(ctx);
-      await finishExchange(exchange, text, false);
+      const finalized = await finishExchange(exchange, text, false);
+      if (!finalized) await updateExchangeContent(exchange, text);
       return { status: "answered", text, generated: false };
     } catch (error) {
       await discardExchange(exchange);
@@ -759,7 +766,11 @@ export async function coachReply(
     toolPin = null;
   }
 
-  const exchange = await beginExchange(userId, question?.trim() || null, "");
+  const exchange = await beginExchange(
+    userId,
+    question?.trim() || null,
+    INTERRUPTED_ANSWER,
+  );
   onEvent?.({
     type: "started",
     assistantId: exchange.assistantId,
@@ -784,6 +795,7 @@ export async function coachReply(
             userId,
             profile,
             history,
+            exchange,
             question,
             wrappedOnEvent,
             controller.signal,

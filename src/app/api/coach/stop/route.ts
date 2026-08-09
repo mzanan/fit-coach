@@ -5,7 +5,7 @@ import { stopExchange } from "@/lib/data/coachMessages";
 import { getUser } from "@/lib/session";
 
 const bodySchema = z.object({
-  ids: z.array(z.string().min(1)).min(1),
+  ids: z.array(z.string().min(1).max(64)).min(1).max(2),
 });
 
 export async function POST(request: Request) {

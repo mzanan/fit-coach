@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt } from "drizzle-orm";
 
 import type { DaySummary } from "@/lib/ai/coach";
 import { db, schema } from "@/lib/db";
@@ -281,6 +281,24 @@ export async function getMessage(
     created_at: row.created_at,
     daySummary: parseDaySummary(row.day_summary),
   };
+}
+
+export async function expireStaleMessage(
+  userId: string,
+  id: string,
+  maxAgeMs: number,
+): Promise<void> {
+  await db
+    .update(coach_messages)
+    .set({ status: "stopped" })
+    .where(
+      and(
+        eq(coach_messages.id, id),
+        eq(coach_messages.user_id, userId),
+        eq(coach_messages.status, "streaming"),
+        lt(coach_messages.created_at, new Date(Date.now() - maxAgeMs)),
+      ),
+    );
 }
 
 export async function discardExchange(ref: ExchangeRef): Promise<void> {

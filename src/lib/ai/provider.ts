@@ -247,6 +247,8 @@ export async function chatToolsStream(
     providerOptions: reasoningOptions(ref),
     abortSignal: options.signal,
   });
+  sawAbort = false;
+  sawFinish = false;
   for await (const part of closing.fullStream) {
     if (part.type === "text-delta") {
       text += part.text;
