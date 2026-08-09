@@ -70,14 +70,16 @@ export function resolveModel(
   ref: ModelRef,
   onRetry?: (retryAfterMs: number | undefined) => void,
 ): LanguageModel {
-  const fetch = onRetry ? withRetryNotice(onRetry) : undefined;
+  const customFetch = onRetry ? withRetryNotice(onRetry) : undefined;
   if (ref.provider === "groq") {
-    return createGroq({ apiKey: ref.apiKey, fetch })(ref.model);
+    return createGroq({ apiKey: ref.apiKey, fetch: customFetch })(ref.model);
   }
   if (ref.provider === "google") {
-    return createGoogleGenerativeAI({ apiKey: ref.apiKey, fetch })(ref.model);
+    return createGoogleGenerativeAI({ apiKey: ref.apiKey, fetch: customFetch })(
+      ref.model,
+    );
   }
-  return createOpenRouter({ apiKey: ref.apiKey, fetch })(
+  return createOpenRouter({ apiKey: ref.apiKey, fetch: customFetch })(
     ref.model,
     ref.routeOnly?.length ? { provider: { only: ref.routeOnly } } : {},
   );

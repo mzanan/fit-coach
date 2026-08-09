@@ -283,6 +283,7 @@ export type CoachResult =
       generated: boolean;
       daySummary?: DaySummary;
       stopped?: boolean;
+      truncated?: boolean;
     }
   | {
       status: "pending";
@@ -548,15 +549,22 @@ async function toolReply(
   const setup = await toolSetup(userId, profile, history, question);
 
   try {
-    const { text, toolLog, approvals, messages, writeAttempted, writeOutputs } =
-      await chatToolsStream(routeOnly ? { ...ref, routeOnly } : ref, {
-        instructions: setup.instructions,
-        messages: setup.messages,
-        tools: buildCoachTools(userId, profile, setup.today),
-        approvalFor: WRITE_TOOL,
-        onEvent: onEvent ?? (() => {}),
-        signal,
-      });
+    const {
+      text,
+      toolLog,
+      approvals,
+      messages,
+      writeAttempted,
+      writeOutputs,
+      interrupted,
+    } = await chatToolsStream(routeOnly ? { ...ref, routeOnly } : ref, {
+      instructions: setup.instructions,
+      messages: setup.messages,
+      tools: buildCoachTools(userId, profile, setup.today),
+      approvalFor: WRITE_TOOL,
+      onEvent: onEvent ?? (() => {}),
+      signal,
+    });
 
     if (approvals.length) {
       const resolved = await Promise.all(
@@ -615,7 +623,12 @@ async function toolReply(
           ),
         );
       }
-      return { status: "answered", text: answer, generated: true };
+      return {
+        status: "answered",
+        text: answer,
+        generated: true,
+        truncated: interrupted,
+      };
     }
 
     const ctx = await buildContext(userId, profile);
@@ -803,7 +816,8 @@ export async function coachReply(
     return result;
   }
 
-  const genuinelyStopped = controller.signal.aborted && !result.generated;
+  const genuinelyStopped =
+    controller.signal.aborted && (result.truncated ?? !result.generated);
   if (genuinelyStopped) {
     await drain();
     const text = buffer() || STOPPED_MID_ANSWER;
@@ -817,7 +831,7 @@ export async function coachReply(
     result.text,
     result.generated,
     undefined,
-    result.generated,
+    controller.signal.aborted,
   );
   if (!finalized) {
     await updateExchangeContent(exchange, result.text);

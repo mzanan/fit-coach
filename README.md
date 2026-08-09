@@ -8,13 +8,13 @@ Built mobile-first: the core loop is logging a meal from a personal catalog in a
 
 ## Stack
 
-| Layer | Choice |
-|---|---|
-| App | Next.js 16 (App Router), React 19, Tailwind v4, Radix primitives |
-| Data | Turso (libSQL) + Drizzle ORM |
-| Auth | Better Auth: Google OAuth primary, email OTP secondary |
-| AI | Vercel AI SDK v7, per-user BYOK across Groq / OpenRouter / Google |
-| Hosting | Vercel (`hnd1`, colocated with the Turso region) |
+| Layer   | Choice                                                            |
+| ------- | ----------------------------------------------------------------- |
+| App     | Next.js 16 (App Router), React 19, Tailwind v4, Radix primitives  |
+| Data    | Turso (libSQL) + Drizzle ORM                                      |
+| Auth    | Better Auth: Google OAuth primary, email OTP secondary            |
+| AI      | Vercel AI SDK v7, per-user BYOK across Groq / OpenRouter / Google |
+| Hosting | Vercel (`hnd1`, colocated with the Turso region)                  |
 
 ## Running locally
 
@@ -43,7 +43,7 @@ Three provider slots, deliberately separate because they have different constrai
 - **Vision** (InBody scan OCR): a system Gemini key, because it is a fixed pipeline tuned against a real result sheet rather than something the user configures.
 - **Embeddings** (long-term memory): also Gemini, because Groq publishes no embedding model. Pinned to `gemini-embedding-001` truncated to 768 dimensions, which must match the `F32_BLOB(n)` column.
 
-Model capability is not uniform and no layer normalizes it, so the app keeps its own capability registry: it reads the provider catalog, marks which models declare tool use and structured output, and gates features per model instead of failing at request time. Models are named where behavior was actually measured rather than inferred from a capability flag, because *declaring* tool support and *choosing to call a write tool when asked* are different things.
+Model capability is not uniform and no layer normalizes it, so the app keeps its own capability registry: it reads the provider catalog, marks which models declare tool use and structured output, and gates features per model instead of failing at request time. Models are named where behavior was actually measured rather than inferred from a capability flag, because _declaring_ tool support and _choosing to call a write tool when asked_ are different things.
 
 ### The coach is an agent, not a prompt
 
@@ -58,25 +58,25 @@ The coach runs on the SDK's native tool loop with five tools: `get_today`, `sear
 
 Where a prompt rule proved insufficient, the rule moved into code. The model choosing a portion size on its own became an app-rendered size picker whose choice is applied at the tool's `execute()`; the model claiming a write it never performed became an app-side check against whether the tool actually ran.
 
-**The answer itself is server-owned, not tied to the request that started it.** `/api/coach` does not use Vercel's opt-in request cancellation, so a refresh, a backgrounded tab or a dropped connection no longer kills the generation: it keeps running to completion server-side, streaming its own partial text into the row every second so a reload can pick it up mid-answer instead of losing it. Stop is its own request (`/api/coach/stop`) rather than a side effect of the client disconnecting, resolved with a single guarded `UPDATE ... WHERE status = 'streaming'` so a genuine Stop and the answer finishing at the same instant can never race into a corrupted state, only one deterministic winner. Whatever had streamed before Stop landed is kept, the same way Claude or ChatGPT keep a stopped answer rather than discarding it. `/api/coach/approve` (the write-confirmation flow) still uses the older request-bound cancellation; unifying it is open work.
+**The answer itself is server-owned, not tied to the request that started it.** `/api/coach` does not use Vercel's opt-in request cancellation, so a refresh, a backgrounded tab or a dropped connection no longer kills the generation: it keeps running to completion server-side, streaming its own partial text into the row every second so a reload can pick it up mid-answer instead of losing it. Stop is its own request (`/api/coach/stop`) rather than a side effect of the client disconnecting, resolved with a guarded `UPDATE ... WHERE status = 'streaming'`. Precedence when Stop and completion land close together: the AI SDK's own stream reports whether generation was actually cut short (an `abort` part) or ran to a natural finish; a genuinely-cut-short answer keeps whatever had streamed so far and is marked stopped, the same way Claude or ChatGPT keep a stopped answer rather than discarding it, while a late Stop that lost the race against a real, complete answer is ignored so a finished reply is never mislabeled as interrupted. `/api/coach/approve` (the write-confirmation flow) still uses the older request-bound cancellation; unifying it is open work.
 
 ### Memory
 
 Three stores, each solving a different problem:
 
-| Store | Shape | Purpose |
-|---|---|---|
-| `coach_messages` | Full turns, verbatim once done; a row mid-generation carries live partial text and a `streaming` status until it finalizes or is stopped | Conversation continuity. The last N turns go into every call. |
-| `coach_memory` | One rolling ~150-word summary per user | Cheap always-on context that survives clearing the chat and works without an embeddings key. |
-| `coach_facts` | Discrete facts, one row each, with a 768-dim embedding | Durable preferences, constraints, corrections and routines, retrieved by cosine similarity. |
+| Store            | Shape                                                                                                                                    | Purpose                                                                                      |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `coach_messages` | Full turns, verbatim once done; a row mid-generation carries live partial text and a `streaming` status until it finalizes or is stopped | Conversation continuity. The last N turns go into every call.                                |
+| `coach_memory`   | One rolling ~150-word summary per user                                                                                                   | Cheap always-on context that survives clearing the chat and works without an embeddings key. |
+| `coach_facts`    | Discrete facts, one row each, with a 768-dim embedding                                                                                   | Durable preferences, constraints, corrections and routines, retrieved by cosine similarity.  |
 
 `coach_facts` retrieval uses libSQL's native `vector_distance_cos` with thresholds calibrated against measured distances (retrieval 0.45, semantic dedup 0.06). It filters by `user_id` and then scans rather than using an ANN index, because libSQL's `vector_top_k` is global and would leak or drop rows across users.
 
-**Supersession.** A vector store models similarity, not time: two facts stored months apart rank identically if the text matches, so a correction used to sit alongside the belief it replaced and both could be retrieved. Facts therefore carry a `subject`, a normalized key naming *what the fact is about* (`salmon`, `training_time`). A new fact deactivates every active fact sharing its subject, inside a transaction, and retrieval only reads active rows. Superseded rows are retained with a `superseded_by` pointer rather than deleted, so the chain stays auditable.
+**Supersession.** A vector store models similarity, not time: two facts stored months apart rank identically if the text matches, so a correction used to sit alongside the belief it replaced and both could be retrieved. Facts therefore carry a `subject`, a normalized key naming _what the fact is about_ (`salmon`, `training_time`). A new fact deactivates every active fact sharing its subject, inside a transaction, and retrieval only reads active rows. Superseded rows are retained with a `superseded_by` pointer rather than deleted, so the chain stays auditable.
 
-The invariant is *at most one active fact per (user, subject)*, and it is enforced twice: in code, where the semantic-dedup path is scoped to the same subject so it can never merge two different topics into one row, and in the schema, by a partial unique index that makes the invalid state unrepresentable regardless of what the code does. Facts with no subject are exempt from both, which is what lets rows written before this shipped keep working unchanged.
+The invariant is _at most one active fact per (user, subject)_, and it is enforced twice: in code, where the semantic-dedup path is scoped to the same subject so it can never merge two different topics into one row, and in the schema, by a partial unique index that makes the invalid state unrepresentable regardless of what the code does. Facts with no subject are exempt from both, which is what lets rows written before this shipped keep working unchanged.
 
-The decisive detail is that the model is asked what a fact is *about*, never whether it *contradicts* something. An isolated experiment measured that similarity alone cannot carry that decision: genuine same-topic contradictions landed between 0.1152 and 0.2056 cosine distance, while a genuinely unrelated pair landed at 0.1754, inside that range. No threshold separates the two classes, so the resolution is an exact key match with no distance involved.
+The decisive detail is that the model is asked what a fact is _about_, never whether it _contradicts_ something. An isolated experiment measured that similarity alone cannot carry that decision: genuine same-topic contradictions landed between 0.1152 and 0.2056 cosine distance, while a genuinely unrelated pair landed at 0.1754, inside that range. No threshold separates the two classes, so the resolution is an exact key match with no distance involved.
 
 ### Background maintenance
 

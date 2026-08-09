@@ -120,6 +120,7 @@ export interface ToolStreamResult {
   messages: ModelMessage[];
   writeAttempted: boolean;
   writeOutputs: { logged: boolean; error?: string }[];
+  interrupted: boolean;
 }
 
 export interface ToolStreamOptions {
@@ -178,6 +179,7 @@ export async function chatToolsStream(
   const writeOutputs: { logged: boolean; error?: string }[] = [];
   let writeAttempted = false;
   let text = "";
+  let interrupted = false;
   for await (const part of result.fullStream) {
     if (part.type === "tool-call") {
       if (part.toolName === approvalFor) writeAttempted = true;
@@ -208,6 +210,8 @@ export async function chatToolsStream(
     } else if (part.type === "text-delta") {
       text += part.text;
       options.onEvent({ type: "delta", text: part.text });
+    } else if (part.type === "abort") {
+      interrupted = true;
     }
   }
 
@@ -216,7 +220,7 @@ export async function chatToolsStream(
     `coach: ${ref.provider}/${ref.model} finished with ${approvals.length} approval(s), ${toolLog.length} tool result(s), ${text.trim().length} chars`,
   );
 
-  if (text.trim() || approvals.length) {
+  if (text.trim() || approvals.length || interrupted) {
     return {
       text: text.trim(),
       toolLog,
@@ -224,6 +228,7 @@ export async function chatToolsStream(
       messages,
       writeAttempted,
       writeOutputs,
+      interrupted,
     };
   }
 
@@ -249,6 +254,7 @@ export async function chatToolsStream(
     messages,
     writeAttempted,
     writeOutputs,
+    interrupted: interrupted || Boolean(options.signal?.aborted),
   };
 }
 
