@@ -6,6 +6,8 @@ import {
   isStepCount,
   streamText,
   NoSuchToolError,
+  type FinishReason,
+  type LanguageModel,
   type ModelMessage,
   type ToolCallRepairFunction,
   type ToolSet,
@@ -47,15 +49,27 @@ export async function chat(
   signal?: AbortSignal,
 ): Promise<string> {
   const { instructions, turns } = split(messages);
-  const { text } = await generateText({
-    model: resolveModel(ref),
+  const maxOutputTokens = maxTokens + googleThinkingBudget(ref);
+  const providerOptions = googleOnlyOptions(ref);
+  const model = resolveModel(ref);
+  const { text, finishReason } = await generateText({
+    model,
     instructions,
     messages: turns,
-    maxOutputTokens: maxTokens + googleThinkingBudget(ref),
-    providerOptions: googleOnlyOptions(ref),
+    maxOutputTokens,
+    providerOptions,
     abortSignal: signal,
   });
-  return text.trim();
+  if (finishReason !== "length" || !text.trim()) return text.trim();
+  return continueGeneratedText(
+    model,
+    instructions,
+    turns,
+    text,
+    maxOutputTokens,
+    providerOptions,
+    signal,
+  );
 }
 
 const GOOGLE_THINKING: Record<ReasoningEffort, number> = {
@@ -96,6 +110,120 @@ function reasoningOptions(ref: ModelRef): SharedV4ProviderOptions | undefined {
       },
     },
   };
+}
+
+const TEXT_CONTINUE_LIMIT = 3;
+const OVERLAP_WINDOW = 80;
+const MIN_OVERLAP = 4;
+
+const CONTINUE_PROMPT =
+  "Continue the answer below from exactly where it stops. Write only the missing rest of it, do not repeat any word already written, no preface, no re-greeting. If it already reads as a complete answer, reply with nothing.";
+
+function stripOverlap(
+  precedingTail: string,
+  next: string,
+): { text: string; stripped: boolean } {
+  const max = Math.min(precedingTail.length, next.length, OVERLAP_WINDOW);
+  for (let len = max; len >= MIN_OVERLAP; len--) {
+    if (precedingTail.slice(-len) === next.slice(0, len)) {
+      return { text: next.slice(len), stripped: true };
+    }
+  }
+  return { text: next, stripped: false };
+}
+
+function continuationDelta(prior: string, next: string): string {
+  const { text, stripped } = stripOverlap(prior.slice(-OVERLAP_WINDOW), next);
+  if (!text) return "";
+  if (stripped || !prior) return text;
+  const priorClean = /[\s([{-]$/.test(prior);
+  const nextClean = /^[\s.,;:!?)\]}-]/.test(text);
+  return priorClean || nextClean ? text : ` ${text}`;
+}
+
+async function continueGeneratedText(
+  model: LanguageModel,
+  instructions: string | undefined,
+  priorMessages: { role: "user" | "assistant"; content: string }[],
+  text: string,
+  maxOutputTokens: number,
+  providerOptions: SharedV4ProviderOptions | undefined,
+  signal: AbortSignal | undefined,
+): Promise<string> {
+  let finishReason: FinishReason = "length";
+  for (let i = 0; i < TEXT_CONTINUE_LIMIT && finishReason === "length"; i++) {
+    const result = await generateText({
+      model,
+      instructions,
+      messages: [
+        ...priorMessages,
+        { role: "assistant", content: text },
+        { role: "user", content: CONTINUE_PROMPT },
+      ],
+      maxOutputTokens,
+      providerOptions,
+      abortSignal: signal,
+    });
+    text += continuationDelta(text, result.text);
+    finishReason = result.finishReason;
+  }
+  return text.trim();
+}
+
+async function continueStreamedText(
+  model: LanguageModel,
+  instructions: string,
+  priorMessages: ModelMessage[],
+  precedingTail: string,
+  maxOutputTokens: number,
+  providerOptions: SharedV4ProviderOptions | undefined,
+  signal: AbortSignal | undefined,
+  onEvent: (event: CoachEvent) => void,
+  tools?: ToolSet,
+): Promise<{ text: string; newMessages: ModelMessage[]; aborted: boolean }> {
+  let finishReason: FinishReason = "length";
+  let aborted = false;
+  let text = "";
+  let messages = priorMessages;
+  const newMessages: ModelMessage[] = [];
+  for (
+    let i = 0;
+    i < TEXT_CONTINUE_LIMIT && finishReason === "length" && !aborted;
+    i++
+  ) {
+    const turn: ModelMessage = { role: "user", content: CONTINUE_PROMPT };
+    const result = streamText({
+      model,
+      instructions,
+      messages: [...messages, turn],
+      tools,
+      maxOutputTokens,
+      providerOptions,
+      abortSignal: signal,
+    });
+    let sawFinish = false;
+    let stepText = "";
+    for await (const part of result.fullStream) {
+      if (part.type === "text-delta") {
+        stepText += part.text;
+      } else if (part.type === "finish") {
+        sawFinish = true;
+        finishReason = part.finishReason;
+      } else if (part.type === "abort") {
+        aborted = true;
+      }
+    }
+    const delta = continuationDelta(precedingTail + text, stepText);
+    if (delta) {
+      text += delta;
+      onEvent({ type: "delta", text: delta });
+    }
+    const stepMessages = await result.responseMessages;
+    messages = [...messages, turn, ...stepMessages];
+    newMessages.push(turn, ...stepMessages);
+    if (aborted && !sawFinish) break;
+  }
+  return { text, newMessages, aborted };
 }
 
 export type CoachEvent =
@@ -160,6 +288,8 @@ export async function chatToolsStream(
     options.onEvent({ type: "rate_limited", retryAfterMs }),
   );
   const maxTokens = options.maxTokens ?? 3000;
+  const maxOutputTokens = maxTokens + googleThinkingBudget(ref);
+  const providerOptions = reasoningOptions(ref);
   const approvalFor = options.approvalFor;
   const result = streamText({
     model,
@@ -169,8 +299,8 @@ export async function chatToolsStream(
     toolApproval: approvalFor ? { [approvalFor]: "user-approval" } : undefined,
     repairToolCall: repairToolName(options.tools),
     stopWhen: isStepCount(options.maxSteps ?? 5),
-    maxOutputTokens: maxTokens + googleThinkingBudget(ref),
-    providerOptions: reasoningOptions(ref),
+    maxOutputTokens,
+    providerOptions,
     abortSignal: options.signal,
   });
 
@@ -181,6 +311,7 @@ export async function chatToolsStream(
   let text = "";
   let sawAbort = false;
   let sawFinish = false;
+  let finishReason: FinishReason | undefined;
   for await (const part of result.fullStream) {
     if (part.type === "tool-call") {
       if (part.toolName === approvalFor) writeAttempted = true;
@@ -215,11 +346,29 @@ export async function chatToolsStream(
       sawAbort = true;
     } else if (part.type === "finish") {
       sawFinish = true;
+      finishReason = part.finishReason;
     }
   }
   let interrupted = sawAbort && !sawFinish;
+  let messages: ModelMessage[] = await result.responseMessages;
 
-  const messages = await result.responseMessages;
+  if (finishReason === "length" && text.trim() && !interrupted) {
+    const continued = await continueStreamedText(
+      model,
+      options.instructions,
+      [...options.messages, ...messages],
+      text.slice(-OVERLAP_WINDOW),
+      maxOutputTokens,
+      providerOptions,
+      options.signal,
+      options.onEvent,
+      options.tools,
+    );
+    text += continued.text;
+    messages = [...messages, ...continued.newMessages];
+    if (continued.aborted) interrupted = true;
+  }
+
   console.info(
     `coach: ${ref.provider}/${ref.model} finished with ${approvals.length} approval(s), ${toolLog.length} tool result(s), ${text.trim().length} chars`,
   );
@@ -239,16 +388,22 @@ export async function chatToolsStream(
   const gathered = toolLog.length
     ? `Data already read from the app:\n${toolLog.join("\n")}`
     : "No data could be read from the app.";
+  const closingInstructions = `${options.instructions}\n\nAnswer the user now from the data below. Do not ask for more data.`;
+  const closingMessages: ModelMessage[] = [
+    ...options.messages,
+    { role: "user", content: gathered },
+  ];
   const closing = streamText({
     model,
-    instructions: `${options.instructions}\n\nAnswer the user now from the data below. Do not ask for more data.`,
-    messages: [...options.messages, { role: "user", content: gathered }],
-    maxOutputTokens: maxTokens + googleThinkingBudget(ref),
-    providerOptions: reasoningOptions(ref),
+    instructions: closingInstructions,
+    messages: closingMessages,
+    maxOutputTokens,
+    providerOptions,
     abortSignal: options.signal,
   });
   sawAbort = false;
   sawFinish = false;
+  finishReason = undefined;
   for await (const part of closing.fullStream) {
     if (part.type === "text-delta") {
       text += part.text;
@@ -257,9 +412,27 @@ export async function chatToolsStream(
       sawAbort = true;
     } else if (part.type === "finish") {
       sawFinish = true;
+      finishReason = part.finishReason;
     }
   }
   interrupted = sawAbort && !sawFinish;
+
+  if (finishReason === "length" && text.trim() && !interrupted) {
+    const closingResponseMessages = await closing.responseMessages;
+    const continued = await continueStreamedText(
+      model,
+      closingInstructions,
+      [...closingMessages, ...closingResponseMessages],
+      text.slice(-OVERLAP_WINDOW),
+      maxOutputTokens,
+      providerOptions,
+      options.signal,
+      options.onEvent,
+    );
+    text += continued.text;
+    if (continued.aborted) interrupted = true;
+  }
+
   return {
     text: text.trim(),
     toolLog,
