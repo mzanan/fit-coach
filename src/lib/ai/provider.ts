@@ -179,7 +179,8 @@ export async function chatToolsStream(
   const writeOutputs: { logged: boolean; error?: string }[] = [];
   let writeAttempted = false;
   let text = "";
-  let interrupted = false;
+  let sawAbort = false;
+  let sawFinish = false;
   for await (const part of result.fullStream) {
     if (part.type === "tool-call") {
       if (part.toolName === approvalFor) writeAttempted = true;
@@ -211,9 +212,12 @@ export async function chatToolsStream(
       text += part.text;
       options.onEvent({ type: "delta", text: part.text });
     } else if (part.type === "abort") {
-      interrupted = true;
+      sawAbort = true;
+    } else if (part.type === "finish") {
+      sawFinish = true;
     }
   }
+  let interrupted = sawAbort && !sawFinish;
 
   const messages = await result.responseMessages;
   console.info(
@@ -248,9 +252,12 @@ export async function chatToolsStream(
       text += part.text;
       options.onEvent({ type: "delta", text: part.text });
     } else if (part.type === "abort") {
-      interrupted = true;
+      sawAbort = true;
+    } else if (part.type === "finish") {
+      sawFinish = true;
     }
   }
+  interrupted = sawAbort && !sawFinish;
   return {
     text: text.trim(),
     toolLog,

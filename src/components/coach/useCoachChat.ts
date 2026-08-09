@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -117,6 +117,8 @@ export function useCoachChat(
   const [streamingExchange, setStreamingExchange] = useState<{
     ids: string[];
   } | null>(null);
+  const activeUrlRef = useRef<string | null>(null);
+  const pendingStopRef = useRef(false);
 
   useEffect(() => {
     anchor?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -181,6 +183,8 @@ export function useCoachChat(
     setLoading(true);
     setStatus(STATUS.thinking);
     setStreaming("");
+    activeUrlRef.current = url;
+    pendingStopRef.current = false;
 
     const abort = new AbortController();
     setController(abort);
@@ -205,6 +209,14 @@ export function useCoachChat(
           setStatus(STATUS[event.tool] ?? STATUS.thinking);
         } else if (event.type === "started") {
           setStreamingExchange({ ids: event.ids });
+          if (pendingStopRef.current) {
+            pendingStopRef.current = false;
+            void fetch("/api/coach/stop", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ids: event.ids }),
+            }).catch(() => {});
+          }
         } else if (event.type === "rate_limited") {
           const seconds = event.retryAfterMs
             ? Math.ceil(event.retryAfterMs / 1000)
@@ -270,6 +282,8 @@ export function useCoachChat(
         toast.error("Could not reach the coach");
       }
     } finally {
+      activeUrlRef.current = null;
+      pendingStopRef.current = false;
       setController(null);
       setStreamingExchange(null);
       setStreaming("");
@@ -316,6 +330,10 @@ export function useCoachChat(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: streamingExchange.ids }),
       }).catch(() => {});
+      return;
+    }
+    if (activeUrlRef.current === "/api/coach") {
+      pendingStopRef.current = true;
       return;
     }
     controller?.abort();
