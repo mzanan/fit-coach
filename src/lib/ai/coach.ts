@@ -545,14 +545,9 @@ async function toolReply(
   signal?: AbortSignal,
   appGenerated = false,
 ): Promise<CoachResult> {
-  const stageT0 = Date.now();
   const setup = await toolSetup(userId, profile, history, question);
-  console.info(
-    `coach: [stage] toolSetup (memory+facts) took ${Date.now() - stageT0}ms`,
-  );
 
   try {
-    const streamT0 = Date.now();
     const { text, toolLog, approvals, messages, writeAttempted, writeOutputs } =
       await chatToolsStream(routeOnly ? { ...ref, routeOnly } : ref, {
         instructions: setup.instructions,
@@ -562,9 +557,6 @@ async function toolReply(
         onEvent: onEvent ?? (() => {}),
         signal,
       });
-    console.info(
-      `coach: [stage] chatToolsStream total ${Date.now() - streamT0}ms`,
-    );
 
     if (approvals.length) {
       const resolved = await Promise.all(
@@ -719,11 +711,9 @@ export async function coachReply(
   onEvent?: (event: CoachEvent) => void,
   summary = false,
 ): Promise<CoachResult> {
-  const requestT0 = Date.now();
   await clearPendingWrite(userId);
 
   const ref = await userModelRef(userId);
-  console.info(`coach: [stage] userModelRef took ${Date.now() - requestT0}ms`);
   if (!ref) {
     const exchange = await beginExchange(userId, question?.trim() || null, "");
     onEvent?.({
@@ -743,16 +733,10 @@ export async function coachReply(
   }
 
   const history = await getConversation(userId);
-  console.info(
-    `coach: [stage] getConversation took ${Date.now() - requestT0}ms total`,
-  );
 
   if (summary) {
     question = await summaryQuestion(ref, profile);
     onEvent?.({ type: "question", text: question });
-    console.info(
-      `coach: [stage] summaryQuestion took ${Date.now() - requestT0}ms total`,
-    );
   }
 
   let toolPin: string[] | null | undefined = null;
@@ -761,9 +745,6 @@ export async function coachReply(
   } catch {
     toolPin = null;
   }
-  console.info(
-    `coach: [stage] toolsRouting took ${Date.now() - requestT0}ms total`,
-  );
 
   const exchange = await beginExchange(userId, question?.trim() || null, "");
   onEvent?.({
@@ -771,9 +752,6 @@ export async function coachReply(
     assistantId: exchange.assistantId,
     ids: exchange.ids,
   });
-  console.info(
-    `coach: [stage] beginExchange done at ${Date.now() - requestT0}ms total, calling model now`,
-  );
 
   const controller = new AbortController();
   const stopWatch = watchForStop(exchange, controller);
@@ -809,9 +787,6 @@ export async function coachReply(
           );
   } catch (error) {
     stopWatch();
-    console.info(
-      `coach: [stage] model call threw at ${Date.now() - requestT0}ms total`,
-    );
     if (controller.signal.aborted) {
       await drain();
       const text = buffer() || STOPPED_MID_ANSWER;
@@ -822,9 +797,6 @@ export async function coachReply(
     throw error;
   }
   stopWatch();
-  console.info(
-    `coach: [stage] model call resolved at ${Date.now() - requestT0}ms total, status=${result.status}`,
-  );
 
   if (result.status === "pending") {
     if (result.saved) await discardExchange(exchange);

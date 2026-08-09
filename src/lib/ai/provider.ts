@@ -160,7 +160,6 @@ export async function chatToolsStream(
   );
   const maxTokens = options.maxTokens ?? 3000;
   const approvalFor = options.approvalFor;
-  const callT0 = Date.now();
   const result = streamText({
     model,
     instructions: options.instructions,
@@ -173,20 +172,13 @@ export async function chatToolsStream(
     providerOptions: reasoningOptions(ref),
     abortSignal: options.signal,
   });
-  console.info(
-    `coach: [stage] streamText() constructed ${Date.now() - callT0}ms after call`,
-  );
 
   const toolLog: string[] = [];
   const approvals: ApprovalRequest[] = [];
   const writeOutputs: { logged: boolean; error?: string }[] = [];
   let writeAttempted = false;
   let text = "";
-  let firstTextDelta = true;
   for await (const part of result.fullStream) {
-    console.info(
-      `coach: [stage] fullStream part "${part.type}" at ${Date.now() - callT0}ms`,
-    );
     if (part.type === "tool-call") {
       if (part.toolName === approvalFor) writeAttempted = true;
       options.onEvent({ type: "status", tool: part.toolName });
@@ -214,12 +206,6 @@ export async function chatToolsStream(
     } else if (part.type === "reasoning-delta") {
       options.onEvent({ type: "reasoning", text: part.text });
     } else if (part.type === "text-delta") {
-      if (firstTextDelta) {
-        firstTextDelta = false;
-        console.info(
-          `coach: [stage] first real text-delta at ${Date.now() - callT0}ms`,
-        );
-      }
       text += part.text;
       options.onEvent({ type: "delta", text: part.text });
     }
