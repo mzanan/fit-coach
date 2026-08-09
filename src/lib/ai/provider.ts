@@ -223,9 +223,6 @@ export async function chatToolsStream(
   console.info(
     `coach: ${ref.provider}/${ref.model} finished with ${approvals.length} approval(s), ${toolLog.length} tool result(s), ${text.trim().length} chars`,
   );
-  console.info(
-    `coach: [debug] interrupted=${interrupted} (abort=${sawAbort}, finish=${sawFinish})`,
-  );
 
   if (text.trim() || approvals.length || interrupted) {
     return {
@@ -261,9 +258,6 @@ export async function chatToolsStream(
     }
   }
   interrupted = sawAbort && !sawFinish;
-  console.info(
-    `coach: [debug] closing interrupted=${interrupted} (abort=${sawAbort}, finish=${sawFinish})`,
-  );
   return {
     text: text.trim(),
     toolLog,
