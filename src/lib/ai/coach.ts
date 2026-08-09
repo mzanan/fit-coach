@@ -831,7 +831,7 @@ export async function coachReply(
     result.text,
     result.generated,
     undefined,
-    controller.signal.aborted,
+    true,
   );
   if (!finalized) {
     await updateExchangeContent(exchange, result.text);
