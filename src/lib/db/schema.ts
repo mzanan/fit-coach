@@ -268,6 +268,22 @@ export const coach_facts = sqliteTable(
   ],
 );
 
+export const ai_events = sqliteTable(
+  "ai_events",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    provider: text("provider"),
+    model: text("model"),
+    kind: text("kind").notNull(),
+    detail: text("detail"),
+    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("ai_events_user_idx").on(t.user_id, t.created_at)],
+);
+
 export const workouts = sqliteTable(
   "workouts",
   {

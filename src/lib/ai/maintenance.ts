@@ -6,6 +6,7 @@ import { buildContext } from "@/lib/ai/coachContext";
 import { listActiveFacts } from "@/lib/ai/facts";
 import { consolidateMemory, getCoachMemory } from "@/lib/ai/memory";
 import { userModelRef } from "@/lib/ai/aiCredentials";
+import { logAiEvent, pruneAiEvents } from "@/lib/data/aiEvents";
 import { db, schema } from "@/lib/db";
 
 const { coach_facts, profiles } = schema;
@@ -72,7 +73,17 @@ export async function consolidateMemories(): Promise<{
       );
       if (ok) consolidated++;
       else skipped++;
+      await logAiEvent(profile.user_id, "cron_maintenance", {
+        provider: ref.provider,
+        model: ref.model,
+        detail: ok ? "memory consolidated" : "memory consolidation skipped",
+      });
     } catch (err) {
+      await logAiEvent(profile.user_id, "cron_maintenance", {
+        provider: ref.provider,
+        model: ref.model,
+        detail: "memory consolidation failed",
+      });
       console.error(
         "maintenance: consolidateMemories failed for user",
         profile.user_id,
@@ -83,4 +94,8 @@ export async function consolidateMemories(): Promise<{
   }
 
   return { consolidated, skipped };
+}
+
+export async function pruneEvents(): Promise<{ deleted: number }> {
+  return pruneAiEvents();
 }

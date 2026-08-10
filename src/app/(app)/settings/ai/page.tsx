@@ -1,4 +1,7 @@
+import { History } from "lucide-react";
+
 import { AiCard } from "@/components/settings/AiCard";
+import { ListGroup, ListRow } from "@/components/ui/ListRow";
 import { Page } from "@/components/ui/Page";
 import { cachedProviderModels, getAiSetup } from "@/lib/ai/aiCredentials";
 import { listModels, type ModelInfo } from "@/lib/ai/capabilities";
@@ -48,6 +51,9 @@ export default async function AiSettingsPage() {
         googleModels={googleList}
         googleFailed={hasGoogle && googleList === null}
       />
+      <ListGroup className="mt-block">
+        <ListRow href="/settings/ai/events" icon={History} label="Activity" />
+      </ListGroup>
     </Page>
   );
 }

@@ -22,6 +22,7 @@ import {
   type CoachEvent,
 } from "@/lib/ai/provider";
 import { canWriteMeals } from "@/lib/ai/writeGate";
+import { logAiEvent } from "@/lib/data/aiEvents";
 import {
   beginExchange,
   discardExchange,
@@ -95,6 +96,7 @@ export async function resolvePendingWrite(
 
   if (await turnLimitReached(userId)) {
     onEvent?.({ type: "rate_limited" });
+    await logAiEvent(userId, "turn_limit_hit");
     await savePendingWrite(userId, pending);
     return { status: "answered", text: TURN_LIMIT_TEXT, generated: false };
   }
