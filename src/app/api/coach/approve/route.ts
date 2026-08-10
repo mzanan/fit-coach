@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { resolvePendingWrite } from "@/lib/ai/coach";
+import { resolvePendingWrite } from "@/lib/ai/coachApproval";
 import { coachNdjsonResponse } from "@/lib/coachStream";
 import { ensureProfile } from "@/lib/profile";
 import { getUser } from "@/lib/session";
