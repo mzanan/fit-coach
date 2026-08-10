@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { REASONING_EFFORTS } from "@/lib/ai/options";
-import { getAiSetup, updateReasoningEffort } from "@/lib/ai/providers";
+import { getAiSetup, updateReasoningEffort } from "@/lib/ai/aiCredentials";
 import { clearConversation } from "@/lib/data/coachMessages";
 import { clearPendingWrite } from "@/lib/data/coachPendingWrite";
 import { requireUser } from "@/lib/session";

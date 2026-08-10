@@ -1,11 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 
-import { googleModel } from "@/lib/ai/googleCaps";
-import { groqModels } from "@/lib/ai/groq";
-import { AI_PROVIDERS } from "@/lib/ai/options";
 import {
   activateProvider,
   deleteAiCredential,
@@ -13,8 +10,14 @@ import {
   providerApiKey,
   saveAiCredential,
   updateAiModel,
-} from "@/lib/ai/providers";
-import { getModelInfo, type ModelInfo } from "@/lib/ai/registry";
+} from "@/lib/ai/aiCredentials";
+import {
+  getModelInfo,
+  googleModels,
+  groqModels,
+  type ModelInfo,
+} from "@/lib/ai/capabilities";
+import { AI_PROVIDERS, PROVIDER_LABEL } from "@/lib/ai/options";
 import { requireUser } from "@/lib/session";
 
 export interface AiActionResult {
@@ -61,44 +64,20 @@ async function openrouterModelError(model: string): Promise<string | null> {
   }
 }
 
-async function groqError(
+async function keyedProviderError(
+  provider: "groq" | "google",
   apiKey: string,
   model: string | null,
 ): Promise<string | null> {
-  const result = await groqModels(apiKey);
-  if (result.status === "unauthorized") return "Groq rejected this API key.";
+  const label = PROVIDER_LABEL[provider];
+  const result =
+    provider === "groq" ? await groqModels(apiKey) : await googleModels(apiKey);
+  if (result.status === "unauthorized") return `${label} rejected this API key.`;
   if (result.status === "error") {
-    return "Could not reach Groq to validate the key. Try again.";
+    return `Could not reach ${label} to validate the key. Try again.`;
   }
   if (model && !result.models.some((entry) => entry.id === model)) {
-    return "Unknown Groq model. Pick one from the list.";
-  }
-  return null;
-}
-
-const GOOGLE_MODELS_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models";
-
-async function googleError(
-  apiKey: string,
-  model: string | null,
-): Promise<string | null> {
-  if (model && !googleModel(model)) {
-    return "Unknown Google model. Pick one from the list.";
-  }
-  let response: Response;
-  try {
-    response = await fetch(`${GOOGLE_MODELS_URL}?key=${encodeURIComponent(apiKey)}`, {
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-  } catch {
-    return "Could not reach Google to validate the key. Try again.";
-  }
-  if (response.status === 400 || response.status === 403) {
-    return "Google rejected this API key.";
-  }
-  if (!response.ok) {
-    return "Could not validate the key with Google. Try again.";
+    return `Unknown ${label} model. Pick one from the list.`;
   }
   return null;
 }
@@ -110,19 +89,30 @@ function revalidateAi(): void {
   revalidatePath("/coach");
 }
 
-export async function listGroqModelsAction(
+const keyedProvider = z.enum(["groq", "google"]);
+
+export async function listProviderModelsAction(
+  provider: "groq" | "google",
   input: unknown,
 ): Promise<{ models?: ModelInfo[]; error?: string }> {
   await requireUser();
+  const parsedProvider = keyedProvider.safeParse(provider);
   const parsed = z.string().trim().min(1).safeParse(input);
-  if (!parsed.success) return { error: "Enter your Groq API key first." };
+  if (!parsedProvider.success) return { error: "Unknown provider." };
+  if (!parsed.success) {
+    return { error: `Enter your ${PROVIDER_LABEL[provider]} API key first.` };
+  }
 
-  const result = await groqModels(parsed.data);
+  const label = PROVIDER_LABEL[provider];
+  const result =
+    provider === "groq"
+      ? await groqModels(parsed.data)
+      : await googleModels(parsed.data);
   if (result.status === "unauthorized") {
-    return { error: "Groq rejected this API key." };
+    return { error: `${label} rejected this API key.` };
   }
   if (result.status === "error") {
-    return { error: "Could not load Groq's model list. Try again." };
+    return { error: `Could not load ${label}'s model list. Try again.` };
   }
   return { models: result.models };
 }
@@ -135,11 +125,8 @@ export async function saveAiSettingsAction(
   if (!parsed.success) return { error: "Enter a key and pick a model." };
   const { provider, apiKey, model } = parsed.data;
 
-  if (provider === "groq") {
-    const error = await groqError(apiKey, model);
-    if (error) return { error };
-  } else if (provider === "google") {
-    const error = await googleError(apiKey, model);
+  if (provider === "groq" || provider === "google") {
+    const error = await keyedProviderError(provider, apiKey, model);
     if (error) return { error };
   } else {
     const invalidKey = await openrouterKeyError(apiKey);
@@ -149,6 +136,7 @@ export async function saveAiSettingsAction(
   }
 
   await saveAiCredential(user.id, provider, apiKey, model);
+  updateTag("ai-credentials");
   revalidateAi();
   return {};
 }
@@ -188,19 +176,15 @@ export async function updateAiModelAction(
     return { error: "Save a key for that provider first." };
   }
 
-  if (provider === "groq") {
-    const apiKey = await providerApiKey(user.id, "groq");
+  if (provider === "groq" || provider === "google") {
+    const apiKey = await providerApiKey(user.id, provider);
     if (!apiKey) {
       return {
         error: "Your stored key could not be read. Remove it and add it again.",
       };
     }
-    const error = await groqError(apiKey, model);
+    const error = await keyedProviderError(provider, apiKey, model);
     if (error) return { error };
-  } else if (provider === "google") {
-    if (!googleModel(model)) {
-      return { error: "Unknown Google model. Pick one from the list." };
-    }
   } else {
     const invalidModel = await openrouterModelError(model);
     if (invalidModel) return { error: invalidModel };
@@ -219,6 +203,7 @@ export async function removeAiSettingsAction(
   if (!parsed.success) return { error: "Unknown provider." };
 
   await deleteAiCredential(user.id, parsed.data);
+  updateTag("ai-credentials");
   revalidateAi();
   return {};
 }

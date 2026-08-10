@@ -13,7 +13,7 @@ import {
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { ListGroup, ListRow } from "@/components/ui/ListRow";
 import { Page } from "@/components/ui/Page";
-import { getAiSettings } from "@/lib/ai/providers";
+import { getAiSettings } from "@/lib/ai/aiCredentials";
 import { getLatestScanTakenAt } from "@/lib/data/bodyScans";
 import { getWhoopConnection, hasWhoopEnv } from "@/lib/integrations/whoop";
 import { ensureProfile } from "@/lib/profile";

@@ -5,7 +5,7 @@ import { and, eq, lt, ne } from "drizzle-orm";
 import { buildContext } from "@/lib/ai/coach";
 import { listActiveFacts } from "@/lib/ai/facts";
 import { consolidateMemory, getCoachMemory } from "@/lib/ai/memory";
-import { userModelRef } from "@/lib/ai/providers";
+import { userModelRef } from "@/lib/ai/aiCredentials";
 import { db, schema } from "@/lib/db";
 
 const { coach_facts, profiles } = schema;

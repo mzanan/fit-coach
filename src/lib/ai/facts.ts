@@ -3,7 +3,7 @@ import "server-only";
 import { and, desc, eq, sql } from "drizzle-orm";
 
 import { chatJson } from "@/lib/ai/provider";
-import type { ModelRef } from "@/lib/ai/providers";
+import type { ModelRef } from "@/lib/ai/aiCredentials";
 import {
   embed,
   embeddingModelTag,

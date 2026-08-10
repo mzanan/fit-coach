@@ -10,9 +10,9 @@ import { SearchField } from "@/components/ui/SearchField";
 import { Segmented } from "@/components/ui/Segmented";
 import { Surface } from "@/components/ui/Surface";
 import { useAiSettings } from "@/components/settings/useAiSettings";
+import type { AiSetup } from "@/lib/ai/aiCredentials";
+import type { ModelInfo } from "@/lib/ai/capabilities";
 import type { AiProvider } from "@/lib/ai/options";
-import type { AiSetup } from "@/lib/ai/providers";
-import type { ModelInfo } from "@/lib/ai/registry";
 import { cn } from "@/lib/utils";
 
 const PROVIDER_OPTIONS = [
@@ -33,7 +33,8 @@ interface AiCardProps {
   openrouterFailed: boolean;
   groqModels: ModelInfo[] | null;
   groqFailed: boolean;
-  googleModels: ModelInfo[];
+  googleModels: ModelInfo[] | null;
+  googleFailed: boolean;
 }
 
 function ModelRow({
@@ -79,6 +80,7 @@ export function AiCard({
   groqModels,
   groqFailed,
   googleModels,
+  googleFailed,
 }: AiCardProps) {
   const ai = useAiSettings(
     setup,
@@ -86,6 +88,7 @@ export function AiCard({
     groqModels,
     groqFailed,
     googleModels,
+    googleFailed,
   );
   const limited = ai.selectedModel && !ai.selectedModel.tools;
   const listFailed =

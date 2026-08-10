@@ -5,7 +5,7 @@ import {
   mergeExtractions,
   type MdExtraction,
 } from "@/lib/ai/mdImport";
-import { userModelRef } from "@/lib/ai/providers";
+import { userModelRef } from "@/lib/ai/aiCredentials";
 
 export interface ImportSource {
   name: string;
