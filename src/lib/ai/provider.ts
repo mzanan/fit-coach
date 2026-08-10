@@ -14,6 +14,7 @@ import {
 } from "ai";
 
 import type { SharedV4ProviderOptions } from "@ai-sdk/provider";
+import { after } from "next/server";
 
 import { resolveModel, type ModelRef } from "@/lib/ai/aiCredentials";
 import { groqCapability, structuredRouting } from "@/lib/ai/capabilities";
@@ -22,6 +23,7 @@ import {
   COACH_MAX_TOOL_STEPS,
 } from "@/lib/ai/limits";
 import type { ReasoningEffort } from "@/lib/ai/options";
+import { logAiEvent } from "@/lib/data/aiEvents";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -281,6 +283,11 @@ function repairToolName(
         console.warn(
           `coach: malformed tool name ${toolCall.toolName}, repaired to ${cleaned}`,
         );
+        await logAiEvent(userId, "tool_repair", {
+          provider: ref.provider,
+          model: ref.model,
+          detail: `${toolCall.toolName} -> ${cleaned}`,
+        });
         return { ...toolCall, toolName: cleaned };
       }
       const gatedOut = Boolean(
@@ -292,6 +299,17 @@ function repairToolName(
       log(
         `coach: unrepairable tool name ${toolCall.toolName}${gatedOut ? " (the approval-gated tool is not registered for this model, likely the cause)" : ""}, user=${userId} model=${ref.provider}/${ref.model}`,
       );
+      if (!gatedOut) {
+        const kind =
+          toolCall.toolName === approvalFor
+            ? "write_requested_unresolved"
+            : "tool_repair";
+        await logAiEvent(userId, kind, {
+          provider: ref.provider,
+          model: ref.model,
+          detail: `unrepairable tool name ${toolCall.toolName}`,
+        });
+      }
       return null;
     }
     console.warn(
@@ -305,9 +323,16 @@ export async function chatToolsStream(
   ref: ModelRef,
   options: ToolStreamOptions,
 ): Promise<ToolStreamResult> {
-  const model = resolveModel(ref, (retryAfterMs) =>
-    options.onEvent({ type: "rate_limited", retryAfterMs }),
-  );
+  const model = resolveModel(ref, (retryAfterMs) => {
+    options.onEvent({ type: "rate_limited", retryAfterMs });
+    after(() =>
+      logAiEvent(options.userId, "rate_limited", {
+        provider: ref.provider,
+        model: ref.model,
+        detail: retryAfterMs ? `retry in ${retryAfterMs}ms` : undefined,
+      }),
+    );
+  });
   const maxTokens = options.maxTokens ?? 3000;
   const maxOutputTokens = maxTokens + googleThinkingBudget(ref);
   const providerOptions = reasoningOptions(ref);

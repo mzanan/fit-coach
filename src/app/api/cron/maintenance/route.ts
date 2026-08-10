@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { consolidateMemories, expireStaleFacts } from "@/lib/ai/maintenance";
+import {
+  consolidateMemories,
+  expireStaleFacts,
+  pruneEvents,
+} from "@/lib/ai/maintenance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,5 +19,6 @@ export async function GET(req: Request): Promise<NextResponse> {
 
   const facts = await expireStaleFacts();
   const memory = await consolidateMemories();
-  return NextResponse.json({ facts, memory });
+  const events = await pruneEvents();
+  return NextResponse.json({ facts, memory, events });
 }

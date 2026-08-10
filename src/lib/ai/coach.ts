@@ -55,6 +55,7 @@ import {
   savePendingWrite,
   type PendingPreview,
 } from "@/lib/data/coachPendingWrite";
+import { logAiEvent } from "@/lib/data/aiEvents";
 import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import type { Profile } from "@/lib/db/schema";
 import { INTERRUPTED_ANSWER } from "@/lib/constants";
@@ -486,6 +487,7 @@ export async function coachReply(
 ): Promise<CoachResult> {
   if (await turnLimitReached(userId)) {
     onEvent?.({ type: "rate_limited" });
+    await logAiEvent(userId, "turn_limit_hit");
     return { status: "answered", text: TURN_LIMIT_TEXT, generated: false };
   }
 
