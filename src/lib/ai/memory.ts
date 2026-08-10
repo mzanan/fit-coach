@@ -64,6 +64,7 @@ export async function consolidateMemory(
   previous: string | null,
   facts: string[],
   contextLines: string[],
+  signal?: AbortSignal,
 ): Promise<boolean> {
   try {
     const content = await chat(
@@ -76,6 +77,7 @@ export async function consolidateMemory(
         },
       ],
       300,
+      signal,
     );
     if (!content || content.trim().length < CONSOLIDATE_MIN_LENGTH) return false;
     await writeMemory(userId, content);
