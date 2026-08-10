@@ -44,6 +44,7 @@ import {
 import { PROVIDER_LABEL } from "@/lib/ai/options";
 import { userModelRef, type ModelRef } from "@/lib/ai/providers";
 import { toolsRouting } from "@/lib/ai/registry";
+import { canWriteMeals } from "@/lib/ai/writeGate";
 import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
 import { categoryLabel, INTERRUPTED_ANSWER } from "@/lib/constants";
@@ -347,13 +348,21 @@ const TOOLS_ADDENDUM = `
 
 Data access: you have tools that read the user's live data (today's meals and targets, the food catalog, recent workouts, the latest body scans, and the user's full progress history for weekly/overall summaries). Call only the tools the question actually needs, then answer that question directly and concretely. Never invent data you did not read from a tool.
 
-What the user tells you outranks what the tools read. The app only knows the meals the user typed into it, and they often eat without logging, so an empty day from get_today means "nothing was logged", NEVER "nothing was eaten". If the user states what they have consumed, or gives you totals, take those numbers as the truth for this conversation and answer from them. Do not ask them to log anything first, do not ask them to confirm what they already said, and do not repeat the day back to them: they asked a question, answer it.
+What the user tells you outranks what the tools read. The app only knows the meals the user typed into it, and they often eat without logging, so an empty day from get_today means "nothing was logged", NEVER "nothing was eaten". If the user states what they have consumed, or gives you totals, take those numbers as the truth for this conversation and answer from them. Do not ask them to log anything first, do not ask them to confirm what they already said, and do not repeat the day back to them: they asked a question, answer it.`;
+
+const WRITE_TOOLS_ADDENDUM = `
 
 You can also log a meal with log_meal, but only when the user asks you to. Pass the id and the exact name of a catalog item a search returned: the app resolves the macros from that item itself, so you never send macro numbers and never guess them. The user confirms before anything is written, so do not ask them to confirm yourself.
 
 Two rules about logging, both absolute:
 - If the user asks you to log something, CALL log_meal. Saying you will log it, or describing what you are about to log, does nothing: only the tool call reaches the app. Never announce a log you did not call the tool for, and never ask the user to specify a size or portion in chat instead of calling it.
-- If several catalog items match what they named and they differ only in size or portion (100G vs 200G, half vs full), CALL log_meal with any one of them anyway: the app shows the user a card to pick the exact size before anything is written, so the tool call is what triggers that choice. Only ask in chat when the items are genuinely different foods, not sizes of the same one.
+- If several catalog items match what they named and they differ only in size or portion (100G vs 200G, half vs full), CALL log_meal with any one of them anyway: the app shows the user a card to pick the exact size before anything is written, so the tool call is what triggers that choice. Only ask in chat when the items are genuinely different foods, not sizes of the same one.`;
+
+const NO_WRITE_ADDENDUM = `
+
+This AI model cannot log meals here: log_meal is not available to it. If the user asks you to log or add a meal, tell them plainly that this model cannot do it and to log it manually from the Today screen. Never claim you logged anything.`;
+
+const SUGGESTION_ADDENDUM = `
 
 Whenever you suggest what to eat, search the catalog first and build the suggestion from the user's own saved items and their exact macros. One search call is enough: pass every term worth trying at once. When the search reports it found no match and returned the user's most eaten items instead, say so before suggesting anything else.
 
@@ -493,6 +502,7 @@ async function toolSetup(
   userId: string,
   profile: Profile,
   history: CoachMessage[],
+  allowWrite: boolean,
   question?: string,
 ) {
   const { memory, parts } = await memoryAndFacts(userId, question);
@@ -504,7 +514,9 @@ async function toolSetup(
         diningRule(profile) +
         coachingRules(profile) +
         summaryRules(profile) +
-        TOOLS_ADDENDUM,
+        TOOLS_ADDENDUM +
+        (allowWrite ? WRITE_TOOLS_ADDENDUM : NO_WRITE_ADDENDUM) +
+        SUGGESTION_ADDENDUM,
       ...parts,
     ].join("\n\n"),
     messages: [
@@ -547,7 +559,8 @@ async function toolReply(
   signal?: AbortSignal,
   appGenerated = false,
 ): Promise<CoachResult> {
-  const setup = await toolSetup(userId, profile, history, question);
+  const allowWrite = canWriteMeals(ref.model);
+  const setup = await toolSetup(userId, profile, history, allowWrite, question);
 
   try {
     const {
@@ -559,9 +572,10 @@ async function toolReply(
       writeOutputs,
       interrupted,
     } = await chatToolsStream(routeOnly ? { ...ref, routeOnly } : ref, {
+      userId,
       instructions: setup.instructions,
       messages: setup.messages,
-      tools: buildCoachTools(userId, profile, setup.today),
+      tools: buildCoachTools(userId, profile, setup.today, allowWrite),
       approvalFor: WRITE_TOOL,
       onEvent: onEvent ?? (() => {}),
       signal,
@@ -913,15 +927,28 @@ export async function resolvePendingWrite(
       };
     }
 
+    const allowWrite = canWriteMeals(ref.model);
+    if (!allowWrite) {
+      console.error(
+        `coach: pending write approved but the now-active model cannot write, user=${userId} model=${ref.provider}/${ref.model}`,
+      );
+      await savePendingWrite(userId, pending);
+      await discardExchange(exchange);
+      return {
+        status: "answered",
+        text: "Your AI model changed since you asked to log that, and this one cannot log meals. Switch back, or log it manually from the Today screen.",
+        generated: false,
+      };
+    }
+
     let toolPin: string[] | null | undefined = null;
     try {
       toolPin = await toolsRouting(ref.provider, ref.model);
     } catch {
       toolPin = null;
     }
-
     const history = await getConversation(userId);
-    const setup = await toolSetup(userId, profile, history, question);
+    const setup = await toolSetup(userId, profile, history, allowWrite, question);
 
     const answered = [
       ...pending.messages,
@@ -934,12 +961,14 @@ export async function resolvePendingWrite(
 
     const { text, toolLog, writeOutputs, approvals, messages } =
       await chatToolsStream(toolPin ? { ...ref, routeOnly: toolPin } : ref, {
+        userId,
         instructions: setup.instructions,
         messages: [...setup.messages, ...answered],
         tools: buildCoachTools(
           userId,
           profile,
           day,
+          allowWrite,
           chosen
             ? {
                 toolCallId: pending.previews[0].toolCallId,

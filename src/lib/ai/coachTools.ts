@@ -213,9 +213,10 @@ export function buildCoachTools(
   userId: string,
   profile: Profile,
   today: string,
+  allowWrite: boolean,
   logMealOverride?: LogMealOverride,
 ): ToolSet {
-  return {
+  const readTools: ToolSet = {
     get_today: tool({
       description:
         "Get today's logged meals, running macro totals and the user's daily targets, plus whether today is a gym day.",
@@ -330,56 +331,6 @@ export function buildCoachTools(
         },
       ),
     }),
-    log_meal: tool({
-      description:
-        "Log a meal the user has eaten, using an item from their catalog. Only call this when the user asks for it. Pass the `id` and the exact `name` of a catalog item a previous search returned: the app resolves the macros itself from that item, so never pass macro numbers. Use `portions` when they ate more or less than one serving. The user confirms before anything is written.",
-      inputSchema: z.object({
-        item_id: z.string().min(1).describe("id of the catalog item, from search_catalog"),
-        item_name: z.string().min(1).describe("exact name of that same catalog item"),
-        category: z.enum(CATEGORY_KEYS),
-        portions: z
-          .number()
-          .positive()
-          .max(MAX_PORTIONS)
-          .default(1)
-          .describe("servings of that item, 1 unless the user says otherwise"),
-      }),
-      execute: safeWithCallId(
-        "log_meal",
-        async (input: LogMealInput, toolCallId: string) => {
-          const override =
-            logMealOverride?.toolCallId === toolCallId
-              ? logMealOverride
-              : undefined;
-          const resolved = await resolveCatalogMeal(userId, {
-            itemId: override?.itemId ?? input.item_id,
-            itemName: override?.itemName ?? input.item_name,
-            portions: input.portions,
-          });
-          if (!resolved.ok) return { logged: false, error: resolved.error };
-
-          await insertResolvedMeal(
-            userId,
-            resolved.meal,
-            input.category,
-            today,
-          );
-          revalidatePath("/");
-          return {
-            logged: true,
-            meal: {
-              name: resolved.meal.name,
-              category: input.category,
-              portions: resolved.meal.portions,
-              protein_g: resolved.meal.protein_g,
-              fat_g: resolved.meal.fat_g,
-              carbs_g: resolved.meal.carbs_g,
-              kcal: resolved.meal.kcal,
-            },
-          };
-        },
-      ),
-    }),
     get_workouts: tool({
       description:
         "Get the user's most recent workouts. Returns up to `limit` sessions, the newest ones with exercises and sets.",
@@ -482,6 +433,60 @@ export function buildCoachTools(
           })),
         };
       }),
+    }),
+  };
+  if (!allowWrite) return readTools;
+  return {
+    ...readTools,
+    log_meal: tool({
+      description:
+        "Log a meal the user has eaten, using an item from their catalog. Only call this when the user asks for it. Pass the `id` and the exact `name` of a catalog item a previous search returned: the app resolves the macros itself from that item, so never pass macro numbers. Use `portions` when they ate more or less than one serving. The user confirms before anything is written.",
+      inputSchema: z.object({
+        item_id: z.string().min(1).describe("id of the catalog item, from search_catalog"),
+        item_name: z.string().min(1).describe("exact name of that same catalog item"),
+        category: z.enum(CATEGORY_KEYS),
+        portions: z
+          .number()
+          .positive()
+          .max(MAX_PORTIONS)
+          .default(1)
+          .describe("servings of that item, 1 unless the user says otherwise"),
+      }),
+      execute: safeWithCallId(
+        "log_meal",
+        async (input: LogMealInput, toolCallId: string) => {
+          const override =
+            logMealOverride?.toolCallId === toolCallId
+              ? logMealOverride
+              : undefined;
+          const resolved = await resolveCatalogMeal(userId, {
+            itemId: override?.itemId ?? input.item_id,
+            itemName: override?.itemName ?? input.item_name,
+            portions: input.portions,
+          });
+          if (!resolved.ok) return { logged: false, error: resolved.error };
+
+          await insertResolvedMeal(
+            userId,
+            resolved.meal,
+            input.category,
+            today,
+          );
+          revalidatePath("/");
+          return {
+            logged: true,
+            meal: {
+              name: resolved.meal.name,
+              category: input.category,
+              portions: resolved.meal.portions,
+              protein_g: resolved.meal.protein_g,
+              fat_g: resolved.meal.fat_g,
+              carbs_g: resolved.meal.carbs_g,
+              kcal: resolved.meal.kcal,
+            },
+          };
+        },
+      ),
     }),
   };
 }
