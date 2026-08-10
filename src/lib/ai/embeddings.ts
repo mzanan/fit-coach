@@ -15,6 +15,10 @@ export function hasEmbeddings(): boolean {
   return Boolean(apiKey());
 }
 
+export function embeddingModelTag(): string {
+  return `${MODEL}/${EMBEDDING_DIM}`;
+}
+
 export async function embed(text: string): Promise<number[]> {
   const key = apiKey();
   if (!key) throw new Error("AI_EMBEDDING_API_KEY not set");

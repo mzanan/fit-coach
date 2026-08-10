@@ -250,6 +250,9 @@ export const coach_facts = sqliteTable(
     content: text("content").notNull(),
     category: text("category").notNull(),
     embedding: vector("embedding"),
+    embedding_model: text("embedding_model")
+      .notNull()
+      .default("gemini-embedding-001/768"),
     source: text("source"),
     subject: text("subject"),
     active: integer("active", { mode: "boolean" }).notNull().default(true),

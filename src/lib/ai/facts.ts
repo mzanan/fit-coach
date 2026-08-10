@@ -4,7 +4,12 @@ import { and, desc, eq, sql } from "drizzle-orm";
 
 import { chatJson } from "@/lib/ai/provider";
 import type { ModelRef } from "@/lib/ai/providers";
-import { embed, hasEmbeddings, toVectorLiteral } from "@/lib/ai/embeddings";
+import {
+  embed,
+  embeddingModelTag,
+  hasEmbeddings,
+  toVectorLiteral,
+} from "@/lib/ai/embeddings";
 import { db, schema } from "@/lib/db";
 import { COACH_FACT_CATEGORY_KEYS, type CoachFactCategory } from "@/lib/constants";
 import { detectChatLanguage } from "@/lib/profile";
@@ -181,6 +186,7 @@ async function saveFact(
   source: string,
 ): Promise<void> {
   const literal = toVectorLiteral(await embed(content));
+  const modelTag = embeddingModelTag();
   const now = Date.now();
 
   const nearest = await nearestFactId(userId, category, subject, literal);
@@ -204,6 +210,7 @@ async function saveFact(
         UPDATE coach_facts
         SET content = ${content},
             embedding = vector32(${literal}),
+            embedding_model = ${modelTag},
             subject = COALESCE(${subject}, subject),
             source = ${source},
             updated_at = ${now}
@@ -213,8 +220,8 @@ async function saveFact(
     }
 
     await tx.run(sql`
-      INSERT INTO coach_facts (id, user_id, content, category, embedding, subject, source, active, superseded_by, created_at, updated_at)
-      VALUES (${factId}, ${userId}, ${content}, ${category}, vector32(${literal}), ${subject}, ${source}, 1, NULL, ${now}, ${now})
+      INSERT INTO coach_facts (id, user_id, content, category, embedding, embedding_model, subject, source, active, superseded_by, created_at, updated_at)
+      VALUES (${factId}, ${userId}, ${content}, ${category}, vector32(${literal}), ${modelTag}, ${subject}, ${source}, 1, NULL, ${now}, ${now})
     `);
   });
 }
