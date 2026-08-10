@@ -97,27 +97,33 @@ export function useAiSettings(
     );
   }, [models, search]);
 
-  const { ordered, testedStartAt, firstOtherIndex, testedCount } = useMemo(() => {
-    const pinned = selected
-      ? filtered.find((model) => model.id === selected)
-      : undefined;
-    const rest = filtered.filter((model) => model.id !== selected);
-    const tested = rest.filter((model) => canWriteMeals(model.id));
-    const other = rest.filter((model) => !canWriteMeals(model.id));
-    const list = [...(pinned ? [pinned] : []), ...tested, ...other];
-    const start = pinned ? 1 : 0;
+  const { ordered, firstOtherIndex, testedCount } = useMemo(() => {
+    function pinSelectedFirst(list: ModelInfo[]): ModelInfo[] {
+      const index = selected
+        ? list.findIndex((model) => model.id === selected)
+        : -1;
+      if (index <= 0) return list;
+      const copy = [...list];
+      const [current] = copy.splice(index, 1);
+      return [current, ...copy];
+    }
+
+    const tested = pinSelectedFirst(
+      filtered.filter((model) => canWriteMeals(model.id)),
+    );
+    const other = pinSelectedFirst(
+      filtered.filter((model) => !canWriteMeals(model.id)),
+    );
     return {
-      ordered: list,
-      testedStartAt: start,
-      firstOtherIndex: start + tested.length,
+      ordered: [...tested, ...other],
+      firstOtherIndex: tested.length,
       testedCount: tested.length,
     };
   }, [filtered, selected]);
 
   const visible = ordered.slice(0, VISIBLE_LIMIT);
   const hiddenCount = ordered.length - visible.length;
-  const testedLabelAt =
-    testedCount > 0 && testedStartAt < visible.length ? testedStartAt : null;
+  const testedLabelAt = testedCount > 0 ? 0 : null;
   const testedDividerAt =
     testedCount > 0 && firstOtherIndex < visible.length ? firstOtherIndex : null;
   const listFailed =

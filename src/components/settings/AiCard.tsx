@@ -181,7 +181,7 @@ export function AiCard({
                     <Fragment key={model.id}>
                       {index === ai.testedLabelAt ? (
                         <p className="eyebrow px-3.5 pt-1 pb-1.5">
-                          Tested, supports tool calls and meal logging
+                          Tested for meal logging
                         </p>
                       ) : null}
                       {index === ai.testedDividerAt ? (
