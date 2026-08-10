@@ -326,7 +326,7 @@ export async function recentTurnCount(
     .where(
       and(
         eq(coach_messages.user_id, userId),
-        eq(coach_messages.role, "user"),
+        eq(coach_messages.role, "assistant"),
         gte(coach_messages.created_at, new Date(Date.now() - windowMs)),
       ),
     );
