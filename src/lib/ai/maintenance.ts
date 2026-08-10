@@ -12,6 +12,7 @@ const { coach_facts, profiles } = schema;
 
 const STALE_FACT_DAYS = 30;
 const STALE_FACT_MS = STALE_FACT_DAYS * 24 * 60 * 60 * 1000;
+const CONSOLIDATE_TIMEOUT_MS = 60_000;
 
 export async function expireStaleFacts(): Promise<{ deactivated: number }> {
   const cutoff = new Date(Date.now() - STALE_FACT_MS);
@@ -61,7 +62,14 @@ export async function consolidateMemories(): Promise<{
         listActiveFacts(profile.user_id),
         buildContext(profile.user_id, profile),
       ]);
-      const ok = await consolidateMemory(ref, profile.user_id, previous, facts, ctx.lines);
+      const ok = await consolidateMemory(
+        ref,
+        profile.user_id,
+        previous,
+        facts,
+        ctx.lines,
+        AbortSignal.timeout(CONSOLIDATE_TIMEOUT_MS),
+      );
       if (ok) consolidated++;
       else skipped++;
     } catch (err) {
