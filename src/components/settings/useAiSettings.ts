@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import type { AiSetup } from "@/lib/ai/aiCredentials";
 import type { ModelInfo } from "@/lib/ai/capabilities";
 import { isAiProvider, type AiProvider } from "@/lib/ai/options";
+import { canWriteMeals } from "@/lib/ai/writeGate";
 import {
   activateProviderAction,
   listProviderModelsAction,
@@ -96,18 +97,35 @@ export function useAiSettings(
     );
   }, [models, search]);
 
-  const ordered = useMemo(() => {
-    const index = selected
-      ? filtered.findIndex((model) => model.id === selected)
-      : -1;
-    if (index <= 0) return filtered;
-    const rest = [...filtered];
-    const [current] = rest.splice(index, 1);
-    return [current, ...rest];
+  const { ordered, firstOtherIndex, testedCount } = useMemo(() => {
+    function pinSelectedFirst(list: ModelInfo[]): ModelInfo[] {
+      const index = selected
+        ? list.findIndex((model) => model.id === selected)
+        : -1;
+      if (index <= 0) return list;
+      const copy = [...list];
+      const [current] = copy.splice(index, 1);
+      return [current, ...copy];
+    }
+
+    const tested = pinSelectedFirst(
+      filtered.filter((model) => canWriteMeals(model.id)),
+    );
+    const other = pinSelectedFirst(
+      filtered.filter((model) => !canWriteMeals(model.id)),
+    );
+    return {
+      ordered: [...tested, ...other],
+      firstOtherIndex: tested.length,
+      testedCount: tested.length,
+    };
   }, [filtered, selected]);
 
   const visible = ordered.slice(0, VISIBLE_LIMIT);
   const hiddenCount = ordered.length - visible.length;
+  const testedLabelAt = testedCount > 0 ? 0 : null;
+  const testedDividerAt =
+    testedCount > 0 && firstOtherIndex < visible.length ? firstOtherIndex : null;
   const listFailed =
     isKeyedProvider(provider) &&
     Boolean(saved) &&
@@ -217,6 +235,8 @@ export function useAiSettings(
     setConfirmOpen,
     visible,
     hiddenCount,
+    testedLabelAt,
+    testedDividerAt,
     needsKeyToList,
     listFailed,
     loadModels,

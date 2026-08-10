@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { Check, KeyRound, ListRestart, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
@@ -176,14 +177,23 @@ export function AiCard({
             >
               {ai.visible.length ? (
                 <div className="space-y-0.5">
-                  {ai.visible.map((model) => (
-                    <ModelRow
-                      key={model.id}
-                      model={model}
-                      active={model.id === ai.selected}
-                      disabled={ai.pending}
-                      onPick={() => ai.pick(model.id)}
-                    />
+                  {ai.visible.map((model, index) => (
+                    <Fragment key={model.id}>
+                      {index === ai.testedLabelAt ? (
+                        <p className="eyebrow px-3.5 pt-1 pb-1.5">
+                          Tested for meal logging
+                        </p>
+                      ) : null}
+                      {index === ai.testedDividerAt ? (
+                        <hr className="my-1.5 border-border" />
+                      ) : null}
+                      <ModelRow
+                        model={model}
+                        active={model.id === ai.selected}
+                        disabled={ai.pending}
+                        onPick={() => ai.pick(model.id)}
+                      />
+                    </Fragment>
                   ))}
                 </div>
               ) : (
