@@ -16,6 +16,10 @@ import {
 import type { SharedV4ProviderOptions } from "@ai-sdk/provider";
 
 import { groqCapability } from "@/lib/ai/groqCaps";
+import {
+  COACH_CONTINUATION_LIMIT,
+  COACH_MAX_TOOL_STEPS,
+} from "@/lib/ai/limits";
 import type { ReasoningEffort } from "@/lib/ai/options";
 import { resolveModel, type ModelRef } from "@/lib/ai/providers";
 import { structuredRouting } from "@/lib/ai/registry";
@@ -112,7 +116,7 @@ function reasoningOptions(ref: ModelRef): SharedV4ProviderOptions | undefined {
   };
 }
 
-const TEXT_CONTINUE_LIMIT = 3;
+const TEXT_CONTINUE_LIMIT = COACH_CONTINUATION_LIMIT;
 const OVERLAP_WINDOW = 80;
 const MIN_OVERLAP = 4;
 
@@ -316,7 +320,7 @@ export async function chatToolsStream(
     tools: options.tools,
     toolApproval: approvalFor ? { [approvalFor]: "user-approval" } : undefined,
     repairToolCall: repairToolName(options.tools, approvalFor, ref, options.userId),
-    stopWhen: isStepCount(options.maxSteps ?? 5),
+    stopWhen: isStepCount(options.maxSteps ?? COACH_MAX_TOOL_STEPS),
     maxOutputTokens,
     providerOptions,
     abortSignal: options.signal,
@@ -494,7 +498,7 @@ export async function chatTools(
     instructions: options.instructions,
     messages: options.messages,
     tools: options.tools,
-    stopWhen: isStepCount(options.maxSteps ?? 5),
+    stopWhen: isStepCount(options.maxSteps ?? COACH_MAX_TOOL_STEPS),
     maxOutputTokens: maxTokens + googleThinkingBudget(ref),
     providerOptions,
   });

@@ -26,6 +26,7 @@ import {
   finishExchange,
   getConversation,
   getExchangeStatus,
+  recentTurnCount,
   updateExchangeContent,
   type CoachMessage,
   type ExchangeRef,
@@ -41,6 +42,10 @@ import {
   previewLogMeal,
   WRITE_TOOL,
 } from "@/lib/ai/coachTools";
+import {
+  COACH_MAX_TURNS_PER_HOUR,
+  COACH_TURN_WINDOW_MS,
+} from "@/lib/ai/limits";
 import { PROVIDER_LABEL } from "@/lib/ai/options";
 import { userModelRef, type ModelRef } from "@/lib/ai/providers";
 import { toolsRouting } from "@/lib/ai/registry";
@@ -297,6 +302,13 @@ const WRITE_FAILED =
   "The coach tried to log that meal but the request came back malformed. Ask again, or log it from the Today screen.";
 
 const DENIED = "Not logged. Nothing was written.";
+
+const TURN_LIMIT_TEXT = `You've reached the limit of ${COACH_MAX_TURNS_PER_HOUR} coach turns per hour. Wait a bit and ask again.`;
+
+async function turnLimitReached(userId: string): Promise<boolean> {
+  const turns = await recentTurnCount(userId, COACH_TURN_WINDOW_MS);
+  return turns >= COACH_MAX_TURNS_PER_HOUR;
+}
 
 export interface DaySummary {
   lines: MacroLine[];
@@ -740,6 +752,11 @@ export async function coachReply(
   onEvent?: (event: CoachEvent) => void,
   summary = false,
 ): Promise<CoachResult> {
+  if (await turnLimitReached(userId)) {
+    onEvent?.({ type: "rate_limited" });
+    return { status: "answered", text: TURN_LIMIT_TEXT, generated: false };
+  }
+
   await clearPendingWrite(userId);
 
   const ref = await userModelRef(userId);
@@ -906,6 +923,12 @@ export async function resolvePendingWrite(
       await discardExchange(exchange);
       throw error;
     }
+  }
+
+  if (await turnLimitReached(userId)) {
+    onEvent?.({ type: "rate_limited" });
+    await savePendingWrite(userId, pending);
+    return { status: "answered", text: TURN_LIMIT_TEXT, generated: false };
   }
 
   const exchange = await beginExchange(

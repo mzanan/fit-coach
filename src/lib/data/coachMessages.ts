@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, lt } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
 
 import type { DaySummary } from "@/lib/ai/coach";
 import { db, schema } from "@/lib/db";
@@ -314,4 +314,21 @@ export async function discardExchange(ref: ExchangeRef): Promise<void> {
 
 export async function clearConversation(userId: string): Promise<void> {
   await db.delete(coach_messages).where(eq(coach_messages.user_id, userId));
+}
+
+export async function recentTurnCount(
+  userId: string,
+  windowMs: number,
+): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(coach_messages)
+    .where(
+      and(
+        eq(coach_messages.user_id, userId),
+        eq(coach_messages.role, "user"),
+        gte(coach_messages.created_at, new Date(Date.now() - windowMs)),
+      ),
+    );
+  return row?.value ?? 0;
 }
