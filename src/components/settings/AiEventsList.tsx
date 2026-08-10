@@ -13,6 +13,13 @@ const KIND_LABEL: Record<AiEvent["kind"], string> = {
   cron_maintenance: "Nightly maintenance",
 };
 
+function labelFor(event: AiEvent): string {
+  if (event.kind === "tool_repair" && event.detail?.startsWith("unrepairable")) {
+    return "Tool call could not be repaired";
+  }
+  return KIND_LABEL[event.kind];
+}
+
 const KIND_TONE: Record<AiEvent["kind"], "muted" | "brand"> = {
   write_requested_unresolved: "muted",
   tool_repair: "muted",
@@ -43,7 +50,7 @@ export function AiEventsList({
         <div key={event.id} className="flex items-start gap-3 px-card py-3.5">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <Pill tone={KIND_TONE[event.kind]}>{KIND_LABEL[event.kind]}</Pill>
+              <Pill tone={KIND_TONE[event.kind]}>{labelFor(event)}</Pill>
               {event.model ? (
                 <span className="truncate text-meta text-muted-foreground">
                   {event.model}

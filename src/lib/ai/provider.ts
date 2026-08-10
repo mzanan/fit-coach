@@ -14,6 +14,7 @@ import {
 } from "ai";
 
 import type { SharedV4ProviderOptions } from "@ai-sdk/provider";
+import { after } from "next/server";
 
 import { resolveModel, type ModelRef } from "@/lib/ai/aiCredentials";
 import { groqCapability, structuredRouting } from "@/lib/ai/capabilities";
@@ -324,11 +325,13 @@ export async function chatToolsStream(
 ): Promise<ToolStreamResult> {
   const model = resolveModel(ref, (retryAfterMs) => {
     options.onEvent({ type: "rate_limited", retryAfterMs });
-    void logAiEvent(options.userId, "rate_limited", {
-      provider: ref.provider,
-      model: ref.model,
-      detail: retryAfterMs ? `retry in ${retryAfterMs}ms` : undefined,
-    });
+    after(() =>
+      logAiEvent(options.userId, "rate_limited", {
+        provider: ref.provider,
+        model: ref.model,
+        detail: retryAfterMs ? `retry in ${retryAfterMs}ms` : undefined,
+      }),
+    );
   });
   const maxTokens = options.maxTokens ?? 3000;
   const maxOutputTokens = maxTokens + googleThinkingBudget(ref);
