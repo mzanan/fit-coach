@@ -348,11 +348,7 @@ const TOOLS_ADDENDUM = `
 
 Data access: you have tools that read the user's live data (today's meals and targets, the food catalog, recent workouts, the latest body scans, and the user's full progress history for weekly/overall summaries). Call only the tools the question actually needs, then answer that question directly and concretely. Never invent data you did not read from a tool.
 
-What the user tells you outranks what the tools read. The app only knows the meals the user typed into it, and they often eat without logging, so an empty day from get_today means "nothing was logged", NEVER "nothing was eaten". If the user states what they have consumed, or gives you totals, take those numbers as the truth for this conversation and answer from them. Do not ask them to log anything first, do not ask them to confirm what they already said, and do not repeat the day back to them: they asked a question, answer it.
-
-Whenever you suggest what to eat, search the catalog first and build the suggestion from the user's own saved items and their exact macros. One search call is enough: pass every term worth trying at once. When the search reports it found no match and returned the user's most eaten items instead, say so before suggesting anything else.
-
-Suggest ONLY items the catalog returned. The user eats out and logs from that catalog, so a food that is not in it is not something they can order or log. Do not add generic foods (protein powder, quinoa, olive oil, cottage cheese, a fillet of fish) to round the macros: if the catalog cannot reach the target, say which macro is short and by how much, and offer to add the missing food to the catalog. Naming a food the catalog did not return is the one thing that makes this answer useless.`;
+What the user tells you outranks what the tools read. The app only knows the meals the user typed into it, and they often eat without logging, so an empty day from get_today means "nothing was logged", NEVER "nothing was eaten". If the user states what they have consumed, or gives you totals, take those numbers as the truth for this conversation and answer from them. Do not ask them to log anything first, do not ask them to confirm what they already said, and do not repeat the day back to them: they asked a question, answer it.`;
 
 const WRITE_TOOLS_ADDENDUM = `
 
@@ -365,6 +361,12 @@ Two rules about logging, both absolute:
 const NO_WRITE_ADDENDUM = `
 
 This AI model cannot log meals here: log_meal is not available to it. If the user asks you to log or add a meal, tell them plainly that this model cannot do it and to log it manually from the Today screen. Never claim you logged anything.`;
+
+const SUGGESTION_ADDENDUM = `
+
+Whenever you suggest what to eat, search the catalog first and build the suggestion from the user's own saved items and their exact macros. One search call is enough: pass every term worth trying at once. When the search reports it found no match and returned the user's most eaten items instead, say so before suggesting anything else.
+
+Suggest ONLY items the catalog returned. The user eats out and logs from that catalog, so a food that is not in it is not something they can order or log. Do not add generic foods (protein powder, quinoa, olive oil, cottage cheese, a fillet of fish) to round the macros: if the catalog cannot reach the target, say which macro is short and by how much, and offer to add the missing food to the catalog. Naming a food the catalog did not return is the one thing that makes this answer useless.`;
 
 async function memoryAndFacts(
   userId: string,
@@ -513,7 +515,8 @@ async function toolSetup(
         coachingRules(profile) +
         summaryRules(profile) +
         TOOLS_ADDENDUM +
-        (allowWrite ? WRITE_TOOLS_ADDENDUM : NO_WRITE_ADDENDUM),
+        (allowWrite ? WRITE_TOOLS_ADDENDUM : NO_WRITE_ADDENDUM) +
+        SUGGESTION_ADDENDUM,
       ...parts,
     ].join("\n\n"),
     messages: [
@@ -569,6 +572,7 @@ async function toolReply(
       writeOutputs,
       interrupted,
     } = await chatToolsStream(routeOnly ? { ...ref, routeOnly } : ref, {
+      userId,
       instructions: setup.instructions,
       messages: setup.messages,
       tools: buildCoachTools(userId, profile, setup.today, allowWrite),
@@ -576,12 +580,6 @@ async function toolReply(
       onEvent: onEvent ?? (() => {}),
       signal,
     });
-
-    if (writeAttempted && !approvals.length) {
-      console.error(
-        `coach: write requested but never resolved (no approval, no pending write), user=${userId} model=${ref.provider}/${ref.model}`,
-      );
-    }
 
     if (approvals.length) {
       const resolved = await Promise.all(
@@ -929,14 +927,26 @@ export async function resolvePendingWrite(
       };
     }
 
+    const allowWrite = canWriteMeals(ref.model);
+    if (!allowWrite) {
+      console.error(
+        `coach: pending write approved but the now-active model cannot write, user=${userId} model=${ref.provider}/${ref.model}`,
+      );
+      await savePendingWrite(userId, pending);
+      await discardExchange(exchange);
+      return {
+        status: "answered",
+        text: "Your AI model changed since you asked to log that, and this one cannot log meals. Switch back, or log it manually from the Today screen.",
+        generated: false,
+      };
+    }
+
     let toolPin: string[] | null | undefined = null;
     try {
       toolPin = await toolsRouting(ref.provider, ref.model);
     } catch {
       toolPin = null;
     }
-
-    const allowWrite = canWriteMeals(ref.model);
     const history = await getConversation(userId);
     const setup = await toolSetup(userId, profile, history, allowWrite, question);
 
@@ -949,8 +959,9 @@ export async function resolvePendingWrite(
       ? pending.previews[0].variants.find((variant) => variant.id === itemId)
       : undefined;
 
-    const { text, toolLog, writeOutputs, writeAttempted, approvals, messages } =
+    const { text, toolLog, writeOutputs, approvals, messages } =
       await chatToolsStream(toolPin ? { ...ref, routeOnly: toolPin } : ref, {
+        userId,
         instructions: setup.instructions,
         messages: [...setup.messages, ...answered],
         tools: buildCoachTools(
@@ -995,11 +1006,6 @@ export async function resolvePendingWrite(
 
     const written = writeOutputs.filter((output) => output.logged).length;
     if (!written) {
-      if (writeAttempted && !approvals.length) {
-        console.error(
-          `coach: chained write requested but never resolved (no approval, nothing written), user=${userId} model=${ref.provider}/${ref.model}`,
-        );
-      }
       const failure = writeOutputs.find((output) => output.error)?.error;
       await finishExchange(exchange, failure ?? NOT_WRITTEN, false);
       return {

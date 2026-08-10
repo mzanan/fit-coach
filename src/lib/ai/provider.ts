@@ -252,6 +252,7 @@ export interface ToolStreamResult {
 }
 
 export interface ToolStreamOptions {
+  userId: string;
   instructions: string;
   messages: ModelMessage[];
   tools: ToolSet;
@@ -262,16 +263,29 @@ export interface ToolStreamOptions {
   signal?: AbortSignal;
 }
 
-function repairToolName(tools: ToolSet): ToolCallRepairFunction<ToolSet> {
+function repairToolName(
+  tools: ToolSet,
+  approvalFor: string | undefined,
+  ref: ModelRef,
+  userId: string,
+): ToolCallRepairFunction<ToolSet> {
   return async ({ toolCall, error }) => {
     if (NoSuchToolError.isInstance(error)) {
       const cleaned = Object.keys(tools).find((name) =>
         toolCall.toolName.startsWith(name),
       );
-      console.warn(
-        `coach: malformed tool name ${toolCall.toolName}, ${cleaned ? `repaired to ${cleaned}` : "no match"}`,
+      if (cleaned) {
+        console.warn(
+          `coach: malformed tool name ${toolCall.toolName}, repaired to ${cleaned}`,
+        );
+        return { ...toolCall, toolName: cleaned };
+      }
+      const gatedOut = Boolean(approvalFor) && !(approvalFor! in tools);
+      const log = gatedOut ? console.warn : console.error;
+      log(
+        `coach: unrepairable tool name ${toolCall.toolName}${gatedOut ? " (the approval-gated tool is not registered for this model, likely the cause)" : ""}, user=${userId} model=${ref.provider}/${ref.model}`,
       );
-      return cleaned ? { ...toolCall, toolName: cleaned } : null;
+      return null;
     }
     console.warn(
       `coach: invalid input for ${toolCall.toolName}: ${toolCall.input}`,
@@ -297,7 +311,7 @@ export async function chatToolsStream(
     messages: options.messages,
     tools: options.tools,
     toolApproval: approvalFor ? { [approvalFor]: "user-approval" } : undefined,
-    repairToolCall: repairToolName(options.tools),
+    repairToolCall: repairToolName(options.tools, approvalFor, ref, options.userId),
     stopWhen: isStepCount(options.maxSteps ?? 5),
     maxOutputTokens,
     providerOptions,
