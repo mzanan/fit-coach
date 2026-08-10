@@ -3,12 +3,12 @@
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import type { AiSetup } from "@/lib/ai/aiCredentials";
+import type { ModelInfo } from "@/lib/ai/capabilities";
 import { isAiProvider, type AiProvider } from "@/lib/ai/options";
-import type { AiSetup } from "@/lib/ai/providers";
-import type { ModelInfo } from "@/lib/ai/registry";
 import {
   activateProviderAction,
-  listGroqModelsAction,
+  listProviderModelsAction,
   removeAiSettingsAction,
   saveAiSettingsAction,
   updateAiModelAction,
@@ -23,12 +23,17 @@ const LABEL: Record<AiProvider, string> = {
   google: "Google",
 };
 
+function isKeyedProvider(provider: AiProvider): provider is "groq" | "google" {
+  return provider === "groq" || provider === "google";
+}
+
 export function useAiSettings(
   setup: AiSetup,
   openrouterModels: ModelInfo[],
   groqModels: ModelInfo[] | null,
   groqListFailed: boolean,
-  googleModels: ModelInfo[],
+  googleModels: ModelInfo[] | null,
+  googleListFailed: boolean,
 ) {
   const [pending, startTransition] = useTransition();
   const [provider, setProvider] = useState<AiProvider>(
@@ -77,8 +82,8 @@ export function useAiSettings(
 
   const models = useMemo(() => {
     if (provider === "openrouter") return openrouterModels;
-    if (provider === "google") return googleModels;
-    return groqModels ?? typedModels ?? [];
+    const saved = provider === "groq" ? groqModels : googleModels;
+    return saved ?? typedModels ?? [];
   }, [provider, openrouterModels, googleModels, groqModels, typedModels]);
 
   const filtered = useMemo(() => {
@@ -104,9 +109,14 @@ export function useAiSettings(
   const visible = ordered.slice(0, VISIBLE_LIMIT);
   const hiddenCount = ordered.length - visible.length;
   const listFailed =
-    provider === "groq" ? Boolean(saved) && groqListFailed : false;
+    isKeyedProvider(provider) &&
+    Boolean(saved) &&
+    (provider === "groq" ? groqListFailed : googleListFailed);
   const needsKeyToList =
-    provider === "groq" && !saved && !groqModels && typedModels === null;
+    isKeyedProvider(provider) &&
+    !saved &&
+    !(provider === "groq" ? groqModels : googleModels) &&
+    typedModels === null;
   const canSave = Boolean(apiKey.trim() && selected);
   const selectedModel = models.find((model) => model.id === selected) ?? null;
 
@@ -118,6 +128,7 @@ export function useAiSettings(
     setProvider(next);
     setApiKey("");
     setSearch("");
+    setTypedModels(null);
     if (!savedFor(next) || setup.active?.provider === next) return;
 
     startTransition(async () => {
@@ -137,13 +148,14 @@ export function useAiSettings(
   }
 
   function loadModels() {
+    if (!isKeyedProvider(provider)) return;
     if (!apiKey.trim()) {
       toast.error("Enter your API key first.");
       return;
     }
     startTransition(async () => {
       try {
-        const result = await listGroqModelsAction(apiKey.trim());
+        const result = await listProviderModelsAction(provider, apiKey.trim());
         if (result.error) {
           toast.error(result.error);
           return;

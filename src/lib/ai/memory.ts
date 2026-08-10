@@ -3,7 +3,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 
 import { chat } from "@/lib/ai/provider";
-import type { ModelRef } from "@/lib/ai/providers";
+import type { ModelRef } from "@/lib/ai/aiCredentials";
 import { db, schema } from "@/lib/db";
 
 const { coach_memory } = schema;

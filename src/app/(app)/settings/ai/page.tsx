@@ -1,17 +1,18 @@
 import { AiCard } from "@/components/settings/AiCard";
 import { Page } from "@/components/ui/Page";
-import { groqModels } from "@/lib/ai/groq";
-import { getAiSetup, providerApiKey } from "@/lib/ai/providers";
-import { GOOGLE_MODELS } from "@/lib/ai/googleCaps";
-import { listModels, type ModelInfo } from "@/lib/ai/registry";
+import { cachedProviderModels, getAiSetup } from "@/lib/ai/aiCredentials";
+import { listModels, type ModelInfo } from "@/lib/ai/capabilities";
 import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
 
-async function savedGroqModels(userId: string): Promise<ModelInfo[] | null> {
-  const apiKey = await providerApiKey(userId, "groq");
-  if (!apiKey) return null;
-  const result = await groqModels(apiKey);
-  return result.status === "ok" ? result.models : null;
+async function savedModels(
+  userId: string,
+  hasCredential: boolean,
+  provider: "groq" | "google",
+): Promise<ModelInfo[] | null> {
+  if (!hasCredential) return null;
+  const result = await cachedProviderModels(userId, provider);
+  return result?.status === "ok" ? result.models : null;
 }
 
 export default async function AiSettingsPage() {
@@ -21,10 +22,14 @@ export default async function AiSettingsPage() {
   const hasGroq = setup.saved.some(
     (credential) => credential.provider === "groq",
   );
+  const hasGoogle = setup.saved.some(
+    (credential) => credential.provider === "google",
+  );
 
-  const [openrouterModels, groqList] = await Promise.all([
+  const [openrouterModels, groqList, googleList] = await Promise.all([
     listModels().catch(() => null),
-    hasGroq ? savedGroqModels(user.id) : Promise.resolve(null),
+    savedModels(user.id, hasGroq, "groq"),
+    savedModels(user.id, hasGoogle, "google"),
   ]);
 
   return (
@@ -40,13 +45,8 @@ export default async function AiSettingsPage() {
         openrouterFailed={openrouterModels === null}
         groqModels={groqList}
         groqFailed={hasGroq && groqList === null}
-        googleModels={GOOGLE_MODELS.map((model) => ({
-          id: model.id,
-          name: model.name,
-          tools: true,
-          structured: true,
-          free: model.freeTier,
-        }))}
+        googleModels={googleList}
+        googleFailed={hasGoogle && googleList === null}
       />
     </Page>
   );

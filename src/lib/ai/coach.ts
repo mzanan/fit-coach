@@ -46,9 +46,9 @@ import {
   COACH_MAX_TURNS_PER_HOUR,
   COACH_TURN_WINDOW_MS,
 } from "@/lib/ai/limits";
+import { userModelRef, type ModelRef } from "@/lib/ai/aiCredentials";
+import { toolsRouting } from "@/lib/ai/capabilities";
 import { PROVIDER_LABEL } from "@/lib/ai/options";
-import { userModelRef, type ModelRef } from "@/lib/ai/providers";
-import { toolsRouting } from "@/lib/ai/registry";
 import { canWriteMeals } from "@/lib/ai/writeGate";
 import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";

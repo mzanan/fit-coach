@@ -5,7 +5,9 @@ import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import type { LanguageModel } from "ai";
 import { and, eq } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 
+import { groqModels, googleModels, type ProviderModelsResult } from "@/lib/ai/capabilities";
 import {
   isAiProvider,
   isReasoningEffort,
@@ -18,6 +20,7 @@ import { db, schema } from "@/lib/db";
 import { decryptSecret, encryptSecret } from "@/lib/integrations/crypto";
 
 const { ai_credentials, profiles } = schema;
+const MODELS_CACHE_SECONDS = 3600;
 
 export interface ModelRef {
   provider: AiProvider;
@@ -189,6 +192,35 @@ export async function providerApiKey(
   } catch (err) {
     console.error("ai settings: stored key cannot be decrypted", err);
     return null;
+  }
+}
+
+const getCachedModelsForUser = unstable_cache(
+  async (
+    userId: string,
+    provider: "groq" | "google",
+  ): Promise<ProviderModelsResult | null> => {
+    const apiKey = await providerApiKey(userId, provider);
+    if (!apiKey) return null;
+    const result =
+      provider === "groq" ? await groqModels(apiKey) : await googleModels(apiKey);
+    // A transient error must never get cached for the full TTL, or "reload
+    // to retry" in the Settings UI would keep serving the same stale error.
+    if (result.status !== "ok") throw new Error(`ai models: ${result.status}`);
+    return result;
+  },
+  ["ai-provider-models"],
+  { tags: ["ai-credentials"], revalidate: MODELS_CACHE_SECONDS },
+);
+
+export async function cachedProviderModels(
+  userId: string,
+  provider: "groq" | "google",
+): Promise<ProviderModelsResult | null> {
+  try {
+    return await getCachedModelsForUser(userId, provider);
+  } catch {
+    return { status: "error" };
   }
 }
 

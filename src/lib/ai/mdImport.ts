@@ -2,9 +2,9 @@ import "server-only";
 
 import { z } from "zod";
 
-import { googleModel } from "@/lib/ai/googleCaps";
+import type { ModelRef } from "@/lib/ai/aiCredentials";
+import { googleModel } from "@/lib/ai/capabilities";
 import { chatJson } from "@/lib/ai/provider";
-import type { ModelRef } from "@/lib/ai/providers";
 import {
   dayString,
   fatQuality,

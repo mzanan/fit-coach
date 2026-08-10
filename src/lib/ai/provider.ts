@@ -15,14 +15,13 @@ import {
 
 import type { SharedV4ProviderOptions } from "@ai-sdk/provider";
 
-import { groqCapability } from "@/lib/ai/groqCaps";
+import { resolveModel, type ModelRef } from "@/lib/ai/aiCredentials";
+import { groqCapability, structuredRouting } from "@/lib/ai/capabilities";
 import {
   COACH_CONTINUATION_LIMIT,
   COACH_MAX_TOOL_STEPS,
 } from "@/lib/ai/limits";
 import type { ReasoningEffort } from "@/lib/ai/options";
-import { resolveModel, type ModelRef } from "@/lib/ai/providers";
-import { structuredRouting } from "@/lib/ai/registry";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
