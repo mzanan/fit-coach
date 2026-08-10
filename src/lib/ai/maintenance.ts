@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, eq, lt, ne } from "drizzle-orm";
 
-import { buildContext } from "@/lib/ai/coach";
+import { buildContext } from "@/lib/ai/coachContext";
 import { listActiveFacts } from "@/lib/ai/facts";
 import { consolidateMemory, getCoachMemory } from "@/lib/ai/memory";
 import { userModelRef } from "@/lib/ai/aiCredentials";
