@@ -455,6 +455,67 @@ transferable lesson is the same one supersession already taught from a
 different angle: a background job that touches a single source of truth
 has to be told what already exists, not just what changed.
 
+### PRs #37-#40, the hardening pass, 2026-08-10
+
+A review of the whole P0-P3 architecture (not a single PR, an audit of
+what had shipped so far) surfaced four gaps the individual feature PRs
+had each left open: a write tool available to models never measured
+against `toolApproval`, no ceiling on how many turns a bug or a stuck
+retry loop could spend, no timeout on the maintenance cron's per-user
+model call, and embeddings sharing BYOK's ambiguity without ever having
+been decided one way or the other. Four branches, one gap each, gated
+and merged in order.
+
+**H2 (write-tool gate) is the one the gate caught real bugs on.** `log_meal`
+is now only registered for the three models the `p1b-tool-approval` lab
+actually measured; every other active model gets a system-prompt line
+telling it to send the user to manual logging instead. The first gate
+round found a genuine bug the design had not accounted for: switching
+the active AI model between proposing a write and confirming it made the
+SDK silently drop the approved call, since the tool no longer existed in
+the resumed session's tool set. Fixed by checking the gate again at
+confirm time and restoring the pending write if it fails there instead
+of losing it. The same round also found the malformed-tool-name
+diagnostic added for observability was wrong in both directions: it
+missed the case it was built to catch (a truly malformed name never
+equals the tool's real name, so matching on equality can't see it) and
+false-alarmed on the gate's own correct behavior (a disallowed model
+trying the tool anyway). Moved into the SDK's own repair callback, tied
+to the exact tool name that failed, which is the only place with enough
+information to tell the two apart.
+
+**H1 (spend guardrail) had one real bug, found the same way P2's quinoa
+bug was found: by testing what the design assumed rather than what it
+said.** The 30-turns-per-hour cap counted `role='user'` rows, but a
+question-less request (an empty body, which the client never sends but
+nothing on the server rejects either) never writes one, so a client that
+only ever asked empty questions could spend without limit. Fixed by
+counting the assistant placeholder row instead, which every real turn
+writes unconditionally. Left open on purpose, recorded rather than
+silently accepted: an abandoned tool-approval turn still escapes the
+count because its rows get discarded once superseded, and the actual
+spend at risk is the user's own BYOK key, not shared credits, which is
+why this stayed a backlog note instead of blocking the merge.
+
+**H4 (cron timeout) and H3 (embedding provenance) shipped clean.** Both
+gates ran two full rounds each and found nothing beyond what shipped.
+H3's migration was applied to the shared Turso before the code merged,
+not after, since the new code's raw SQL references the column it adds:
+the opposite order from most of this project's migrations, which follow
+new code deploying before old assumptions are removed.
+
+**What ran the branches into each other, not the code.** All four
+branched off the same `main` tip, and two of them (H1's turn cap, H2's
+write gate) touched the same functions in `coach.ts` and `provider.ts`.
+Merging in order meant rebasing each later branch onto the one just
+merged, which produced one real conflict, both sides adding a different
+named constant to the same `stopWhen` call, resolved by keeping both.
+Also surfaced by the rebase: a local, never-pushed, explicitly-not-ready
+truncation fix (see the known-gaps entry on silent truncation below) had
+been sitting on `main` since before this pass started and would have
+been silently swept into every branch's history if left there; excluded
+from each rebase and kept on its own branch instead.
+
 ---
 
 # Honest limitations

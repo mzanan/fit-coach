@@ -41,7 +41,7 @@ Three provider slots, deliberately separate because they have different constrai
 
 - **Text** (coach, extraction): per-user BYOK. The user stores their own provider, API key and model in Settings. Keys are encrypted at rest with AES-256-GCM using a per-user AAD. There is no system-key fallback by design: no AI runs until the user supplies a key, so the app never spends someone else's budget silently.
 - **Vision** (InBody scan OCR): a system Gemini key, because it is a fixed pipeline tuned against a real result sheet rather than something the user configures.
-- **Embeddings** (long-term memory): also Gemini, because Groq publishes no embedding model. Pinned to `gemini-embedding-001` truncated to 768 dimensions, which must match the `F32_BLOB(n)` column.
+- **Embeddings** (long-term memory): also Gemini, because Groq publishes no embedding model. Pinned to `gemini-embedding-001` truncated to 768 dimensions, which must match the `F32_BLOB(n)` column, and deliberately out of BYOK scope: the user never chooses this model, it is app infrastructure rather than a user-facing decision. Every `coach_facts` row stamps which model built its vector, so a future re-embed job (not built yet) can tell what it is looking at.
 
 Model capability is not uniform and no layer normalizes it, so the app keeps its own capability registry: it reads the provider catalog, marks which models declare tool use and structured output, and gates features per model instead of failing at request time. Models are named where behavior was actually measured rather than inferred from a capability flag, because _declaring_ tool support and _choosing to call a write tool when asked_ are different things.
 
@@ -57,6 +57,8 @@ The coach runs on the SDK's native tool loop with five tools: `get_today`, `sear
 4. Confirmation is a second request carrying only `{approvalId, approved}`.
 
 Where a prompt rule proved insufficient, the rule moved into code. The model choosing a portion size on its own became an app-rendered size picker whose choice is applied at the tool's `execute()`; the model claiming a write it never performed became an app-side check against whether the tool actually ran.
+
+A per-user cap of 30 coach turns per rolling hour, checked before any model call runs, guards against a bug or a stuck retry loop spending unboundedly; the tool-loop step count and the truncation-continuation retry limit are named constants (`src/lib/ai/limits.ts`) rather than inline numbers.
 
 **The answer itself is server-owned, not tied to the request that started it.** `/api/coach` does not use Vercel's opt-in request cancellation, so a refresh, a backgrounded tab or a dropped connection no longer kills the generation: it keeps running to completion server-side, streaming its own partial text into the row every second so a reload can pick it up mid-answer instead of losing it. Stop is its own request (`/api/coach/stop`) rather than a side effect of the client disconnecting, resolved with a guarded `UPDATE ... WHERE status = 'streaming'`. Precedence when Stop and completion land close together: the AI SDK's own stream reports whether generation was actually cut short (an `abort` part) or ran to a natural finish; a genuinely-cut-short answer keeps whatever had streamed so far and is marked stopped, the same way Claude or ChatGPT keep a stopped answer rather than discarding it, while a late Stop that lost the race against a real, complete answer is ignored so a finished reply is never mislabeled as interrupted. `/api/coach/approve` (the write-confirmation flow) still uses the older request-bound cancellation; unifying it is open work.
 
@@ -85,7 +87,7 @@ Until now, nothing in this app ran unless a user sent a chat message: the per-tu
 - **Stale-fact cleanup.** A `coach_facts` row untouched for 30+ days gets deactivated, same code path as supersession. `category = 'correction'` is exempt: a correction is defined as the thing that matters most, so it never silently expires just because the user hasn't repeated it.
 - **Memory consolidation.** `coach_memory` re-grounds from the user's active facts and recent logged data (targets, today's meals, the week's protein hit-rate, Whoop, latest scan), so it doesn't drift stale for a user who logs data without chatting. This merges into the existing memory rather than replacing it: the model is told what changed, not asked to reconstruct the summary from scratch, since facts and structured data cannot capture everything a conversation accumulates.
 
-Both run per-user through the same BYOK model reference every other AI call uses; a user with no saved key is skipped, not defaulted to a system key. The trigger itself (plain Vercel Cron over Workflow DevKit and Inngest) was chosen in an isolated lab, same method as everything else in this section.
+Both run per-user through the same BYOK model reference every other AI call uses; a user with no saved key is skipped, not defaulted to a system key. Memory consolidation's model call is bounded to 60 seconds per user, so one slow or hung provider response can't consume the whole cron run and leave the remaining users unprocessed. The trigger itself (plain Vercel Cron over Workflow DevKit and Inngest) was chosen in an isolated lab, same method as everything else in this section.
 
 ## Method
 
