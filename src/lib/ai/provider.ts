@@ -280,7 +280,11 @@ function repairToolName(
         );
         return { ...toolCall, toolName: cleaned };
       }
-      const gatedOut = Boolean(approvalFor) && !(approvalFor! in tools);
+      const gatedOut = Boolean(
+        approvalFor &&
+          toolCall.toolName === approvalFor &&
+          !(approvalFor in tools),
+      );
       const log = gatedOut ? console.warn : console.error;
       log(
         `coach: unrepairable tool name ${toolCall.toolName}${gatedOut ? " (the approval-gated tool is not registered for this model, likely the cause)" : ""}, user=${userId} model=${ref.provider}/${ref.model}`,
