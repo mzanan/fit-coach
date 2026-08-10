@@ -202,7 +202,12 @@ const getCachedModelsForUser = unstable_cache(
   ): Promise<ProviderModelsResult | null> => {
     const apiKey = await providerApiKey(userId, provider);
     if (!apiKey) return null;
-    return provider === "groq" ? groqModels(apiKey) : googleModels(apiKey);
+    const result =
+      provider === "groq" ? await groqModels(apiKey) : await googleModels(apiKey);
+    // A transient error must never get cached for the full TTL, or "reload
+    // to retry" in the Settings UI would keep serving the same stale error.
+    if (result.status !== "ok") throw new Error(`ai models: ${result.status}`);
+    return result;
   },
   ["ai-provider-models"],
   { tags: ["ai-credentials"], revalidate: MODELS_CACHE_SECONDS },
@@ -212,7 +217,11 @@ export async function cachedProviderModels(
   userId: string,
   provider: "groq" | "google",
 ): Promise<ProviderModelsResult | null> {
-  return getCachedModelsForUser(userId, provider);
+  try {
+    return await getCachedModelsForUser(userId, provider);
+  } catch {
+    return { status: "error" };
+  }
 }
 
 async function setActive(
