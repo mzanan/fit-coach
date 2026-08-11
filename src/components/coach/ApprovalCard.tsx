@@ -27,7 +27,7 @@ import type {
   UpdateRulePreview,
 } from "@/lib/data/coachPendingWrite";
 import { kcalOf } from "@/lib/macros";
-import { cn } from "@/lib/utils";
+import { cn, humanizeKey } from "@/lib/utils";
 import { formatSetLine } from "@/lib/workoutHistory";
 
 interface DisplayOption {
@@ -191,11 +191,6 @@ function confirmLabelFor(kinds: PreviewKind[]): string {
   const only = active[0];
   if (only) return only.count === 1 ? only.confirm.singular : only.confirm.plural;
   return "Log it";
-}
-
-function humanizeKey(key: string): string {
-  const words = key.split("_").filter(Boolean).join(" ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 function RuleItem({ preview }: { preview: UpdateRulePreview }) {

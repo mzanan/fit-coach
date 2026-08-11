@@ -29,3 +29,8 @@ export function round(value: number, decimals = 0): number {
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
+
+export function humanizeKey(key: string): string {
+  const words = key.split("_").filter(Boolean).join(" ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}

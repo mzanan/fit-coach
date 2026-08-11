@@ -112,6 +112,7 @@ function unloggedWarning(
 
 async function memoryFactsAndRules(
   userId: string,
+  profile: Profile,
   today: string,
   question?: string,
 ): Promise<{ memory: string | null; parts: string[] }> {
@@ -119,7 +120,7 @@ async function memoryFactsAndRules(
     getCoachMemory(userId),
     retrieveFacts(userId, question?.trim() ?? ""),
     listActiveRules(userId),
-    buildReminderLines(userId, today),
+    buildReminderLines(userId, dayConfig(profile), today),
   ]);
 
   const ruleLines = rules.length
@@ -267,7 +268,7 @@ export async function toolSetup(
   question?: string,
 ) {
   const today = todayLogicalDay(dayConfig(profile));
-  const { memory, parts } = await memoryFactsAndRules(userId, today, question);
+  const { memory, parts } = await memoryFactsAndRules(userId, profile, today, question);
   return {
     memory,
     today,
@@ -433,7 +434,12 @@ async function contextReply(
   appGenerated = false,
 ): Promise<CoachResult> {
   const ctx = await buildContext(userId, profile);
-  const { memory, parts } = await memoryFactsAndRules(userId, ctx.today, question);
+  const { memory, parts } = await memoryFactsAndRules(
+    userId,
+    profile,
+    ctx.today,
+    question,
+  );
 
   const userMsg = [
     ...ctx.lines,

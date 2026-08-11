@@ -3,7 +3,8 @@ import "server-only";
 import { getLatestMeasurement } from "@/lib/data/bodyMeasurements";
 import { getLatestScanTakenAt } from "@/lib/data/bodyScans";
 import { getActiveRule, listActiveRules } from "@/lib/data/coachRules";
-import { shiftDay } from "@/lib/dates";
+import { logicalDayOf, shiftDay, type DayConfig } from "@/lib/dates";
+import { humanizeKey } from "@/lib/utils";
 
 export type ReminderStatus = "overdue" | "upcoming";
 
@@ -70,11 +71,6 @@ function cadenceReminder(
   };
 }
 
-function humanizeRuleKey(key: string): string {
-  const words = key.split("_").filter(Boolean).join(" ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
 function treatmentEndReminders(
   rules: { key: string; value: string }[],
   today: string,
@@ -87,7 +83,7 @@ function treatmentEndReminders(
     return [
       {
         type: "treatment_end",
-        label: humanizeRuleKey(rule.key.slice(0, -TREATMENT_END_SUFFIX.length)),
+        label: humanizeKey(rule.key.slice(0, -TREATMENT_END_SUFFIX.length)),
         status: (dueDay <= today ? "overdue" : "upcoming") as ReminderStatus,
         due_day: dueDay,
         last_day: null,
@@ -98,6 +94,7 @@ function treatmentEndReminders(
 
 export async function getUpcomingReminders(
   userId: string,
+  cfg: DayConfig,
   today: string,
 ): Promise<ReminderItem[]> {
   const [photoRule, waistRule, inbodyRule, allRules, lastPhoto, lastWaist, lastScan] =
@@ -117,7 +114,7 @@ export async function getUpcomingReminders(
     {
       def: CADENCE_DEFS[2],
       rule: inbodyRule,
-      lastDay: lastScan ? lastScan.toISOString().slice(0, 10) : null,
+      lastDay: lastScan ? logicalDayOf(lastScan, cfg) : null,
     },
   ];
 

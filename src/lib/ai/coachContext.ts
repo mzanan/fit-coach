@@ -6,7 +6,7 @@ import type { ModelRef } from "@/lib/ai/aiCredentials";
 import { PROVIDER_LABEL } from "@/lib/ai/options";
 import type { ResolveFailure } from "@/lib/catalogMeal";
 import { categoryLabel, fatigueTimeLabel, measurementUnit } from "@/lib/constants";
-import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
+import { dayConfig, shiftDay, todayLogicalDay, type DayConfig } from "@/lib/dates";
 import { getLatestMeasurement } from "@/lib/data/bodyMeasurements";
 import { getDayFatigue } from "@/lib/data/fatigueLogs";
 import { getDayData } from "@/lib/data/today";
@@ -71,7 +71,7 @@ export async function buildContext(
   const whoopLines = await buildWhoopLines(userId);
   const scanLines = await buildScanLines(userId);
   const measurementLines = await buildMeasurementLines(userId);
-  const reminderLines = await buildReminderLines(userId, today);
+  const reminderLines = await buildReminderLines(userId, cfg, today);
 
   return {
     profile,
@@ -93,9 +93,10 @@ export async function buildContext(
 
 export async function buildReminderLines(
   userId: string,
+  cfg: DayConfig,
   today: string,
 ): Promise<string[]> {
-  const reminders = await getUpcomingReminders(userId, today);
+  const reminders = await getUpcomingReminders(userId, cfg, today);
   if (!reminders.length) return [];
   return reminders.map((reminder) => {
     const statusText =

@@ -46,7 +46,7 @@ import type {
   PendingPreview,
   UpdateRulePreview,
 } from "@/lib/data/coachPendingWrite";
-import { shiftDay } from "@/lib/dates";
+import { dayConfig, shiftDay } from "@/lib/dates";
 import { getDayData } from "@/lib/data/today";
 import {
   getExerciseSessions,
@@ -676,7 +676,7 @@ export function buildCoachTools(
         "Get overdue/upcoming reminders you should raise proactively: progress photo (default every 4 weeks), waist measurement (default every 2 weeks), the next InBody scan if the user set a cadence for it, and any standing rule stored as a `..._end_date` (e.g. a treatment or medication end date). Read-only, no confirmation needed. Reminders already due are also included automatically in your context every turn, so you rarely need to call this yourself; use it if you want to double-check before mentioning one.",
       inputSchema: z.object({}),
       execute: safe("get_upcoming_reminders", async () => {
-        const reminders = await getUpcomingReminders(userId, today);
+        const reminders = await getUpcomingReminders(userId, dayConfig(profile), today);
         return { reminders };
       }),
     }),
