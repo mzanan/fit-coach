@@ -190,6 +190,13 @@
       "when": 1786425695809,
       "tag": "0026_user_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1786432639134,
+      "tag": "0027_fatigue_logs",
+      "breakpoints": true
     }
   ]
 }

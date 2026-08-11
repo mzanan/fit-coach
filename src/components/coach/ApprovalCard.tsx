@@ -6,8 +6,16 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { MacroChips } from "@/components/ui/MacroChips";
 import { Surface } from "@/components/ui/Surface";
-import { categoryLabel, RULE_TOOL, WRITE_TOOL } from "@/lib/constants";
+import {
+  categoryLabel,
+  FATIGUE_TOOL,
+  fatigueExtrasLabel,
+  fatigueTimeLabel,
+  RULE_TOOL,
+  WRITE_TOOL,
+} from "@/lib/constants";
 import type {
+  LogFatiguePreview,
   LogMealPreview,
   PendingPreview,
   UpdateRulePreview,
@@ -38,6 +46,12 @@ function isMealPreview(preview: PendingPreview): preview is LogMealPreview {
 
 function isRulePreview(preview: PendingPreview): preview is UpdateRulePreview {
   return preview.toolName === RULE_TOOL;
+}
+
+function isFatiguePreview(
+  preview: PendingPreview,
+): preview is LogFatiguePreview {
+  return preview.toolName === FATIGUE_TOOL;
 }
 
 function weightOf(name: string): number {
@@ -129,23 +143,38 @@ function MealItem({
   );
 }
 
+function kindsOf(mealCount: number, ruleCount: number, fatigueCount: number): number {
+  return [mealCount, ruleCount, fatigueCount].filter(Boolean).length;
+}
+
 function promptFor(
   mealCount: number,
   ruleCount: number,
+  fatigueCount: number,
   ambiguous: boolean,
 ): string {
   const tail = "Nothing is written until you confirm.";
-  if (mealCount && ruleCount) return `Confirm these changes? ${tail}`;
+  if (kindsOf(mealCount, ruleCount, fatigueCount) > 1) {
+    return `Confirm these changes? ${tail}`;
+  }
   if (ruleCount) {
     return `${ruleCount === 1 ? "Update this rule?" : "Update these rules?"} ${tail}`;
+  }
+  if (fatigueCount) {
+    return `${fatigueCount === 1 ? "Log this fatigue check-in?" : "Log these fatigue check-ins?"} ${tail}`;
   }
   if (ambiguous) return `Which one? ${tail}`;
   return `${mealCount === 1 ? "Log this meal?" : "Log these meals?"} ${tail}`;
 }
 
-function confirmLabelFor(mealCount: number, ruleCount: number): string {
-  if (mealCount && ruleCount) return "Confirm";
+function confirmLabelFor(
+  mealCount: number,
+  ruleCount: number,
+  fatigueCount: number,
+): string {
+  if (kindsOf(mealCount, ruleCount, fatigueCount) > 1) return "Confirm";
   if (ruleCount) return ruleCount === 1 ? "Set it" : "Set them";
+  if (fatigueCount) return fatigueCount === 1 ? "Log it" : "Log them";
   return mealCount === 1 ? "Log it" : "Log them";
 }
 
@@ -167,6 +196,23 @@ function RuleItem({ preview }: { preview: UpdateRulePreview }) {
   );
 }
 
+function FatigueItem({ preview }: { preview: LogFatiguePreview }) {
+  const extras = fatigueExtrasLabel(preview.sleepHours, preview.sleepLocation);
+  return (
+    <div className="space-y-1">
+      <p className="text-body font-medium">
+        {fatigueTimeLabel(preview.timeOfDay)} fatigue: {preview.score}/5
+      </p>
+      {extras ? <p className="text-meta text-muted-foreground">{extras}</p> : null}
+      {preview.previousScore != null ? (
+        <p className="text-meta text-muted-foreground">
+          Was {preview.previousScore}/5 today
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function ApprovalCard({
   previews,
   busy,
@@ -178,6 +224,7 @@ export function ApprovalCard({
 }) {
   const mealPreviews = previews.filter(isMealPreview);
   const rulePreviews = previews.filter(isRulePreview);
+  const fatiguePreviews = previews.filter(isFatiguePreview);
   const firstMeal = mealPreviews[0];
 
   const options = firstMeal ? optionsOf(firstMeal) : [];
@@ -191,10 +238,16 @@ export function ApprovalCard({
   const displayedFirstMeal =
     firstMeal && chosenOption ? scaledOption(chosenOption, firstMeal.portions) : undefined;
 
-  const prompt = promptFor(mealPreviews.length, rulePreviews.length, ambiguous);
+  const prompt = promptFor(
+    mealPreviews.length,
+    rulePreviews.length,
+    fatiguePreviews.length,
+    ambiguous,
+  );
   const confirmLabel = confirmLabelFor(
     mealPreviews.length,
     rulePreviews.length,
+    fatiguePreviews.length,
   );
 
   return (
@@ -205,6 +258,11 @@ export function ApprovalCard({
           if (isRulePreview(preview)) {
             return (
               <RuleItem key={`${preview.toolCallId}-${index}`} preview={preview} />
+            );
+          }
+          if (isFatiguePreview(preview)) {
+            return (
+              <FatigueItem key={`${preview.toolCallId}-${index}`} preview={preview} />
             );
           }
           const isFirstMeal = preview === firstMeal;

@@ -225,4 +225,28 @@ export const COACH_MAX_DURATION_SECONDS = 300;
 
 export const WRITE_TOOL = "log_meal";
 export const RULE_TOOL = "update_rule";
-export const WRITE_TOOLS = [WRITE_TOOL, RULE_TOOL];
+export const FATIGUE_TOOL = "log_fatigue";
+export const WRITE_TOOLS = [WRITE_TOOL, RULE_TOOL, FATIGUE_TOOL];
+
+export const FATIGUE_TIMES_OF_DAY = [
+  { key: "morning", label: "Morning" },
+  { key: "post_lunch", label: "Post-lunch" },
+] as const;
+
+export type FatigueTimeOfDay = (typeof FATIGUE_TIMES_OF_DAY)[number]["key"];
+
+export function fatigueTimeLabel(key: string): string {
+  return FATIGUE_TIMES_OF_DAY.find((t) => t.key === key)?.label ?? key;
+}
+
+export const FATIGUE_SCORE_MIN = 1;
+export const FATIGUE_SCORE_MAX = 5;
+
+export function fatigueExtrasLabel(
+  sleepHours: number | null,
+  sleepLocation: string | null,
+): string {
+  return [sleepHours != null ? `${sleepHours}h sleep` : null, sleepLocation]
+    .filter(Boolean)
+    .join(", ");
+}

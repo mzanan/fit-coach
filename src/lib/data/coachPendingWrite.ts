@@ -5,7 +5,7 @@ import type { ModelMessage } from "ai";
 
 import { db, schema } from "@/lib/db";
 import type { SizeVariant } from "@/lib/catalogMeal";
-import type { RULE_TOOL, WRITE_TOOL } from "@/lib/constants";
+import type { FATIGUE_TOOL, RULE_TOOL, WRITE_TOOL } from "@/lib/constants";
 
 const { coach_pending_writes } = schema;
 
@@ -33,7 +33,18 @@ export interface UpdateRulePreview {
   toolCallId: string;
 }
 
-export type PendingPreview = LogMealPreview | UpdateRulePreview;
+export interface LogFatiguePreview {
+  toolName: typeof FATIGUE_TOOL;
+  day: string;
+  timeOfDay: string;
+  score: number;
+  sleepHours: number | null;
+  sleepLocation: string | null;
+  previousScore: number | null;
+  toolCallId: string;
+}
+
+export type PendingPreview = LogMealPreview | UpdateRulePreview | LogFatiguePreview;
 
 export interface PendingWrite {
   approvalId: string;

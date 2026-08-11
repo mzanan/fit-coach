@@ -5,8 +5,9 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import type { ModelRef } from "@/lib/ai/aiCredentials";
 import { PROVIDER_LABEL } from "@/lib/ai/options";
 import type { ResolveFailure } from "@/lib/catalogMeal";
-import { categoryLabel } from "@/lib/constants";
+import { categoryLabel, fatigueTimeLabel } from "@/lib/constants";
 import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
+import { getDayFatigue } from "@/lib/data/fatigueLogs";
 import { getDayData } from "@/lib/data/today";
 import { getWhoopSnapshot } from "@/lib/data/whoop";
 import { db, schema } from "@/lib/db";
@@ -64,6 +65,7 @@ export async function buildContext(
 
   const weekLine = `Last 7 days: ${loggedDays} days logged, protein target hit on ${proteinHit}.`;
 
+  const fatigueLines = await buildFatigueLines(userId, today);
   const whoopLines = await buildWhoopLines(userId);
   const scanLines = await buildScanLines(userId);
 
@@ -76,10 +78,23 @@ export async function buildContext(
       "Meals logged today:",
       ...mealLines,
       weekLine,
+      ...fatigueLines,
       ...whoopLines,
       ...scanLines,
     ],
   };
+}
+
+export async function buildFatigueLines(
+  userId: string,
+  today: string,
+): Promise<string[]> {
+  const rows = await getDayFatigue(userId, today);
+  if (!rows.length) return [];
+  const parts = rows.map(
+    (row) => `${fatigueTimeLabel(row.time_of_day)} ${row.score}/5`,
+  );
+  return [`Fatigue logged today: ${parts.join(", ")}.`];
 }
 
 export async function buildScanLines(userId: string): Promise<string[]> {
