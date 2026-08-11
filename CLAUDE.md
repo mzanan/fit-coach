@@ -6,7 +6,7 @@ Architecture and setup: `README.md`. How the project is built (review gate, arch
 
 ## Stack
 
-Next 16 (App Router) + React 19 + Tailwind v4 + shadcn/radix. Turso via Drizzle. Better Auth (Google OAuth primary, email OTP secondary) gated by `src/proxy.ts`. AI: Vercel AI SDK v7 with three separate provider slots, text on per-user BYOK (Groq/OpenRouter/Google, key encrypted per user, no system fallback), vision and embeddings on system Gemini keys. Coach runs the SDK's native tool loop; `log_meal` is the only write and sits behind `toolApproval`. Architecture detail: `README.md`.
+Next 16 (App Router) + React 19 + Tailwind v4 + shadcn/radix. Turso via Drizzle. Better Auth (Google OAuth primary, email OTP secondary) gated by `src/proxy.ts`. AI: Vercel AI SDK v7 with three separate provider slots, text on per-user BYOK (Groq/OpenRouter/Google, key encrypted per user, no system fallback), vision and embeddings on system Gemini keys. Coach runs the SDK's native tool loop; `log_meal` and `update_rule` are the writes and both sit behind `toolApproval`. Architecture detail: `README.md`.
 
 ## Commands
 
