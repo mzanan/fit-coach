@@ -64,3 +64,72 @@ export function beatsLast(
   }
   return null;
 }
+
+export const PROGRESSION_SESSIONS_REQUIRED = 2;
+
+export interface SessionCleanliness {
+  day: string;
+  clean: boolean;
+  firstReps: number | null;
+  lastReps: number | null;
+  hasUnloggedSet: boolean;
+}
+
+export function sessionCleanliness(
+  day: string,
+  sets: HistorySet[],
+): SessionCleanliness {
+  if (sets.length === 0) {
+    return {
+      day,
+      clean: false,
+      firstReps: null,
+      lastReps: null,
+      hasUnloggedSet: false,
+    };
+  }
+  const hasUnloggedSet = sets.some((s) => s.reps == null);
+  const firstReps = sets[0].reps;
+  const lastReps = sets[sets.length - 1].reps;
+  const droppedReps =
+    firstReps != null && lastReps != null && lastReps < firstReps;
+  const clean = !hasUnloggedSet && !droppedReps;
+  return { day, clean, firstReps, lastReps, hasUnloggedSet };
+}
+
+export interface ProgressionEligibility {
+  eligible: boolean;
+  reason: string;
+  sessions: SessionCleanliness[];
+}
+
+export function evaluateProgression(
+  sessions: { day: string; sets: HistorySet[] }[],
+): ProgressionEligibility {
+  if (sessions.length < PROGRESSION_SESSIONS_REQUIRED) {
+    return {
+      eligible: false,
+      reason: `Only ${sessions.length} logged session(s) found for this exercise, need ${PROGRESSION_SESSIONS_REQUIRED} clean ones before raising the weight.`,
+      sessions: sessions.map((s) => sessionCleanliness(s.day, s.sets)),
+    };
+  }
+  const checked = sessions
+    .slice(0, PROGRESSION_SESSIONS_REQUIRED)
+    .map((s) => sessionCleanliness(s.day, s.sets));
+  const failed = checked.find((c) => !c.clean);
+  if (failed) {
+    const detail = failed.hasUnloggedSet
+      ? "at least one set has no reps logged"
+      : `reps dropped from ${failed.firstReps ?? "?"} on the first set to ${failed.lastReps ?? "?"} on the last`;
+    return {
+      eligible: false,
+      reason: `Session on ${failed.day} was not clean: ${detail}, so it does not count.`,
+      sessions: checked,
+    };
+  }
+  return {
+    eligible: true,
+    reason: `Last ${PROGRESSION_SESSIONS_REQUIRED} sessions (${checked.map((c) => c.day).join(", ")}) held or increased reps across every set. Eligible to raise the weight.`,
+    sessions: checked,
+  };
+}

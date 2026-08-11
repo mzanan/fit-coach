@@ -52,6 +52,29 @@ export async function findExerciseByName(
   return rows[0] ?? null;
 }
 
+export interface ResolvedExerciseCatalog {
+  catalogId: string | null;
+  name: string;
+}
+
+export async function resolveExerciseCatalog(
+  name: string,
+  exerciseCatalogId?: string,
+): Promise<ResolvedExerciseCatalog> {
+  const trimmed = name.trim();
+  if (exerciseCatalogId) {
+    const rows = await db
+      .select({ id: exercise_catalog.id, name: exercise_catalog.name })
+      .from(exercise_catalog)
+      .where(eq(exercise_catalog.id, exerciseCatalogId))
+      .limit(1);
+    if (rows[0]) return { catalogId: rows[0].id, name: rows[0].name };
+  }
+  const byName = await findExerciseByName(trimmed);
+  if (byName) return { catalogId: byName.id, name: byName.name };
+  return { catalogId: null, name: trimmed };
+}
+
 export async function searchExerciseCatalog({
   query,
   target,

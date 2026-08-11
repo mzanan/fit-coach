@@ -5,7 +5,12 @@ import type { ModelMessage } from "ai";
 
 import { db, schema } from "@/lib/db";
 import type { SizeVariant } from "@/lib/catalogMeal";
-import type { FATIGUE_TOOL, RULE_TOOL, WRITE_TOOL } from "@/lib/constants";
+import type {
+  FATIGUE_TOOL,
+  RULE_TOOL,
+  WORKOUT_TOOL,
+  WRITE_TOOL,
+} from "@/lib/constants";
 
 const { coach_pending_writes } = schema;
 
@@ -44,7 +49,22 @@ export interface LogFatiguePreview {
   toolCallId: string;
 }
 
-export type PendingPreview = LogMealPreview | UpdateRulePreview | LogFatiguePreview;
+export interface LogWorkoutSessionPreview {
+  toolName: typeof WORKOUT_TOOL;
+  day: string;
+  label: string;
+  exercises: {
+    name: string;
+    sets: { reps: number | null; weight: number | null; per_side: boolean }[];
+  }[];
+  toolCallId: string;
+}
+
+export type PendingPreview =
+  | LogMealPreview
+  | UpdateRulePreview
+  | LogFatiguePreview
+  | LogWorkoutSessionPreview;
 
 export interface PendingWrite {
   approvalId: string;
