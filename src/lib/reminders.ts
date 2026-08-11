@@ -57,9 +57,7 @@ function cadenceReminder(
   cadenceDays: number,
   today: string,
 ): ReminderItem | null {
-  if (!lastDay) {
-    return { type, label, status: "overdue", due_day: today, last_day: null };
-  }
+  if (!lastDay) return null;
   const dueDay = shiftDay(lastDay, cadenceDays);
   if (dueDay > shiftDay(today, UPCOMING_WINDOW_DAYS)) return null;
   return {
