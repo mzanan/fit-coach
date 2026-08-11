@@ -289,7 +289,7 @@ const workoutSetInput = z.object({
 
 const workoutExerciseInput = z.object({
   name: z.string().trim().min(1),
-  exercise_catalog_id: z.string().min(1).optional(),
+  exercise_catalog_id: z.string().min(1).optional().nullable(),
   sets: z.array(workoutSetInput).min(1).max(20),
   notes: z.string().trim().max(300).optional(),
 });
@@ -715,7 +715,7 @@ export function buildCoachTools(
     }),
     log_workout_session: tool({
       description:
-        "Log a completed gym session: which exercises, and for each one its sets with reps and weight (per_side true when the weight is per dumbbell/side rather than total). Only call this when the user reports what they actually did in the gym. session_type is a short label like \"Upper A\". Pass exercise_catalog_id when you have it (e.g. from get_workouts or a catalog search); otherwise pass the exact exercise name and the app will try to match it to the catalog itself. weight can be null for bodyweight sets. The user confirms before anything is written.",
+        "Log a completed gym session: which exercises, and for each one its sets with reps and weight (per_side true when the weight is per dumbbell/side rather than total). The sets array needs ONE ENTRY PER SET actually performed: \"3x8 at 60kg\" is three separate set objects, each {reps: 8, weight: 60}, never one entry meant to summarize all three. Only call this when the user reports what they actually did in the gym. session_type is a short label like \"Upper A\". Pass exercise_catalog_id only when you have a real id (e.g. from get_workouts or a catalog search); omit it entirely otherwise, never pass null, and the app will try to match the exercise by name itself. weight can be null for bodyweight sets. The user confirms before anything is written.",
       inputSchema: logWorkoutSessionInput,
       execute: safe(
         "log_workout_session",

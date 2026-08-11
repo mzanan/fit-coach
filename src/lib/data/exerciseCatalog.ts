@@ -59,7 +59,7 @@ export interface ResolvedExerciseCatalog {
 
 export async function resolveExerciseCatalog(
   name: string,
-  exerciseCatalogId?: string,
+  exerciseCatalogId?: string | null,
 ): Promise<ResolvedExerciseCatalog> {
   const trimmed = name.trim();
   if (exerciseCatalogId) {

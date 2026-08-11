@@ -290,7 +290,7 @@ export interface WorkoutSessionSetInput {
 
 export interface WorkoutSessionExerciseInput {
   name: string;
-  exercise_catalog_id?: string;
+  exercise_catalog_id?: string | null;
   sets: WorkoutSessionSetInput[];
   notes?: string;
 }
