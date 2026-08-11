@@ -21,6 +21,7 @@ import {
   recentFatigueAverage,
   saveFatigueLog,
 } from "@/lib/data/fatigueLogs";
+import { getLatestMeasurement, saveMeasurement } from "@/lib/data/bodyMeasurements";
 import { normalizeSubject } from "@/lib/ai/facts";
 import type { ApprovalRequest } from "@/lib/ai/provider";
 import {
@@ -29,6 +30,9 @@ import {
   FATIGUE_TIMES_OF_DAY,
   FATIGUE_TOOL,
   MEAL_CATEGORIES,
+  MEASUREMENT_TOOL,
+  MEASUREMENT_TYPES,
+  MEASUREMENT_VALUE_MAX,
   RULE_TOOL,
   WORKOUT_TOOL,
   WRITE_TOOL,
@@ -36,6 +40,7 @@ import {
 } from "@/lib/constants";
 import type {
   LogFatiguePreview,
+  LogMeasurementPreview,
   LogMealPreview,
   LogWorkoutSessionPreview,
   PendingPreview,
@@ -332,6 +337,61 @@ export async function previewLogWorkoutSession(
   };
 }
 
+const MEASUREMENT_TYPE_KEYS = MEASUREMENT_TYPES.map((t) => t.key) as [
+  string,
+  ...string[],
+];
+
+const measurementTypeSchema = z.enum(MEASUREMENT_TYPE_KEYS);
+const measurementValueSchema = z
+  .number()
+  .positive()
+  .max(MEASUREMENT_VALUE_MAX)
+  .nullable()
+  .default(null);
+
+const logMeasurementInput = z
+  .object({
+    type: measurementTypeSchema,
+    value: measurementValueSchema,
+  })
+  .refine(
+    (data) => (data.type === "photo" ? data.value === null : data.value !== null),
+    {
+      message: "value is required unless type is photo",
+      path: ["value"],
+    },
+  );
+
+export async function previewLogMeasurement(
+  userId: string,
+  today: string,
+  input: unknown,
+): Promise<
+  | { ok: true; preview: Omit<LogMeasurementPreview, "toolCallId"> }
+  | { ok: false; reason: ResolveFailure; error: string }
+> {
+  const parsed = logMeasurementInput.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      reason: "not_found",
+      error: "The coach asked to log a measurement it did not describe properly.",
+    };
+  }
+  const previous = await getLatestMeasurement(userId, parsed.data.type);
+  return {
+    ok: true,
+    preview: {
+      toolName: MEASUREMENT_TOOL,
+      day: today,
+      type: parsed.data.type,
+      value: parsed.data.value,
+      previousValue: previous?.value ?? null,
+    },
+  };
+}
+
 export async function previewApproval(
   userId: string,
   today: string,
@@ -372,6 +432,19 @@ export async function previewApproval(
       return {
         ok: false,
         text: "The coach tried to log a workout but the request came back malformed. Ask again.",
+      };
+    }
+    return {
+      ok: true,
+      preview: { ...result.preview, toolCallId: approval.toolCallId },
+    };
+  }
+  if (approval.toolName === MEASUREMENT_TOOL) {
+    const result = await previewLogMeasurement(userId, today, approval.input);
+    if (!result.ok) {
+      return {
+        ok: false,
+        text: "The coach tried to log a measurement but the request came back malformed. Ask again.",
       };
     }
     return {
@@ -569,6 +642,10 @@ export function buildCoachTools(
           -(PROGRESS_FATIGUE_WINDOW_DAYS - 1),
         );
         const fatigue = await recentFatigueAverage(userId, fatigueWindowStart);
+        const [latestWaist, latestWeight] = await Promise.all([
+          getLatestMeasurement(userId, "waist"),
+          getLatestMeasurement(userId, "weight"),
+        ]);
 
         return {
           first_logged_day: firstLoggedDay,
@@ -577,6 +654,12 @@ export function buildCoachTools(
             fatigue == null
               ? null
               : { average_score: round(fatigue.average, 1), entries: fatigue.count },
+          latest_waist_cm: latestWaist?.value != null
+            ? { value: latestWaist.value, day: latestWaist.logical_day }
+            : null,
+          latest_weight_kg: latestWeight?.value != null
+            ? { value: latestWeight.value, day: latestWeight.logical_day }
+            : null,
           scans: scans.map((scan) => ({
             taken_at: scan.taken_at.toISOString().slice(0, 10),
             weight_kg: scan.weight_kg,
@@ -734,6 +817,31 @@ export function buildCoachTools(
                 sets: exercise.sets,
               })),
             },
+          };
+        },
+      ),
+    }),
+    log_measurement: tool({
+      description:
+        "Log a body measurement: waist (cm) or weight (kg) with its value, or a progress photo (no value, just marks that one was taken today). Only call this when the user reports a measurement or confirms they took a progress photo. Never invent a value. The user confirms before anything is written.",
+      inputSchema: z.object({
+        type: measurementTypeSchema.describe("waist, weight, or photo"),
+        value: measurementValueSchema.describe(
+          "the measured value, cm for waist or kg for weight; omit or pass null for photo",
+        ),
+      }),
+      execute: safe(
+        "log_measurement",
+        async (input: { type: string; value: number | null }) => {
+          const value = input.type === "photo" ? null : input.value;
+          await saveMeasurement(userId, {
+            type: input.type,
+            value,
+            logical_day: today,
+          });
+          return {
+            logged: true,
+            measurement: { type: input.type, value },
           };
         },
       ),

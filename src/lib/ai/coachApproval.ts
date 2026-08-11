@@ -33,6 +33,7 @@ import {
   savePendingWrite,
   takePendingWrite,
   type LogFatiguePreview,
+  type LogMeasurementPreview,
   type LogMealPreview,
   type LogWorkoutSessionPreview,
   type PendingPreview,
@@ -46,6 +47,9 @@ import {
   fatigueExtrasLabel,
   fatigueTimeLabel,
   INTERRUPTED_ANSWER,
+  MEASUREMENT_TOOL,
+  measurementTypeLabel,
+  measurementUnit,
   WORKOUT_TOOL,
   WRITE_TOOL,
   WRITE_TOOLS,
@@ -171,10 +175,15 @@ export async function resolvePendingWrite(
       (preview): preview is LogWorkoutSessionPreview =>
         preview.toolName === WORKOUT_TOOL,
     );
+    const measurementPreview = pending.previews.find(
+      (preview): preview is LogMeasurementPreview =>
+        preview.toolName === MEASUREMENT_TOOL,
+    );
     const day =
       mealPreview?.day ??
       fatiguePreview?.day ??
       workoutPreview?.day ??
+      measurementPreview?.day ??
       todayLogicalDay(dayConfig(profile));
     const chosen =
       mealPreview && itemId
@@ -346,12 +355,20 @@ function workoutLoggedLine(preview: LogWorkoutSessionPreview): string {
   return `Logged ${label}: ${exerciseCount} exercise${exerciseCount === 1 ? "" : "s"}.`;
 }
 
+function measurementLoggedLine(preview: LogMeasurementPreview): string {
+  const label = measurementTypeLabel(preview.type);
+  if (preview.value == null) return `Logged ${label.toLowerCase()}.`;
+  return `Logged ${label.toLowerCase()}: ${preview.value}${measurementUnit(preview.type)}.`;
+}
+
 function confirmationLines(previews: PendingPreview[]): string {
   return previews
     .map((preview) => {
       if (preview.toolName === WRITE_TOOL) return mealLoggedLine(preview);
       if (preview.toolName === FATIGUE_TOOL) return fatigueLoggedLine(preview);
       if (preview.toolName === WORKOUT_TOOL) return workoutLoggedLine(preview);
+      if (preview.toolName === MEASUREMENT_TOOL)
+        return measurementLoggedLine(preview);
       return `Rule "${preview.key}" set to: ${preview.newValue}.`;
     })
     .join("\n");

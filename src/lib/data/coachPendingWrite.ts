@@ -7,6 +7,7 @@ import { db, schema } from "@/lib/db";
 import type { SizeVariant } from "@/lib/catalogMeal";
 import type {
   FATIGUE_TOOL,
+  MEASUREMENT_TOOL,
   RULE_TOOL,
   WORKOUT_TOOL,
   WRITE_TOOL,
@@ -60,11 +61,21 @@ export interface LogWorkoutSessionPreview {
   toolCallId: string;
 }
 
+export interface LogMeasurementPreview {
+  toolName: typeof MEASUREMENT_TOOL;
+  day: string;
+  type: string;
+  value: number | null;
+  previousValue: number | null;
+  toolCallId: string;
+}
+
 export type PendingPreview =
   | LogMealPreview
   | UpdateRulePreview
   | LogFatiguePreview
-  | LogWorkoutSessionPreview;
+  | LogWorkoutSessionPreview
+  | LogMeasurementPreview;
 
 export interface PendingWrite {
   approvalId: string;

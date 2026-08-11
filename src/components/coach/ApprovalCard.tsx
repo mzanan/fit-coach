@@ -11,12 +11,16 @@ import {
   FATIGUE_TOOL,
   fatigueExtrasLabel,
   fatigueTimeLabel,
+  MEASUREMENT_TOOL,
+  measurementTypeLabel,
+  measurementUnit,
   RULE_TOOL,
   WORKOUT_TOOL,
   WRITE_TOOL,
 } from "@/lib/constants";
 import type {
   LogFatiguePreview,
+  LogMeasurementPreview,
   LogMealPreview,
   LogWorkoutSessionPreview,
   PendingPreview,
@@ -61,6 +65,12 @@ function isWorkoutPreview(
   preview: PendingPreview,
 ): preview is LogWorkoutSessionPreview {
   return preview.toolName === WORKOUT_TOOL;
+}
+
+function isMeasurementPreview(
+  preview: PendingPreview,
+): preview is LogMeasurementPreview {
+  return preview.toolName === MEASUREMENT_TOOL;
 }
 
 function weightOf(name: string): number {
@@ -152,50 +162,35 @@ function MealItem({
   );
 }
 
-function kindsOf(
-  mealCount: number,
-  ruleCount: number,
-  fatigueCount: number,
-  workoutCount: number,
-): number {
-  return [mealCount, ruleCount, fatigueCount, workoutCount].filter(Boolean).length;
+interface PreviewKind {
+  id: "meal" | "rule" | "fatigue" | "workout" | "measurement";
+  count: number;
+  question: { singular: string; plural: string };
+  confirm: { singular: string; plural: string };
 }
 
-function promptFor(
-  mealCount: number,
-  ruleCount: number,
-  fatigueCount: number,
-  workoutCount: number,
-  ambiguous: boolean,
-): string {
+function activeKinds(kinds: PreviewKind[]): PreviewKind[] {
+  return kinds.filter((k) => k.count > 0);
+}
+
+function promptFor(kinds: PreviewKind[], ambiguous: boolean): string {
   const tail = "Nothing is written until you confirm.";
-  if (kindsOf(mealCount, ruleCount, fatigueCount, workoutCount) > 1) {
-    return `Confirm these changes? ${tail}`;
+  const active = activeKinds(kinds);
+  if (active.length > 1) return `Confirm these changes? ${tail}`;
+  const only = active[0];
+  if (only?.id === "meal" && ambiguous) return `Which one? ${tail}`;
+  if (only) {
+    return `${only.count === 1 ? only.question.singular : only.question.plural} ${tail}`;
   }
-  if (ruleCount) {
-    return `${ruleCount === 1 ? "Update this rule?" : "Update these rules?"} ${tail}`;
-  }
-  if (fatigueCount) {
-    return `${fatigueCount === 1 ? "Log this fatigue check-in?" : "Log these fatigue check-ins?"} ${tail}`;
-  }
-  if (workoutCount) {
-    return `${workoutCount === 1 ? "Log this workout?" : "Log these workouts?"} ${tail}`;
-  }
-  if (ambiguous) return `Which one? ${tail}`;
-  return `${mealCount === 1 ? "Log this meal?" : "Log these meals?"} ${tail}`;
+  return `Log this meal? ${tail}`;
 }
 
-function confirmLabelFor(
-  mealCount: number,
-  ruleCount: number,
-  fatigueCount: number,
-  workoutCount: number,
-): string {
-  if (kindsOf(mealCount, ruleCount, fatigueCount, workoutCount) > 1) return "Confirm";
-  if (ruleCount) return ruleCount === 1 ? "Set it" : "Set them";
-  if (fatigueCount) return fatigueCount === 1 ? "Log it" : "Log them";
-  if (workoutCount) return workoutCount === 1 ? "Log it" : "Log them";
-  return mealCount === 1 ? "Log it" : "Log them";
+function confirmLabelFor(kinds: PreviewKind[]): string {
+  const active = activeKinds(kinds);
+  if (active.length > 1) return "Confirm";
+  const only = active[0];
+  if (only) return only.count === 1 ? only.confirm.singular : only.confirm.plural;
+  return "Log it";
 }
 
 function humanizeKey(key: string): string {
@@ -248,6 +243,25 @@ function FatigueItem({ preview }: { preview: LogFatiguePreview }) {
   );
 }
 
+function MeasurementItem({ preview }: { preview: LogMeasurementPreview }) {
+  const label = measurementTypeLabel(preview.type);
+  const unit = measurementUnit(preview.type);
+  return (
+    <div className="space-y-1">
+      <p className="text-body font-medium">
+        {label}
+        {preview.value != null ? `: ${preview.value}${unit}` : ""}
+      </p>
+      {preview.previousValue != null ? (
+        <p className="text-meta text-muted-foreground">
+          Was {preview.previousValue}
+          {unit}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function ApprovalCard({
   previews,
   busy,
@@ -261,6 +275,7 @@ export function ApprovalCard({
   const rulePreviews = previews.filter(isRulePreview);
   const fatiguePreviews = previews.filter(isFatiguePreview);
   const workoutPreviews = previews.filter(isWorkoutPreview);
+  const measurementPreviews = previews.filter(isMeasurementPreview);
   const firstMeal = mealPreviews[0];
 
   const options = firstMeal ? optionsOf(firstMeal) : [];
@@ -274,19 +289,47 @@ export function ApprovalCard({
   const displayedFirstMeal =
     firstMeal && chosenOption ? scaledOption(chosenOption, firstMeal.portions) : undefined;
 
-  const prompt = promptFor(
-    mealPreviews.length,
-    rulePreviews.length,
-    fatiguePreviews.length,
-    workoutPreviews.length,
-    ambiguous,
-  );
-  const confirmLabel = confirmLabelFor(
-    mealPreviews.length,
-    rulePreviews.length,
-    fatiguePreviews.length,
-    workoutPreviews.length,
-  );
+  const kinds: PreviewKind[] = [
+    {
+      id: "meal",
+      count: mealPreviews.length,
+      question: { singular: "Log this meal?", plural: "Log these meals?" },
+      confirm: { singular: "Log it", plural: "Log them" },
+    },
+    {
+      id: "rule",
+      count: rulePreviews.length,
+      question: { singular: "Update this rule?", plural: "Update these rules?" },
+      confirm: { singular: "Set it", plural: "Set them" },
+    },
+    {
+      id: "fatigue",
+      count: fatiguePreviews.length,
+      question: {
+        singular: "Log this fatigue check-in?",
+        plural: "Log these fatigue check-ins?",
+      },
+      confirm: { singular: "Log it", plural: "Log them" },
+    },
+    {
+      id: "workout",
+      count: workoutPreviews.length,
+      question: { singular: "Log this workout?", plural: "Log these workouts?" },
+      confirm: { singular: "Log it", plural: "Log them" },
+    },
+    {
+      id: "measurement",
+      count: measurementPreviews.length,
+      question: {
+        singular: "Log this measurement?",
+        plural: "Log these measurements?",
+      },
+      confirm: { singular: "Log it", plural: "Log them" },
+    },
+  ];
+
+  const prompt = promptFor(kinds, ambiguous);
+  const confirmLabel = confirmLabelFor(kinds);
 
   return (
     <Surface level="raised" className="rounded-control p-4">
@@ -306,6 +349,14 @@ export function ApprovalCard({
           if (isWorkoutPreview(preview)) {
             return (
               <WorkoutItem key={`${preview.toolCallId}-${index}`} preview={preview} />
+            );
+          }
+          if (isMeasurementPreview(preview)) {
+            return (
+              <MeasurementItem
+                key={`${preview.toolCallId}-${index}`}
+                preview={preview}
+              />
             );
           }
           const isFirstMeal = preview === firstMeal;

@@ -227,7 +227,14 @@ export const WRITE_TOOL = "log_meal";
 export const RULE_TOOL = "update_rule";
 export const FATIGUE_TOOL = "log_fatigue";
 export const WORKOUT_TOOL = "log_workout_session";
-export const WRITE_TOOLS = [WRITE_TOOL, RULE_TOOL, FATIGUE_TOOL, WORKOUT_TOOL];
+export const MEASUREMENT_TOOL = "log_measurement";
+export const WRITE_TOOLS = [
+  WRITE_TOOL,
+  RULE_TOOL,
+  FATIGUE_TOOL,
+  WORKOUT_TOOL,
+  MEASUREMENT_TOOL,
+];
 
 export const FATIGUE_TIMES_OF_DAY = [
   { key: "morning", label: "Morning" },
@@ -251,3 +258,21 @@ export function fatigueExtrasLabel(
     .filter(Boolean)
     .join(", ");
 }
+
+export const MEASUREMENT_TYPES = [
+  { key: "waist", label: "Waist", unit: "cm" },
+  { key: "weight", label: "Weight", unit: "kg" },
+  { key: "photo", label: "Progress photo", unit: "" },
+] as const;
+
+export type MeasurementType = (typeof MEASUREMENT_TYPES)[number]["key"];
+
+export function measurementTypeLabel(key: string): string {
+  return MEASUREMENT_TYPES.find((t) => t.key === key)?.label ?? key;
+}
+
+export function measurementUnit(key: string): string {
+  return MEASUREMENT_TYPES.find((t) => t.key === key)?.unit ?? "";
+}
+
+export const MEASUREMENT_VALUE_MAX = 500;

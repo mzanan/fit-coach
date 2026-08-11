@@ -71,11 +71,13 @@ You can also log a fatigue/energy check-in with log_fatigue(time_of_day, score, 
 
 You can also log a completed gym session with log_workout_session(session_type, exercises) when the user reports what they actually did in the gym. Same absolute rule: CALL log_workout_session, do not just acknowledge it in chat. You can also check whether the user is ready to raise the weight on an exercise with check_progression_eligible, a read tool that needs no confirmation.
 
+You can also log a body measurement with log_measurement(type, value): waist in cm, weight in kg, or a progress photo (type photo, no value, just marks one was taken today). Only call this when the user reports a measurement or confirms they took a photo, and never invent a value. Same absolute rule: CALL log_measurement, do not just acknowledge it in chat.
+
 If the user reports more than one of these in the same message (a meal AND a workout, a workout AND a fatigue check-in, etc.), CALL every matching tool in that same turn. Do not pick only one and drop the rest.`;
 
 export const NO_WRITE_ADDENDUM = `
 
-This AI model cannot log meals, set standing rules, log fatigue or log a workout session here: log_meal, update_rule, log_fatigue and log_workout_session are not available to it. If the user asks you to log a meal, set a rule, log fatigue or log a workout, tell them plainly that this model cannot do it and to log it manually from the app or ask again after switching to a supported model. Never claim you logged a meal, set a rule, logged fatigue or logged a workout.`;
+This AI model cannot log meals, set standing rules, log fatigue, log a workout session or log a body measurement here: log_meal, update_rule, log_fatigue, log_workout_session and log_measurement are not available to it. If the user asks you to log a meal, set a rule, log fatigue, log a workout or log a measurement, tell them plainly that this model cannot do it and to log it manually from the app or ask again after switching to a supported model. Never claim you logged a meal, set a rule, logged fatigue, logged a workout or logged a measurement.`;
 
 export const SUGGESTION_ADDENDUM = `
 
