@@ -10,6 +10,7 @@ import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
 import { getLatestMeasurement } from "@/lib/data/bodyMeasurements";
 import { getDayFatigue } from "@/lib/data/fatigueLogs";
 import { getDayData } from "@/lib/data/today";
+import { getUpcomingReminders } from "@/lib/reminders";
 import { getWhoopSnapshot } from "@/lib/data/whoop";
 import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
@@ -70,6 +71,7 @@ export async function buildContext(
   const whoopLines = await buildWhoopLines(userId);
   const scanLines = await buildScanLines(userId);
   const measurementLines = await buildMeasurementLines(userId);
+  const reminderLines = await buildReminderLines(userId, today);
 
   return {
     profile,
@@ -84,8 +86,25 @@ export async function buildContext(
       ...whoopLines,
       ...scanLines,
       ...measurementLines,
+      ...reminderLines,
     ],
   };
+}
+
+export async function buildReminderLines(
+  userId: string,
+  today: string,
+): Promise<string[]> {
+  const reminders = await getUpcomingReminders(userId, today);
+  if (!reminders.length) return [];
+  return reminders.map((reminder) => {
+    const statusText =
+      reminder.status === "overdue"
+        ? "overdue"
+        : `due ${reminder.due_day}`;
+    const lastText = reminder.last_day ? `, last ${reminder.last_day}` : "";
+    return `Reminder (${statusText}): ${reminder.label}${lastText}.`;
+  });
 }
 
 export async function buildMeasurementLines(userId: string): Promise<string[]> {

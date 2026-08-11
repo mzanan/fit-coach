@@ -15,13 +15,13 @@ import {
 } from "@/lib/catalogMeal";
 import { searchCatalog } from "@/lib/ai/coachCatalogSearch";
 import { previewFailure } from "@/lib/ai/coachContext";
+import { getLatestMeasurement, saveMeasurement } from "@/lib/data/bodyMeasurements";
 import { getActiveRule, saveRule } from "@/lib/data/coachRules";
 import {
   getDayFatigue,
   recentFatigueAverage,
   saveFatigueLog,
 } from "@/lib/data/fatigueLogs";
-import { getLatestMeasurement, saveMeasurement } from "@/lib/data/bodyMeasurements";
 import { normalizeSubject } from "@/lib/ai/facts";
 import type { ApprovalRequest } from "@/lib/ai/provider";
 import {
@@ -63,6 +63,7 @@ import {
   evaluateProgression,
   PROGRESSION_SESSIONS_REQUIRED,
 } from "@/lib/workoutHistory";
+import { getUpcomingReminders } from "@/lib/reminders";
 
 const { body_scans, meals, workouts } = schema;
 
@@ -668,6 +669,15 @@ export function buildCoachTools(
             visceral_fat_level: scan.visceral_fat_level,
           })),
         };
+      }),
+    }),
+    get_upcoming_reminders: tool({
+      description:
+        "Get overdue/upcoming reminders you should raise proactively: progress photo (default every 4 weeks), waist measurement (default every 2 weeks), the next InBody scan if the user set a cadence for it, and any standing rule stored as a `..._end_date` (e.g. a treatment or medication end date). Read-only, no confirmation needed. Reminders already due are also included automatically in your context every turn, so you rarely need to call this yourself; use it if you want to double-check before mentioning one.",
+      inputSchema: z.object({}),
+      execute: safe("get_upcoming_reminders", async () => {
+        const reminders = await getUpcomingReminders(userId, today);
+        return { reminders };
       }),
     }),
   };
