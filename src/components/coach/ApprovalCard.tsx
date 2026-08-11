@@ -149,10 +149,15 @@ function confirmLabelFor(mealCount: number, ruleCount: number): string {
   return mealCount === 1 ? "Log it" : "Log them";
 }
 
+function humanizeKey(key: string): string {
+  const words = key.split("_").filter(Boolean).join(" ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 function RuleItem({ preview }: { preview: UpdateRulePreview }) {
   return (
     <div className="space-y-1">
-      <p className="text-body font-medium">{preview.key}</p>
+      <p className="text-body font-medium">{humanizeKey(preview.key)}</p>
       <p className="text-meta text-muted-foreground">
         {preview.oldValue
           ? `${preview.oldValue} → ${preview.newValue}`
