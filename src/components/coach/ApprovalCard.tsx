@@ -129,6 +129,26 @@ function MealItem({
   );
 }
 
+function promptFor(
+  mealCount: number,
+  ruleCount: number,
+  ambiguous: boolean,
+): string {
+  const tail = "Nothing is written until you confirm.";
+  if (mealCount && ruleCount) return `Confirm these changes? ${tail}`;
+  if (ruleCount) {
+    return `${ruleCount === 1 ? "Update this rule?" : "Update these rules?"} ${tail}`;
+  }
+  if (ambiguous) return `Which one? ${tail}`;
+  return `${mealCount === 1 ? "Log this meal?" : "Log these meals?"} ${tail}`;
+}
+
+function confirmLabelFor(mealCount: number, ruleCount: number): string {
+  if (mealCount && ruleCount) return "Confirm";
+  if (ruleCount) return ruleCount === 1 ? "Set it" : "Set them";
+  return mealCount === 1 ? "Log it" : "Log them";
+}
+
 function RuleItem({ preview }: { preview: UpdateRulePreview }) {
   return (
     <div className="space-y-1">
@@ -166,24 +186,11 @@ export function ApprovalCard({
   const displayedFirstMeal =
     firstMeal && chosenOption ? scaledOption(chosenOption, firstMeal.portions) : undefined;
 
-  const mixed = mealPreviews.length > 0 && rulePreviews.length > 0;
-  const prompt = mixed
-    ? "Confirm these changes? Nothing is written until you confirm."
-    : rulePreviews.length
-      ? `${rulePreviews.length === 1 ? "Update this rule?" : "Update these rules?"} Nothing is written until you confirm.`
-      : ambiguous
-        ? "Which one? Nothing is written until you confirm."
-        : `${mealPreviews.length === 1 ? "Log this meal?" : "Log these meals?"} Nothing is written until you confirm.`;
-
-  const confirmLabel = mixed
-    ? "Confirm"
-    : rulePreviews.length
-      ? rulePreviews.length === 1
-        ? "Set it"
-        : "Set them"
-      : mealPreviews.length === 1
-        ? "Log it"
-        : "Log them";
+  const prompt = promptFor(mealPreviews.length, rulePreviews.length, ambiguous);
+  const confirmLabel = confirmLabelFor(
+    mealPreviews.length,
+    rulePreviews.length,
+  );
 
   return (
     <Surface level="raised" className="rounded-control p-4">

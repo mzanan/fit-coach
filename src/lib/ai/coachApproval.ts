@@ -226,14 +226,11 @@ export async function resolvePendingWrite(
     const logged = pending.previews
       .filter((preview) => outcomeByCallId.get(preview.toolCallId)?.logged)
       .map((preview) => {
-        if (
-          preview.toolName !== WRITE_TOOL ||
-          !chosen ||
-          !mealPreview ||
-          preview.toolCallId !== mealPreview.toolCallId
-        ) {
-          return preview;
-        }
+        const isChosenMeal =
+          preview.toolName === WRITE_TOOL &&
+          chosen &&
+          preview.toolCallId === mealPreview?.toolCallId;
+        if (!isChosenMeal) return preview;
         const portions = preview.portions || 1;
         const scaled = {
           protein_g: round(chosen.protein_g * portions),
