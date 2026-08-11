@@ -16,19 +16,30 @@ import {
 import { searchCatalog } from "@/lib/ai/coachCatalogSearch";
 import { previewFailure } from "@/lib/ai/coachContext";
 import { getActiveRule, saveRule } from "@/lib/data/coachRules";
+import {
+  getDayFatigue,
+  recentFatigueAverage,
+  saveFatigueLog,
+} from "@/lib/data/fatigueLogs";
 import { normalizeSubject } from "@/lib/ai/facts";
 import type { ApprovalRequest } from "@/lib/ai/provider";
 import {
+  FATIGUE_SCORE_MAX,
+  FATIGUE_SCORE_MIN,
+  FATIGUE_TIMES_OF_DAY,
+  FATIGUE_TOOL,
   MEAL_CATEGORIES,
   RULE_TOOL,
   WRITE_TOOL,
   type MealCategoryKey,
 } from "@/lib/constants";
 import type {
+  LogFatiguePreview,
   LogMealPreview,
   PendingPreview,
   UpdateRulePreview,
 } from "@/lib/data/coachPendingWrite";
+import { shiftDay } from "@/lib/dates";
 import { getDayData } from "@/lib/data/today";
 import { getRecentWorkouts, hydrateWorkout } from "@/lib/data/workouts";
 import { db, schema } from "@/lib/db";
@@ -52,6 +63,7 @@ interface LogMealInput {
 const HYDRATED_WORKOUTS = 3;
 const SCAN_LIMIT = 2;
 const PROGRESS_SCAN_LIMIT = 24;
+const PROGRESS_FATIGUE_WINDOW_DAYS = 14;
 
 const TOOL_FAILURE = {
   error: "The app data is temporarily unavailable. Tell the user to try again.",
@@ -189,6 +201,73 @@ export async function previewUpdateRule(
   };
 }
 
+const TIME_OF_DAY_KEYS = FATIGUE_TIMES_OF_DAY.map((t) => t.key) as [
+  string,
+  ...string[],
+];
+
+const fatigueScoreSchema = z
+  .number()
+  .int()
+  .min(FATIGUE_SCORE_MIN)
+  .max(FATIGUE_SCORE_MAX);
+
+const fatigueSleepHoursSchema = z
+  .number()
+  .min(0)
+  .max(24)
+  .nullable()
+  .default(null);
+
+const fatigueSleepLocationSchema = z
+  .string()
+  .trim()
+  .max(100)
+  .nullable()
+  .default(null)
+  .transform((value) => (value && value.length > 0 ? value : null));
+
+const logFatigueInput = z.object({
+  time_of_day: z.enum(TIME_OF_DAY_KEYS),
+  score: fatigueScoreSchema,
+  sleep_hours: fatigueSleepHoursSchema,
+  sleep_location: fatigueSleepLocationSchema,
+});
+
+export async function previewLogFatigue(
+  userId: string,
+  today: string,
+  input: unknown,
+): Promise<
+  | { ok: true; preview: Omit<LogFatiguePreview, "toolCallId"> }
+  | { ok: false; reason: ResolveFailure; error: string }
+> {
+  const parsed = logFatigueInput.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      reason: "not_found",
+      error: "The coach asked to log fatigue it did not describe properly.",
+    };
+  }
+  const existing = await getDayFatigue(userId, today);
+  const previous = existing.find(
+    (row) => row.time_of_day === parsed.data.time_of_day,
+  );
+  return {
+    ok: true,
+    preview: {
+      toolName: FATIGUE_TOOL,
+      day: today,
+      timeOfDay: parsed.data.time_of_day,
+      score: parsed.data.score,
+      sleepHours: parsed.data.sleep_hours,
+      sleepLocation: parsed.data.sleep_location,
+      previousScore: previous?.score ?? null,
+    },
+  };
+}
+
 export async function previewApproval(
   userId: string,
   today: string,
@@ -203,6 +282,19 @@ export async function previewApproval(
       return {
         ok: false,
         text: "The coach tried to update a rule but the request came back malformed. Ask again.",
+      };
+    }
+    return {
+      ok: true,
+      preview: { ...result.preview, toolCallId: approval.toolCallId },
+    };
+  }
+  if (approval.toolName === FATIGUE_TOOL) {
+    const result = await previewLogFatigue(userId, today, approval.input);
+    if (!result.ok) {
+      return {
+        ok: false,
+        text: "The coach tried to log fatigue but the request came back malformed. Ask again.",
       };
     }
     return {
@@ -334,7 +426,7 @@ export function buildCoachTools(
     }),
     get_progress_overview: tool({
       description:
-        "Get the user's full progress arc since they started using the app: every InBody scan on record, not just the latest, the day they first logged a meal or workout, and how many distinct days they have logged meals since. Use this for a weekly or overall progress summary, comparing against where the user started, never for a single day's question.",
+        "Get the user's full progress arc since they started using the app: every InBody scan on record, not just the latest, the day they first logged a meal or workout, how many distinct days they have logged meals since, and their average fatigue/energy score over the last two weeks. Use this for a weekly or overall progress summary, comparing against where the user started, never for a single day's question.",
       inputSchema: z.object({}),
       execute: safe("get_progress_overview", async () => {
         const scans = await db
@@ -368,9 +460,19 @@ export function buildCoachTools(
           .from(meals)
           .where(eq(meals.user_id, userId));
 
+        const fatigueWindowStart = shiftDay(
+          today,
+          -(PROGRESS_FATIGUE_WINDOW_DAYS - 1),
+        );
+        const fatigue = await recentFatigueAverage(userId, fatigueWindowStart);
+
         return {
           first_logged_day: firstLoggedDay,
           distinct_days_with_meals_logged: activeDays?.value ?? 0,
+          fatigue_last_14_days:
+            fatigue == null
+              ? null
+              : { average_score: round(fatigue.average, 1), entries: fatigue.count },
           scans: scans.map((scan) => ({
             taken_at: scan.taken_at.toISOString().slice(0, 10),
             weight_kg: scan.weight_kg,
@@ -460,6 +562,50 @@ export function buildCoachTools(
           }
           await saveRule(userId, key, input.value);
           return { logged: true, rule: { key, value: input.value } };
+        },
+      ),
+    }),
+    log_fatigue: tool({
+      description:
+        "Log the user's fatigue/energy score (1-5) for a moment of the day: morning or post_lunch. Only call this when the user reports it or answers your own check-in question. Logging the same time_of_day again for today replaces the earlier value. sleep_hours and sleep_location are optional, pass them only when the user mentioned them, otherwise leave them null. The user confirms before anything is written.",
+      inputSchema: z.object({
+        time_of_day: z
+          .enum(TIME_OF_DAY_KEYS)
+          .describe("morning or post_lunch"),
+        score: fatigueScoreSchema.describe(
+          "fatigue/energy score, 1 (exhausted) to 5 (fresh)",
+        ),
+        sleep_hours: fatigueSleepHoursSchema.describe(
+          "hours slept, only if the user mentioned it (0 is valid for an all-nighter)",
+        ),
+        sleep_location: fatigueSleepLocationSchema.describe(
+          "where they slept, only if it wasn't their usual bed",
+        ),
+      }),
+      execute: safe(
+        "log_fatigue",
+        async (input: {
+          time_of_day: string;
+          score: number;
+          sleep_hours: number | null;
+          sleep_location: string | null;
+        }) => {
+          await saveFatigueLog(userId, {
+            logical_day: today,
+            time_of_day: input.time_of_day,
+            score: input.score,
+            sleep_hours: input.sleep_hours,
+            sleep_location: input.sleep_location,
+          });
+          return {
+            logged: true,
+            fatigue: {
+              time_of_day: input.time_of_day,
+              score: input.score,
+              sleep_hours: input.sleep_hours,
+              sleep_location: input.sleep_location,
+            },
+          };
         },
       ),
     }),

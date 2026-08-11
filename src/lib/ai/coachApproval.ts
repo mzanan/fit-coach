@@ -32,6 +32,7 @@ import {
 import {
   savePendingWrite,
   takePendingWrite,
+  type LogFatiguePreview,
   type LogMealPreview,
   type PendingPreview,
 } from "@/lib/data/coachPendingWrite";
@@ -40,6 +41,9 @@ import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import type { Profile } from "@/lib/db/schema";
 import {
   categoryLabel,
+  FATIGUE_TOOL,
+  fatigueExtrasLabel,
+  fatigueTimeLabel,
   INTERRUPTED_ANSWER,
   WRITE_TOOL,
   WRITE_TOOLS,
@@ -157,9 +161,14 @@ export async function resolvePendingWrite(
     const mealPreview = pending.previews.find(
       (preview): preview is LogMealPreview => preview.toolName === WRITE_TOOL,
     );
-    const day = mealPreview
-      ? mealPreview.day
-      : todayLogicalDay(dayConfig(profile));
+    const fatiguePreview = pending.previews.find(
+      (preview): preview is LogFatiguePreview =>
+        preview.toolName === FATIGUE_TOOL,
+    );
+    const day =
+      mealPreview?.day ??
+      fatiguePreview?.day ??
+      todayLogicalDay(dayConfig(profile));
     const chosen =
       mealPreview && itemId
         ? mealPreview.variants.find((variant) => variant.id === itemId)
@@ -317,12 +326,19 @@ function mealLoggedLine(preview: LogMealPreview): string {
   return `Logged ${preview.name}${portions} as ${categoryLabel(preview.category).toLowerCase()}: ${preview.protein_g}g protein, ${preview.fat_g}g fat, ${preview.carbs_g}g carbs, ${preview.kcal} kcal.`;
 }
 
+function fatigueLoggedLine(
+  preview: Extract<PendingPreview, { toolName: typeof FATIGUE_TOOL }>,
+): string {
+  const extras = fatigueExtrasLabel(preview.sleepHours, preview.sleepLocation);
+  return `Logged ${fatigueTimeLabel(preview.timeOfDay)} fatigue: ${preview.score}/5${extras ? ` (${extras})` : ""}.`;
+}
+
 function confirmationLines(previews: PendingPreview[]): string {
   return previews
-    .map((preview) =>
-      preview.toolName === WRITE_TOOL
-        ? mealLoggedLine(preview)
-        : `Rule "${preview.key}" set to: ${preview.newValue}.`,
-    )
+    .map((preview) => {
+      if (preview.toolName === WRITE_TOOL) return mealLoggedLine(preview);
+      if (preview.toolName === FATIGUE_TOOL) return fatigueLoggedLine(preview);
+      return `Rule "${preview.key}" set to: ${preview.newValue}.`;
+    })
     .join("\n");
 }
