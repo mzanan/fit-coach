@@ -222,3 +222,7 @@ export function isChatLanguage(value: unknown): value is string {
 export const INTERRUPTED_ANSWER = "This answer was interrupted.";
 
 export const COACH_MAX_DURATION_SECONDS = 300;
+
+export const WRITE_TOOL = "log_meal";
+export const RULE_TOOL = "update_rule";
+export const WRITE_TOOLS = [WRITE_TOOL, RULE_TOOL];

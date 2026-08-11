@@ -5,11 +5,12 @@ import type { ModelMessage } from "ai";
 
 import { db, schema } from "@/lib/db";
 import type { SizeVariant } from "@/lib/catalogMeal";
+import type { RULE_TOOL, WRITE_TOOL } from "@/lib/constants";
 
 const { coach_pending_writes } = schema;
 
-export interface PendingPreview {
-  toolName: string;
+export interface LogMealPreview {
+  toolName: typeof WRITE_TOOL;
   category: string;
   name: string;
   place: string | null;
@@ -23,6 +24,16 @@ export interface PendingPreview {
   variants: SizeVariant[];
   toolCallId: string;
 }
+
+export interface UpdateRulePreview {
+  toolName: typeof RULE_TOOL;
+  key: string;
+  oldValue: string | null;
+  newValue: string;
+  toolCallId: string;
+}
+
+export type PendingPreview = LogMealPreview | UpdateRulePreview;
 
 export interface PendingWrite {
   approvalId: string;

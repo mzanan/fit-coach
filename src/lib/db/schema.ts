@@ -268,6 +268,26 @@ export const coach_facts = sqliteTable(
   ],
 );
 
+export const user_rules = sqliteTable(
+  "user_rules",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    value: text("value").notNull(),
+    set_at: integer("set_at", { mode: "timestamp_ms" }).notNull(),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+  },
+  (t) => [
+    index("user_rules_user_idx").on(t.user_id),
+    uniqueIndex("user_rules_active_key_idx")
+      .on(t.user_id, t.key)
+      .where(sql`${t.active} = 1`),
+  ],
+);
+
 export const ai_events = sqliteTable(
   "ai_events",
   {
@@ -496,6 +516,7 @@ export type CatalogComponent = typeof catalog_components.$inferSelect;
 export type Meal = typeof meals.$inferSelect;
 export type CoachMemory = typeof coach_memory.$inferSelect;
 export type CoachFact = typeof coach_facts.$inferSelect;
+export type UserRule = typeof user_rules.$inferSelect;
 export type Workout = typeof workouts.$inferSelect;
 export type WorkoutExercise = typeof workout_exercises.$inferSelect;
 export type WorkoutSet = typeof workout_sets.$inferSelect;

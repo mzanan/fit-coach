@@ -246,13 +246,20 @@ export interface ApprovalRequest {
   input: unknown;
 }
 
+export interface WriteOutput {
+  toolCallId: string;
+  toolName: string;
+  logged: boolean;
+  error?: string;
+}
+
 export interface ToolStreamResult {
   text: string;
   toolLog: string[];
   approvals: ApprovalRequest[];
   messages: ModelMessage[];
   writeAttempted: boolean;
-  writeOutputs: { logged: boolean; error?: string }[];
+  writeOutputs: WriteOutput[];
   interrupted: boolean;
 }
 
@@ -261,19 +268,25 @@ export interface ToolStreamOptions {
   instructions: string;
   messages: ModelMessage[];
   tools: ToolSet;
-  approvalFor?: string;
+  approvalFor?: string | string[];
   maxSteps?: number;
   maxTokens?: number;
   onEvent: (event: CoachEvent) => void;
   signal?: AbortSignal;
 }
 
+function approvalSet(approvalFor: string | string[] | undefined): Set<string> {
+  if (!approvalFor) return new Set();
+  return new Set(Array.isArray(approvalFor) ? approvalFor : [approvalFor]);
+}
+
 function repairToolName(
   tools: ToolSet,
-  approvalFor: string | undefined,
+  approvalFor: string | string[] | undefined,
   ref: ModelRef,
   userId: string,
 ): ToolCallRepairFunction<ToolSet> {
+  const gated = approvalSet(approvalFor);
   return async ({ toolCall, error }) => {
     if (NoSuchToolError.isInstance(error)) {
       const cleaned = Object.keys(tools).find((name) =>
@@ -291,19 +304,16 @@ function repairToolName(
         return { ...toolCall, toolName: cleaned };
       }
       const gatedOut = Boolean(
-        approvalFor &&
-          toolCall.toolName === approvalFor &&
-          !(approvalFor in tools),
+        gated.has(toolCall.toolName) && !(toolCall.toolName in tools),
       );
       const log = gatedOut ? console.warn : console.error;
       log(
         `coach: unrepairable tool name ${toolCall.toolName}${gatedOut ? " (the approval-gated tool is not registered for this model, likely the cause)" : ""}, user=${userId} model=${ref.provider}/${ref.model}`,
       );
       if (!gatedOut) {
-        const kind =
-          toolCall.toolName === approvalFor
-            ? "write_requested_unresolved"
-            : "tool_repair";
+        const kind = gated.has(toolCall.toolName)
+          ? "write_requested_unresolved"
+          : "tool_repair";
         await logAiEvent(userId, kind, {
           provider: ref.provider,
           model: ref.model,
@@ -336,14 +346,21 @@ export async function chatToolsStream(
   const maxTokens = options.maxTokens ?? 3000;
   const maxOutputTokens = maxTokens + googleThinkingBudget(ref);
   const providerOptions = reasoningOptions(ref);
-  const approvalFor = options.approvalFor;
+  const gated = approvalSet(options.approvalFor);
   const result = streamText({
     model,
     instructions: options.instructions,
     messages: options.messages,
     tools: options.tools,
-    toolApproval: approvalFor ? { [approvalFor]: "user-approval" } : undefined,
-    repairToolCall: repairToolName(options.tools, approvalFor, ref, options.userId),
+    toolApproval: gated.size
+      ? Object.fromEntries([...gated].map((name) => [name, "user-approval"]))
+      : undefined,
+    repairToolCall: repairToolName(
+      options.tools,
+      options.approvalFor,
+      ref,
+      options.userId,
+    ),
     stopWhen: isStepCount(options.maxSteps ?? COACH_MAX_TOOL_STEPS),
     maxOutputTokens,
     providerOptions,
@@ -352,7 +369,7 @@ export async function chatToolsStream(
 
   const toolLog: string[] = [];
   const approvals: ApprovalRequest[] = [];
-  const writeOutputs: { logged: boolean; error?: string }[] = [];
+  const writeOutputs: WriteOutput[] = [];
   let writeAttempted = false;
   let text = "";
   let sawAbort = false;
@@ -360,7 +377,7 @@ export async function chatToolsStream(
   let finishReason: FinishReason | undefined;
   for await (const part of result.fullStream) {
     if (part.type === "tool-call") {
-      if (part.toolName === approvalFor) writeAttempted = true;
+      if (gated.has(part.toolName)) writeAttempted = true;
       options.onEvent({ type: "status", tool: part.toolName });
     } else if (part.type === "tool-approval-request") {
       console.info(
@@ -373,9 +390,11 @@ export async function chatToolsStream(
         input: part.toolCall.input,
       });
     } else if (part.type === "tool-result") {
-      if (part.toolName === approvalFor) {
+      if (gated.has(part.toolName)) {
         const output = part.output as { logged?: unknown; error?: unknown };
         writeOutputs.push({
+          toolCallId: part.toolCallId,
+          toolName: part.toolName,
           logged: output?.logged === true,
           error: typeof output?.error === "string" ? output.error : undefined,
         });

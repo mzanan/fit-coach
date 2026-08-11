@@ -6,8 +6,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { MacroChips } from "@/components/ui/MacroChips";
 import { Surface } from "@/components/ui/Surface";
-import { categoryLabel } from "@/lib/constants";
-import type { PendingPreview } from "@/lib/data/coachPendingWrite";
+import { categoryLabel, RULE_TOOL, WRITE_TOOL } from "@/lib/constants";
+import type {
+  LogMealPreview,
+  PendingPreview,
+  UpdateRulePreview,
+} from "@/lib/data/coachPendingWrite";
 import { kcalOf } from "@/lib/macros";
 import { cn } from "@/lib/utils";
 
@@ -20,12 +24,28 @@ interface DisplayOption {
   kcal: number;
 }
 
+interface MacroShape {
+  name: string;
+  protein_g: number;
+  fat_g: number;
+  carbs_g: number;
+  kcal: number;
+}
+
+function isMealPreview(preview: PendingPreview): preview is LogMealPreview {
+  return preview.toolName === WRITE_TOOL;
+}
+
+function isRulePreview(preview: PendingPreview): preview is UpdateRulePreview {
+  return preview.toolName === RULE_TOOL;
+}
+
 function weightOf(name: string): number {
   const match = /^\s*([\d.,]+)/.exec(name);
   return match ? parseFloat(match[1].replace(",", ".")) : Number.MAX_SAFE_INTEGER;
 }
 
-function optionsOf(preview: PendingPreview): DisplayOption[] {
+function optionsOf(preview: LogMealPreview): DisplayOption[] {
   const portions = preview.portions || 1;
   const options = [
     {
@@ -85,6 +105,43 @@ function SizePicker({
   );
 }
 
+function MealItem({
+  preview,
+  shown,
+}: {
+  preview: LogMealPreview;
+  shown: MacroShape;
+}) {
+  return (
+    <div className="space-y-1">
+      <p className="text-body font-medium">
+        {shown.name}
+        {preview.portions === 1 ? null : (
+          <span className="text-muted-foreground"> x{preview.portions}</span>
+        )}
+      </p>
+      <p className="text-meta text-muted-foreground">
+        {categoryLabel(preview.category)}
+        {preview.place ? ` at ${preview.place}` : ""}
+      </p>
+      <MacroChips macros={shown} className="pt-1" />
+    </div>
+  );
+}
+
+function RuleItem({ preview }: { preview: UpdateRulePreview }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-body font-medium">{preview.key}</p>
+      <p className="text-meta text-muted-foreground">
+        {preview.oldValue
+          ? `${preview.oldValue} → ${preview.newValue}`
+          : preview.newValue}
+      </p>
+    </div>
+  );
+}
+
 export function ApprovalCard({
   previews,
   busy,
@@ -94,44 +151,56 @@ export function ApprovalCard({
   busy: boolean;
   onDecide: (approved: boolean, itemId?: string) => void;
 }) {
-  const first = previews[0];
-  const options = first ? optionsOf(first) : [];
-  const [chosenId, setChosenId] = useState(first?.itemId ?? "");
+  const mealPreviews = previews.filter(isMealPreview);
+  const rulePreviews = previews.filter(isRulePreview);
+  const firstMeal = mealPreviews[0];
 
-  if (!first) return null;
+  const options = firstMeal ? optionsOf(firstMeal) : [];
+  const [chosenId, setChosenId] = useState(firstMeal?.itemId ?? "");
 
-  const ambiguous = Boolean(first.itemId) && first.variants.length > 0;
+  if (!previews.length) return null;
+
+  const ambiguous = Boolean(firstMeal?.itemId) && (firstMeal?.variants.length ?? 0) > 0;
   const chosenOption =
     options.find((option) => option.id === chosenId) ?? options[0];
-  const displayed = scaledOption(chosenOption, first.portions);
+  const displayedFirstMeal =
+    firstMeal && chosenOption ? scaledOption(chosenOption, firstMeal.portions) : undefined;
+
+  const mixed = mealPreviews.length > 0 && rulePreviews.length > 0;
+  const prompt = mixed
+    ? "Confirm these changes? Nothing is written until you confirm."
+    : rulePreviews.length
+      ? `${rulePreviews.length === 1 ? "Update this rule?" : "Update these rules?"} Nothing is written until you confirm.`
+      : ambiguous
+        ? "Which one? Nothing is written until you confirm."
+        : `${mealPreviews.length === 1 ? "Log this meal?" : "Log these meals?"} Nothing is written until you confirm.`;
+
+  const confirmLabel = mixed
+    ? "Confirm"
+    : rulePreviews.length
+      ? rulePreviews.length === 1
+        ? "Set it"
+        : "Set them"
+      : mealPreviews.length === 1
+        ? "Log it"
+        : "Log them";
 
   return (
     <Surface level="raised" className="rounded-control p-4">
-      <p className="text-meta text-muted-foreground">
-        {ambiguous
-          ? "Which one? Nothing is written until you confirm."
-          : `${previews.length === 1 ? "Log this meal?" : "Log these meals?"} Nothing is written until you confirm.`}
-      </p>
+      <p className="text-meta text-muted-foreground">{prompt}</p>
       <div className="mt-3 space-y-4">
         {previews.map((preview, index) => {
-          const shown = index === 0 ? displayed : preview;
+          if (isRulePreview(preview)) {
+            return (
+              <RuleItem key={`${preview.toolCallId}-${index}`} preview={preview} />
+            );
+          }
+          const isFirstMeal = preview === firstMeal;
+          const shown = isFirstMeal && displayedFirstMeal ? displayedFirstMeal : preview;
           return (
-            <div key={`${preview.itemId}-${index}`} className="space-y-1">
-              <p className="text-body font-medium">
-                {shown.name}
-                {preview.portions === 1 ? null : (
-                  <span className="text-muted-foreground">
-                    {" "}
-                    x{preview.portions}
-                  </span>
-                )}
-              </p>
-              <p className="text-meta text-muted-foreground">
-                {categoryLabel(preview.category)}
-                {preview.place ? ` at ${preview.place}` : ""}
-              </p>
-              <MacroChips macros={shown} className="pt-1" />
-              {index === 0 && ambiguous ? (
+            <div key={`${preview.toolCallId}-${index}`}>
+              <MealItem preview={preview} shown={shown} />
+              {isFirstMeal && ambiguous ? (
                 <SizePicker
                   options={options}
                   chosenId={chosenId}
@@ -148,11 +217,14 @@ export function ApprovalCard({
           size="sm"
           disabled={busy}
           onClick={() =>
-            onDecide(true, chosenId === first.itemId ? undefined : chosenId)
+            onDecide(
+              true,
+              !firstMeal || chosenId === firstMeal.itemId ? undefined : chosenId,
+            )
           }
         >
           <Check className="size-4" strokeWidth={1.5} />
-          {previews.length === 1 ? "Log it" : "Log them"}
+          {confirmLabel}
         </Button>
         <Button
           type="button"
