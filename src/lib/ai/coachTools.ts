@@ -14,8 +14,21 @@ import {
   type ResolveFailure,
 } from "@/lib/catalogMeal";
 import { searchCatalog } from "@/lib/ai/coachCatalogSearch";
-import { MEAL_CATEGORIES, type MealCategoryKey } from "@/lib/constants";
-import type { PendingPreview } from "@/lib/data/coachPendingWrite";
+import { previewFailure } from "@/lib/ai/coachContext";
+import { getActiveRule, saveRule } from "@/lib/data/coachRules";
+import { normalizeSubject } from "@/lib/ai/facts";
+import type { ApprovalRequest } from "@/lib/ai/provider";
+import {
+  MEAL_CATEGORIES,
+  RULE_TOOL,
+  WRITE_TOOL,
+  type MealCategoryKey,
+} from "@/lib/constants";
+import type {
+  LogMealPreview,
+  PendingPreview,
+  UpdateRulePreview,
+} from "@/lib/data/coachPendingWrite";
 import { getDayData } from "@/lib/data/today";
 import { getRecentWorkouts, hydrateWorkout } from "@/lib/data/workouts";
 import { db, schema } from "@/lib/db";
@@ -23,8 +36,6 @@ import type { Profile } from "@/lib/db/schema";
 import { round } from "@/lib/utils";
 
 const { body_scans, meals, workouts } = schema;
-
-export const WRITE_TOOL = "log_meal";
 
 const CATEGORY_KEYS = MEAL_CATEGORIES.map((c) => c.key) as [
   MealCategoryKey,
@@ -89,7 +100,7 @@ export async function previewLogMeal(
   today: string,
   input: unknown,
 ): Promise<
-  | { ok: true; preview: Omit<PendingPreview, "toolCallId"> }
+  | { ok: true; preview: Omit<LogMealPreview, "toolCallId"> }
   | { ok: false; reason: ResolveFailure; error: string }
 > {
   const parsed = logMealInput.safeParse(input);
@@ -131,6 +142,81 @@ export async function previewLogMeal(
       itemId: resolved.meal.catalog_item_id,
       variants,
     },
+  };
+}
+
+const updateRuleInput = z.object({
+  key: z.string().trim().min(1),
+  value: z.string().trim().min(1).max(300),
+});
+
+function normalizedRuleKey(rawKey: string): string | null {
+  return normalizeSubject(rawKey);
+}
+
+export async function previewUpdateRule(
+  userId: string,
+  input: unknown,
+): Promise<
+  | { ok: true; preview: Omit<UpdateRulePreview, "toolCallId"> }
+  | { ok: false; reason: ResolveFailure; error: string }
+> {
+  const parsed = updateRuleInput.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      reason: "not_found",
+      error: "The coach asked to update a rule it did not describe properly.",
+    };
+  }
+  const key = normalizedRuleKey(parsed.data.key);
+  if (!key) {
+    return {
+      ok: false,
+      reason: "not_found",
+      error: "The coach asked to update a rule with an empty key.",
+    };
+  }
+  const current = await getActiveRule(userId, key);
+  return {
+    ok: true,
+    preview: {
+      toolName: RULE_TOOL,
+      key,
+      newValue: parsed.data.value,
+      oldValue: current?.value ?? null,
+    },
+  };
+}
+
+export async function previewApproval(
+  userId: string,
+  today: string,
+  approval: ApprovalRequest,
+): Promise<
+  | { ok: true; preview: PendingPreview }
+  | { ok: false; text: string }
+> {
+  if (approval.toolName === RULE_TOOL) {
+    const result = await previewUpdateRule(userId, approval.input);
+    if (!result.ok) {
+      return {
+        ok: false,
+        text: "The coach tried to update a rule but the request came back malformed. Ask again.",
+      };
+    }
+    return {
+      ok: true,
+      preview: { ...result.preview, toolCallId: approval.toolCallId },
+    };
+  }
+  const result = await previewLogMeal(userId, today, approval.input);
+  if (!result.ok) {
+    return { ok: false, text: previewFailure(result.reason, result.error) };
+  }
+  return {
+    ok: true,
+    preview: { ...result.preview, toolCallId: approval.toolCallId },
   };
 }
 
@@ -346,6 +432,34 @@ export function buildCoachTools(
               kcal: resolved.meal.kcal,
             },
           };
+        },
+      ),
+    }),
+    update_rule: tool({
+      description:
+        "Set or change a standing rule for this user: a fixed operational fact the coach must always follow until it is changed again, e.g. medication timing, a dietary restriction, routine split, or a reminder cadence. Use a short snake_case `key` naming the rule and the exact `value`. Setting an existing key replaces its value; the previous value stops applying. Only call this when the user asks to set or change a rule, never for a one-off preference (that belongs in memory, not here). The user confirms before anything is written.",
+      inputSchema: z.object({
+        key: z
+          .string()
+          .trim()
+          .min(1)
+          .describe("short snake_case name for the rule, e.g. medication_timing"),
+        value: z
+          .string()
+          .trim()
+          .min(1)
+          .max(300)
+          .describe("the exact rule value to store"),
+      }),
+      execute: safe(
+        "update_rule",
+        async (input: { key: string; value: string }) => {
+          const key = normalizedRuleKey(input.key);
+          if (!key) {
+            return { logged: false, error: "The rule key was empty." };
+          }
+          await saveRule(userId, key, input.value);
+          return { logged: true, rule: { key, value: input.value } };
         },
       ),
     }),

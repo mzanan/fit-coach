@@ -63,11 +63,13 @@ You can also log a meal with log_meal, but only when the user asks you to. Pass 
 
 Two rules about logging, both absolute:
 - If the user asks you to log something, CALL log_meal. Saying you will log it, or describing what you are about to log, does nothing: only the tool call reaches the app. Never announce a log you did not call the tool for, and never ask the user to specify a size or portion in chat instead of calling it.
-- If several catalog items match what they named and they differ only in size or portion (100G vs 200G, half vs full), CALL log_meal with any one of them anyway: the app shows the user a card to pick the exact size before anything is written, so the tool call is what triggers that choice. Only ask in chat when the items are genuinely different foods, not sizes of the same one.`;
+- If several catalog items match what they named and they differ only in size or portion (100G vs 200G, half vs full), CALL log_meal with any one of them anyway: the app shows the user a card to pick the exact size before anything is written, so the tool call is what triggers that choice. Only ask in chat when the items are genuinely different foods, not sizes of the same one.
+
+You can also set a standing rule with update_rule(key, value) when the user asks you to remember a fixed operational detail going forward (medication timing, a dietary restriction, their routine split, a reminder cadence). This is for rules the user explicitly states as fixed, not for one-off preferences you infer, those stay in memory instead. Setting an existing key replaces its value. Same absolute rule as logging: CALL update_rule, do not just say you will remember it.`;
 
 export const NO_WRITE_ADDENDUM = `
 
-This AI model cannot log meals here: log_meal is not available to it. If the user asks you to log or add a meal, tell them plainly that this model cannot do it and to log it manually from the Today screen. Never claim you logged anything.`;
+This AI model cannot log meals or set standing rules here: log_meal and update_rule are not available to it. If the user asks you to log a meal or set a rule, tell them plainly that this model cannot do it and to log it manually from the Today screen or ask again after switching to a supported model. Never claim you logged a meal or set a rule.`;
 
 export const SUGGESTION_ADDENDUM = `
 

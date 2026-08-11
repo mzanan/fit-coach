@@ -14,7 +14,7 @@ import {
   type CoachResult,
   type DaySummary,
 } from "@/lib/ai/coach";
-import { buildCoachTools, previewLogMeal, WRITE_TOOL } from "@/lib/ai/coachTools";
+import { buildCoachTools, previewApproval } from "@/lib/ai/coachTools";
 import {
   approvalResponseMessage,
   chatToolsStream,
@@ -32,21 +32,28 @@ import {
 import {
   savePendingWrite,
   takePendingWrite,
+  type LogMealPreview,
   type PendingPreview,
 } from "@/lib/data/coachPendingWrite";
 import { getDayData } from "@/lib/data/today";
+import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import type { Profile } from "@/lib/db/schema";
-import { categoryLabel, INTERRUPTED_ANSWER } from "@/lib/constants";
+import {
+  categoryLabel,
+  INTERRUPTED_ANSWER,
+  WRITE_TOOL,
+  WRITE_TOOLS,
+} from "@/lib/constants";
 import { kcalOf } from "@/lib/macros";
 import { round } from "@/lib/utils";
 
 const DENIED = "Not logged. Nothing was written.";
 
 const RESUME_FAILED =
-  "The coach lost the connection while confirming. The meal may or may not have been logged: check Today before asking again.";
+  "The coach lost the connection while confirming. It may or may not have been written: check before asking again.";
 
 const NOT_WRITTEN =
-  "Nothing was logged. The catalog item may have changed since you were asked. Check Today, and log it from there if it is missing.";
+  "Nothing was written. Whatever you confirmed may have changed since you were asked. Ask again.";
 
 export async function daySummaryAfterWrite(
   userId: string,
@@ -147,10 +154,16 @@ export async function resolvePendingWrite(
       ...pending.messages,
       approvalResponseMessage(pending.approvalIds, true),
     ];
-    const day = pending.previews[0].day;
-    const chosen = itemId
-      ? pending.previews[0].variants.find((variant) => variant.id === itemId)
-      : undefined;
+    const mealPreview = pending.previews.find(
+      (preview): preview is LogMealPreview => preview.toolName === WRITE_TOOL,
+    );
+    const day = mealPreview
+      ? mealPreview.day
+      : todayLogicalDay(dayConfig(profile));
+    const chosen =
+      mealPreview && itemId
+        ? mealPreview.variants.find((variant) => variant.id === itemId)
+        : undefined;
 
     const { text, toolLog, writeOutputs, approvals, messages } =
       await chatToolsStream(toolPin ? { ...ref, routeOnly: toolPin } : ref, {
@@ -162,15 +175,15 @@ export async function resolvePendingWrite(
           profile,
           day,
           allowWrite,
-          chosen
+          chosen && mealPreview
             ? {
-                toolCallId: pending.previews[0].toolCallId,
+                toolCallId: mealPreview.toolCallId,
                 itemId: chosen.id,
                 itemName: chosen.name,
               }
             : undefined,
         ),
-        approvalFor: WRITE_TOOL,
+        approvalFor: WRITE_TOOLS,
         onEvent: onEvent ?? (() => {}),
         signal,
       });
@@ -197,8 +210,10 @@ export async function resolvePendingWrite(
       }
     }
 
-    const written = writeOutputs.filter((output) => output.logged).length;
-    if (!written) {
+    const outcomeByCallId = new Map(
+      writeOutputs.map((output) => [output.toolCallId, output]),
+    );
+    if (!writeOutputs.some((output) => output.logged)) {
       const failure = writeOutputs.find((output) => output.error)?.error;
       await finishExchange(exchange, failure ?? NOT_WRITTEN, false);
       return {
@@ -208,23 +223,32 @@ export async function resolvePendingWrite(
       };
     }
 
-    const logged = pending.previews.slice(0, written).map((preview, index) => {
-      if (index !== 0 || !chosen) return preview;
-      const portions = preview.portions || 1;
-      const scaled = {
-        protein_g: round(chosen.protein_g * portions),
-        fat_g: round(chosen.fat_g * portions),
-        carbs_g: round(chosen.carbs_g * portions),
-      };
-      return {
-        ...preview,
-        name: chosen.name,
-        ...scaled,
-        kcal: round(kcalOf(scaled)),
-      };
-    });
-    const answer = text || loggedLines(logged);
-    const daySummary = await daySummaryAfterWrite(userId, profile, day);
+    const logged = pending.previews
+      .filter((preview) => outcomeByCallId.get(preview.toolCallId)?.logged)
+      .map((preview) => {
+        const isChosenMeal =
+          preview.toolName === WRITE_TOOL &&
+          chosen &&
+          preview.toolCallId === mealPreview?.toolCallId;
+        if (!isChosenMeal) return preview;
+        const portions = preview.portions || 1;
+        const scaled = {
+          protein_g: round(chosen.protein_g * portions),
+          fat_g: round(chosen.fat_g * portions),
+          carbs_g: round(chosen.carbs_g * portions),
+        };
+        return {
+          ...preview,
+          name: chosen.name,
+          ...scaled,
+          kcal: round(kcalOf(scaled)),
+        };
+      });
+    const wroteMeal = logged.some((preview) => preview.toolName === WRITE_TOOL);
+    const answer = text || confirmationLines(logged);
+    const daySummary = wroteMeal
+      ? await daySummaryAfterWrite(userId, profile, day)
+      : undefined;
     await finishExchange(exchange, answer, Boolean(text), daySummary);
     if (text && !signal?.aborted) {
       deferLearn(() =>
@@ -262,12 +286,10 @@ async function chainApproval(
   signal?: AbortSignal,
 ): Promise<CoachResult | null> {
   const resolved = await Promise.all(
-    approvals.map((approval) => previewLogMeal(userId, day, approval.input)),
+    approvals.map((approval) => previewApproval(userId, day, approval)),
   );
-  const previews = resolved.flatMap((preview, index) =>
-    preview.ok
-      ? [{ ...preview.preview, toolCallId: approvals[index].toolCallId }]
-      : [],
+  const previews = resolved.flatMap((preview) =>
+    preview.ok ? [preview.preview] : [],
   );
   if (!previews.length) return null;
 
@@ -290,11 +312,17 @@ async function chainApproval(
   };
 }
 
-function loggedLines(previews: PendingPreview[]): string {
+function mealLoggedLine(preview: LogMealPreview): string {
+  const portions = preview.portions === 1 ? "" : ` x${preview.portions}`;
+  return `Logged ${preview.name}${portions} as ${categoryLabel(preview.category).toLowerCase()}: ${preview.protein_g}g protein, ${preview.fat_g}g fat, ${preview.carbs_g}g carbs, ${preview.kcal} kcal.`;
+}
+
+function confirmationLines(previews: PendingPreview[]): string {
   return previews
-    .map((preview) => {
-      const portions = preview.portions === 1 ? "" : ` x${preview.portions}`;
-      return `Logged ${preview.name}${portions} as ${categoryLabel(preview.category).toLowerCase()}: ${preview.protein_g}g protein, ${preview.fat_g}g fat, ${preview.carbs_g}g carbs, ${preview.kcal} kcal.`;
-    })
+    .map((preview) =>
+      preview.toolName === WRITE_TOOL
+        ? mealLoggedLine(preview)
+        : `Rule "${preview.key}" set to: ${preview.newValue}.`,
+    )
     .join("\n");
 }

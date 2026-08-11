@@ -54,7 +54,7 @@ interface ExtractedFact {
   subject?: string;
 }
 
-function normalizeSubject(value: string | undefined): string | null {
+export function normalizeSubject(value: string | undefined): string | null {
   if (!value) return null;
   const slug = value
     .normalize("NFD")
