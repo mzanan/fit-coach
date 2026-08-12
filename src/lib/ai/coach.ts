@@ -234,6 +234,20 @@ export async function learn(
   return learnFromExchange(ref, userId, exchange, "coach");
 }
 
+export function shouldLearn(options: {
+  question?: string;
+  text: string;
+  appGenerated: boolean;
+  signal?: AbortSignal;
+}): boolean {
+  return (
+    Boolean(options.text) &&
+    Boolean(options.question?.trim()) &&
+    !options.appGenerated &&
+    !options.signal?.aborted
+  );
+}
+
 export function deferLearnFor(
   exchange: ExchangeRef,
   run: () => Promise<string[]>,
@@ -420,7 +434,7 @@ async function toolReply(
           text,
           toolLog.some((entry) => entry.startsWith(`${CATALOG_SEARCH_TOOL}(`)),
         ));
-      const learning = Boolean(question?.trim()) && !appGenerated;
+      const learning = shouldLearn({ question, text, appGenerated, signal });
       if (!signal?.aborted) {
         deferLearnFor(exchange, () =>
           learn(
@@ -437,7 +451,7 @@ async function toolReply(
         text: answer,
         generated: true,
         truncated: interrupted,
-        learning: learning && !signal?.aborted,
+        learning,
       };
     }
 
@@ -500,26 +514,14 @@ async function contextReply(
       600,
       signal,
     );
-    const learning =
-      Boolean(text) &&
-      Boolean(question?.trim()) &&
-      !appGenerated &&
-      !signal?.aborted;
+    const learning = shouldLearn({ question, text, appGenerated, signal });
     if (text) {
       const asked = appGenerated
         ? "(tapped the weekly summary button)"
         : question?.trim() || "(daily check-in)";
       const transcript = `${ctx.lines.join("\n")}\nUser: ${asked}\nCoach: ${text}`;
       if (!signal?.aborted) {
-        deferLearnFor(exchange, () =>
-          learn(
-            ref,
-            userId,
-            memory,
-            transcript,
-            Boolean(question?.trim()) && !appGenerated,
-          ),
-        );
+        deferLearnFor(exchange, () => learn(ref, userId, memory, transcript, learning));
       }
     }
     return {
@@ -569,7 +571,7 @@ export async function coachReply(
     try {
       const ctx = await buildContext(userId, profile);
       const text = deterministicReply(ctx);
-      const finalized = await finishExchange(exchange, text, false);
+      const finalized = await finishExchange(exchange, text, { generated: false });
       if (!finalized) await updateExchangeContent(exchange, text);
       return { status: "answered", text, generated: false };
     } catch (error) {
@@ -665,14 +667,11 @@ export async function coachReply(
   }
 
   await drain();
-  const finalized = await finishExchange(
-    exchange,
-    result.text,
-    result.generated,
-    undefined,
-    true,
-    result.learning === true,
-  );
+  const finalized = await finishExchange(exchange, result.text, {
+    generated: result.generated,
+    force: true,
+    learning: result.learning === true,
+  });
   if (!finalized) {
     await updateExchangeContent(exchange, result.text);
     return {

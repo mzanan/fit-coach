@@ -13,10 +13,10 @@ import {
   COACH_MAX_DURATION_SECONDS,
   INTERRUPTED_ANSWER,
 } from "@/lib/constants";
+import { settledLearned, type LearnedState } from "@/lib/coachLearned";
 import type {
   CoachMessage,
   CoachMessageStatus,
-  LearnedState,
 } from "@/lib/data/coachMessages";
 import type { PendingPreview } from "@/lib/data/coachPendingWrite";
 import { readNdjson } from "@/lib/ndjson";
@@ -61,11 +61,15 @@ const MAX_FUNCTION_DURATION_MS = (COACH_MAX_DURATION_SECONDS + 30) * 1000;
 const LEARNED_POLL_MS = 2500;
 const LEARNED_POLL_TRIES = 12;
 
-async function pollLearned(id: string): Promise<LearnedState | undefined> {
+async function pollLearned(
+  id: string,
+  signal: AbortSignal,
+): Promise<LearnedState | undefined> {
   for (let attempt = 0; attempt < LEARNED_POLL_TRIES; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, LEARNED_POLL_MS));
+    if (signal.aborted) return undefined;
     try {
-      const res = await fetch(`/api/coach/message/${id}`);
+      const res = await fetch(`/api/coach/message/${id}`, { signal });
       if (!res.ok) return undefined;
       const data = (await res.json()) as { learned: LearnedState | null };
       if (data.learned?.state === "done") return data.learned;
@@ -99,12 +103,6 @@ function toBubbles(messages: CoachMessage[]): ChatBubble[] {
     daySummary: message.daySummary,
     learned: settledLearned(message.learned),
   }));
-}
-
-function settledLearned(
-  learned: LearnedState | undefined,
-): LearnedState | undefined {
-  return learned?.state === "pending" ? undefined : learned;
 }
 
 function isStaleStream(createdAt: Date): boolean {
@@ -149,6 +147,14 @@ export function useCoachChat(
   } | null>(null);
   const activeUrlRef = useRef<string | null>(null);
   const pendingStopRef = useRef(false);
+  const learnedWatchers = useRef<Set<AbortController>>(new Set());
+
+  const stopLearnedWatchers = useCallback(() => {
+    learnedWatchers.current.forEach((watcher) => watcher.abort());
+    learnedWatchers.current.clear();
+  }, []);
+
+  useEffect(() => stopLearnedWatchers, [stopLearnedWatchers]);
 
   useEffect(() => {
     anchor?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -307,13 +313,18 @@ export function useCoachChat(
           },
         ]);
         if (watched) {
-          void pollLearned(watched).then((learned) =>
-            setBubbles((current) =>
-              current.map((bubble) =>
-                bubble.id === bubbleId ? { ...bubble, learned } : bubble,
-              ),
-            ),
-          );
+          const watch = new AbortController();
+          learnedWatchers.current.add(watch);
+          void pollLearned(watched, watch.signal)
+            .then((learned) => {
+              if (watch.signal.aborted) return;
+              setBubbles((current) =>
+                current.map((bubble) =>
+                  bubble.id === bubbleId ? { ...bubble, learned } : bubble,
+                ),
+              );
+            })
+            .finally(() => learnedWatchers.current.delete(watch));
         }
       }
     } catch (error) {
@@ -404,6 +415,7 @@ export function useCoachChat(
   }
 
   function clear() {
+    stopLearnedWatchers();
     setBubbles([]);
     setPending(null);
     setConfirmOpen(false);

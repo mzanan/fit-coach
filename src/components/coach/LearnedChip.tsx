@@ -1,6 +1,6 @@
 import { Check, Loader2 } from "lucide-react";
 
-import type { LearnedState } from "@/lib/data/coachMessages";
+import type { LearnedState } from "@/lib/coachLearned";
 
 export function LearnedChip({ learned }: { learned: LearnedState }) {
   if (learned.state === "pending") {

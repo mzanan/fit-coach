@@ -3,6 +3,12 @@ import "server-only";
 import { and, asc, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
 
 import type { DaySummary } from "@/lib/ai/coach";
+import {
+  learnedState,
+  LEARNING_STATE,
+  parseLearned,
+  type LearnedState,
+} from "@/lib/coachLearned";
 import { db, schema } from "@/lib/db";
 import { newId } from "@/lib/utils";
 
@@ -11,10 +17,6 @@ const { coach_messages } = schema;
 export const HISTORY_TURNS = 12;
 
 export type CoachMessageStatus = "done" | "stopped" | "streaming";
-
-export type LearnedState =
-  | { state: "pending" }
-  | { state: "done"; facts: string[] };
 
 export interface CoachMessage {
   id: string;
@@ -52,22 +54,6 @@ function parseDaySummary(raw: string | null): DaySummary | undefined {
   }
 }
 
-const LEARNING = JSON.stringify({ state: "pending" });
-
-function parseLearned(raw: string | null): LearnedState | undefined {
-  if (!raw) return undefined;
-  try {
-    const parsed = JSON.parse(raw) as LearnedState;
-    if (parsed?.state === "pending") return { state: "pending" };
-    if (parsed?.state !== "done") return undefined;
-    const facts = Array.isArray(parsed.facts)
-      ? parsed.facts.filter((fact): fact is string => typeof fact === "string")
-      : [];
-    return { state: "done", facts };
-  } catch {
-    return undefined;
-  }
-}
 
 export async function getConversation(
   userId: string,
@@ -197,13 +183,17 @@ export async function beginExchange(
   };
 }
 
+export interface FinishOptions {
+  generated: boolean;
+  daySummary?: DaySummary;
+  force?: boolean;
+  learning?: boolean;
+}
+
 export async function finishExchange(
   ref: ExchangeRef,
   answer: string,
-  generated: boolean,
-  daySummary?: DaySummary,
-  force = false,
-  learning = false,
+  { generated, daySummary, force = false, learning = false }: FinishOptions,
 ): Promise<boolean> {
   let finalized = false;
   await db.transaction(async (tx) => {
@@ -225,7 +215,7 @@ export async function finishExchange(
       .set({
         content: answer,
         day_summary: daySummary ? JSON.stringify(daySummary) : null,
-        ...(learning ? { learned: LEARNING } : {}),
+        ...(learning ? { learned: LEARNING_STATE } : {}),
       })
       .where(
         and(
@@ -315,7 +305,7 @@ export async function saveLearned(
 ): Promise<void> {
   await db
     .update(coach_messages)
-    .set({ learned: JSON.stringify({ state: "done", facts }) })
+    .set({ learned: learnedState(facts) })
     .where(
       and(
         eq(coach_messages.id, ref.assistantId),

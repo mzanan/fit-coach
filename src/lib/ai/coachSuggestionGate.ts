@@ -3,7 +3,7 @@ import "server-only";
 import type { ModelRef } from "@/lib/ai/aiCredentials";
 import { chatJson } from "@/lib/ai/provider";
 import { getCatalog } from "@/lib/data/catalog";
-import { matchesTerm, normalizeSearch } from "@/lib/search";
+import { normalizeSearch } from "@/lib/search";
 
 const EXTRACT_SYSTEM = `You read one message a nutrition coach sent to a user and list the foods it names as something for the user to eat.
 
@@ -18,11 +18,37 @@ Return JSON: {"foods":["...","..."]}`;
 
 const MAX_FOODS = 12;
 const MAX_FOOD_LENGTH = 60;
+const MIN_TOKEN_LENGTH = 2;
+const MIN_STEM_LENGTH = 4;
+
+function foodTokens(value: string): string[] {
+  return normalizeSearch(value)
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= MIN_TOKEN_LENGTH);
+}
+
+function sameToken(a: string, b: string): boolean {
+  if (a === b) return true;
+  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+  return shorter.length >= MIN_STEM_LENGTH && longer.startsWith(shorter);
+}
+
+function contains(haystack: string[], needles: string[]): boolean {
+  return needles.every((needle) =>
+    haystack.some((token) => sameToken(token, needle)),
+  );
+}
+
+function covers(term: string[], food: string[]): boolean {
+  if (!term.length || !food.length) return false;
+  return contains(term, food) || contains(food, term);
+}
 
 export function unlistedFoods(
   named: string[],
   catalogTerms: string[],
 ): string[] {
+  const terms = catalogTerms.map(foodTokens).filter((tokens) => tokens.length);
   const seen = new Set<string>();
   const unlisted: string[] = [];
   for (const food of named) {
@@ -31,10 +57,9 @@ export function unlistedFoods(
     const key = normalizeSearch(trimmed);
     if (!key || seen.has(key)) continue;
     seen.add(key);
-    const known = catalogTerms.some(
-      (term) => matchesTerm(term, trimmed) || matchesTerm(trimmed, term),
-    );
-    if (!known) unlisted.push(trimmed);
+    const tokens = foodTokens(trimmed);
+    if (!tokens.length) continue;
+    if (!terms.some((term) => covers(term, tokens))) unlisted.push(trimmed);
   }
   return unlisted;
 }

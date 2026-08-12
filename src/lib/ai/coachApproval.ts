@@ -8,6 +8,7 @@ import {
   deferLearnFor,
   exchangeOf,
   learn,
+  shouldLearn,
   toolSetup,
   turnLimitReached,
   TURN_LIMIT_TEXT,
@@ -103,7 +104,7 @@ export async function resolvePendingWrite(
       "stopped",
     );
     try {
-      await finishExchange(exchange, DENIED, false);
+      await finishExchange(exchange, DENIED, { generated: false });
       return { status: "answered", text: DENIED, generated: false };
     } catch (error) {
       await discardExchange(exchange);
@@ -240,7 +241,7 @@ export async function resolvePendingWrite(
     );
     if (!writeOutputs.some((output) => output.logged)) {
       const failure = writeOutputs.find((output) => output.error)?.error;
-      await finishExchange(exchange, failure ?? NOT_WRITTEN, false);
+      await finishExchange(exchange, failure ?? NOT_WRITTEN, { generated: false });
       return {
         status: "answered",
         text: failure ?? NOT_WRITTEN,
@@ -274,19 +275,12 @@ export async function resolvePendingWrite(
     const daySummary = wroteMeal
       ? await daySummaryAfterWrite(userId, profile, day)
       : undefined;
-    const learning =
-      Boolean(text) &&
-      !signal?.aborted &&
-      Boolean(question) &&
-      !appGenerated;
-    await finishExchange(
-      exchange,
-      answer,
-      Boolean(text),
+    const learning = shouldLearn({ question, text, appGenerated, signal });
+    await finishExchange(exchange, answer, {
+      generated: Boolean(text),
       daySummary,
-      false,
       learning,
-    );
+    });
     if (text && !signal?.aborted) {
       deferLearnFor(exchange, () =>
         learn(
@@ -294,7 +288,7 @@ export async function resolvePendingWrite(
           userId,
           setup.memory,
           exchangeOf(toolLog, question, answer, appGenerated),
-          Boolean(question) && !appGenerated,
+          learning,
         ),
       );
     }
@@ -309,7 +303,7 @@ export async function resolvePendingWrite(
     if (signal?.aborted) {
       return { status: "answered", text: INTERRUPTED_ANSWER, generated: false };
     }
-    await finishExchange(exchange, RESUME_FAILED, false);
+    await finishExchange(exchange, RESUME_FAILED, { generated: false });
     return { status: "answered", text: RESUME_FAILED, generated: false };
   }
 }
