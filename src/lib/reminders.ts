@@ -17,6 +17,7 @@ export interface ReminderItem {
 }
 
 const UPCOMING_WINDOW_DAYS = 3;
+const MAX_CADENCE_DAYS = 3650;
 export const TREATMENT_END_SUFFIX = "_end_date";
 const DATE_SHAPE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -45,8 +46,11 @@ function cadenceDaysOf(
   raw: string | undefined,
   fallback: number | null,
 ): number | null {
-  const parsed = raw != null ? Number.parseInt(raw, 10) : NaN;
-  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  if (raw == null) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  if (parsed === 0) return null;
+  if (parsed > 0 && parsed <= MAX_CADENCE_DAYS) return parsed;
   return fallback;
 }
 
@@ -75,13 +79,15 @@ function treatmentEndReminders(
 ): ReminderItem[] {
   return rules.flatMap((rule) => {
     if (!rule.key.endsWith(TREATMENT_END_SUFFIX)) return [];
+    const prefix = rule.key.slice(0, -TREATMENT_END_SUFFIX.length);
+    if (!prefix) return [];
     const dueDay = rule.value.trim();
     if (!DATE_SHAPE.test(dueDay)) return [];
     if (dueDay > shiftDay(today, UPCOMING_WINDOW_DAYS)) return [];
     return [
       {
         type: "treatment_end",
-        label: humanizeKey(rule.key.slice(0, -TREATMENT_END_SUFFIX.length)),
+        label: humanizeKey(prefix),
         status: (dueDay <= today ? "overdue" : "upcoming") as ReminderStatus,
         due_day: dueDay,
         last_day: null,
