@@ -223,6 +223,7 @@ export const INTERRUPTED_ANSWER = "This answer was interrupted.";
 
 export const COACH_MAX_DURATION_SECONDS = 300;
 
+export const CATALOG_SEARCH_TOOL = "search_catalog";
 export const WRITE_TOOL = "log_meal";
 export const RULE_TOOL = "update_rule";
 export const FATIGUE_TOOL = "log_fatigue";

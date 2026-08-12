@@ -12,6 +12,7 @@ import {
   deterministicReply,
   limitErrorReply,
 } from "@/lib/ai/coachContext";
+import { offCatalogWarning } from "@/lib/ai/coachSuggestionGate";
 import { buildCoachTools, previewApproval } from "@/lib/ai/coachTools";
 import {
   COACH_FRAME,
@@ -55,7 +56,11 @@ import {
 import { logAiEvent } from "@/lib/data/aiEvents";
 import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import type { Profile } from "@/lib/db/schema";
-import { INTERRUPTED_ANSWER, WRITE_TOOLS } from "@/lib/constants";
+import {
+  CATALOG_SEARCH_TOOL,
+  INTERRUPTED_ANSWER,
+  WRITE_TOOLS,
+} from "@/lib/constants";
 import type { MacroLine } from "@/lib/macros";
 
 export type CoachResult =
@@ -388,7 +393,13 @@ async function toolReply(
           question,
           text,
           writeAttempted || writeOutputs.some((output) => output.logged),
-        );
+        ) +
+        (await offCatalogWarning(
+          ref,
+          userId,
+          text,
+          toolLog.some((entry) => entry.startsWith(`${CATALOG_SEARCH_TOOL}(`)),
+        ));
       if (!signal?.aborted) {
         deferLearn(() =>
           learn(
