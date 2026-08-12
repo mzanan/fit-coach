@@ -5,6 +5,7 @@ import {
   generateText,
   isStepCount,
   streamText,
+  NoObjectGeneratedError,
   NoSuchToolError,
   type FinishReason,
   type LanguageModel,
@@ -605,9 +606,10 @@ export async function chatJson<T>(
     );
   }
   const { instructions, turns } = split(messages);
-  try {
-    const { object } = await generateObject({
-      model: resolveModel(routeOnly ? { ...ref, routeOnly } : ref),
+  const model = resolveModel(routeOnly ? { ...ref, routeOnly } : ref);
+  const attempt = () =>
+    generateObject({
+      model,
       instructions,
       messages: turns,
       maxOutputTokens: maxTokens,
@@ -616,8 +618,21 @@ export async function chatJson<T>(
       output: "no-schema",
       repairText: async (options) => unwrapJson(options),
     });
+  try {
+    const { object } = await attempt();
     return object as T;
   } catch (error) {
+    if (NoObjectGeneratedError.isInstance(error) && !error.text) {
+      console.error(
+        `chatJson got an empty response from ${ref.provider}/${ref.model}, retrying once`,
+      );
+      try {
+        const { object } = await attempt();
+        return object as T;
+      } catch (retryError) {
+        error = retryError;
+      }
+    }
     const raw = (error as { text?: string })?.text;
     console.error(
       `chatJson failed on ${ref.provider}/${ref.model}`,
