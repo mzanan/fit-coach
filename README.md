@@ -47,9 +47,9 @@ Model capability is not uniform and no layer normalizes it, so the app keeps its
 
 ### The coach is an agent, not a prompt
 
-The coach runs on the SDK's native tool loop with read tools (`get_today`, `search_catalog`, `get_workouts`, `get_body_scans`, `get_progress_overview`) plus writes. The model decides which to call; the app does not pre-assemble context.
+The coach runs on the SDK's native tool loop with read tools (`get_today`, `search_catalog`, `get_workouts`, `get_body_scans`, `get_progress_overview`, `check_progression_eligible`) plus writes. The model decides which to call; the app does not pre-assemble context.
 
-`log_meal`, `update_rule` (standing rules like medication timing or a dietary constraint) and `log_fatigue` (a 1-5 energy check-in per morning/post-lunch slot) are the writes, all three gated by the SDK's `toolApproval`. They are also only registered for models measured to hold up under that approval flow (`WRITE_MEASURED_MODELS`); any other active model never sees any of them, and the system prompt tells it to send the user to manual logging instead. The flow matters:
+`log_meal`, `update_rule` (standing rules like medication timing or a dietary constraint), `log_fatigue` (a 1-5 energy check-in per morning/post-lunch slot) and `log_workout_session` (logs exercises and sets against the catalog) are the writes, all gated by the SDK's `toolApproval`. They are also only registered for models measured to hold up under that approval flow (`WRITE_MEASURED_MODELS`); any other active model never sees any of them, and the system prompt tells it to send the user to manual logging instead. The flow matters:
 
 1. The model proposes a write. The loop pauses and the request is emitted over the same ndjson stream the answer uses, so the serverless function exits instead of holding a connection open waiting for a human.
 2. **Macros are resolved server-side before the pause.** The confirmation card renders from a server preview keyed by catalog id, never from the model's arguments, so the numbers a user confirms are the catalog's numbers.
