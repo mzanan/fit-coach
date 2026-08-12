@@ -8,6 +8,7 @@ import { toolsRouting } from "@/lib/ai/capabilities";
 import {
   aiErrorReply,
   buildContext,
+  buildReminderLines,
   deterministicReply,
   limitErrorReply,
 } from "@/lib/ai/coachContext";
@@ -111,12 +112,15 @@ function unloggedWarning(
 
 async function memoryFactsAndRules(
   userId: string,
+  profile: Profile,
+  today: string,
   question?: string,
 ): Promise<{ memory: string | null; parts: string[] }> {
-  const [memory, facts, rules] = await Promise.all([
+  const [memory, facts, rules, reminderLines] = await Promise.all([
     getCoachMemory(userId),
     retrieveFacts(userId, question?.trim() ?? ""),
     listActiveRules(userId),
+    buildReminderLines(userId, dayConfig(profile), today),
   ]);
 
   const ruleLines = rules.length
@@ -133,12 +137,20 @@ async function memoryFactsAndRules(
       ]
     : [];
 
+  const reminderBlock = reminderLines.length
+    ? [
+        "Overdue/upcoming reminders. Raise these yourself even if the user did not ask, but only once per conversation, do not repeat one you already raised:",
+        ...reminderLines,
+      ]
+    : [];
+
   return {
     memory,
     parts: [
       ...(memory ? [`Coach memory about this user:\n${memory}`] : []),
       ...ruleLines,
       ...factLines,
+      ...reminderBlock,
     ],
   };
 }
@@ -255,10 +267,11 @@ export async function toolSetup(
   allowWrite: boolean,
   question?: string,
 ) {
-  const { memory, parts } = await memoryFactsAndRules(userId, question);
+  const today = todayLogicalDay(dayConfig(profile));
+  const { memory, parts } = await memoryFactsAndRules(userId, profile, today, question);
   return {
     memory,
-    today: todayLogicalDay(dayConfig(profile)),
+    today,
     instructions: [
       COACH_FRAME +
         diningRule(profile) +
@@ -421,7 +434,12 @@ async function contextReply(
   appGenerated = false,
 ): Promise<CoachResult> {
   const ctx = await buildContext(userId, profile);
-  const { memory, parts } = await memoryFactsAndRules(userId, question);
+  const { memory, parts } = await memoryFactsAndRules(
+    userId,
+    profile,
+    ctx.today,
+    question,
+  );
 
   const userMsg = [
     ...ctx.lines,

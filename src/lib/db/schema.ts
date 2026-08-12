@@ -534,6 +534,27 @@ export const body_scans = sqliteTable(
   (t) => [index("body_scans_user_taken_idx").on(t.user_id, t.taken_at)],
 );
 
+export const body_measurements = sqliteTable(
+  "body_measurements",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    value: real("value"),
+    logical_day: text("logical_day").notNull(),
+    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [
+    index("body_measurements_user_type_day_idx").on(
+      t.user_id,
+      t.type,
+      t.logical_day,
+    ),
+  ],
+);
+
 export type Profile = typeof profiles.$inferSelect;
 export type CatalogItem = typeof catalog_items.$inferSelect;
 export type CatalogComponent = typeof catalog_components.$inferSelect;
@@ -547,6 +568,7 @@ export type WorkoutExercise = typeof workout_exercises.$inferSelect;
 export type WorkoutSet = typeof workout_sets.$inferSelect;
 export type ExerciseCatalogItem = typeof exercise_catalog.$inferSelect;
 export type BodyScan = typeof body_scans.$inferSelect;
+export type BodyMeasurement = typeof body_measurements.$inferSelect;
 export type WhoopConnection = typeof whoop_connections.$inferSelect;
 export type WhoopCycle = typeof whoop_cycles.$inferSelect;
 export type WhoopRecovery = typeof whoop_recovery.$inferSelect;

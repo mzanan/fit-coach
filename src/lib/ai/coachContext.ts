@@ -5,10 +5,12 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import type { ModelRef } from "@/lib/ai/aiCredentials";
 import { PROVIDER_LABEL } from "@/lib/ai/options";
 import type { ResolveFailure } from "@/lib/catalogMeal";
-import { categoryLabel, fatigueTimeLabel } from "@/lib/constants";
-import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
+import { categoryLabel, fatigueTimeLabel, measurementUnit } from "@/lib/constants";
+import { dayConfig, shiftDay, todayLogicalDay, type DayConfig } from "@/lib/dates";
+import { getLatestMeasurement } from "@/lib/data/bodyMeasurements";
 import { getDayFatigue } from "@/lib/data/fatigueLogs";
 import { getDayData } from "@/lib/data/today";
+import { getUpcomingReminders } from "@/lib/reminders";
 import { getWhoopSnapshot } from "@/lib/data/whoop";
 import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
@@ -68,6 +70,8 @@ export async function buildContext(
   const fatigueLines = await buildFatigueLines(userId, today);
   const whoopLines = await buildWhoopLines(userId);
   const scanLines = await buildScanLines(userId);
+  const measurementLines = await buildMeasurementLines(userId);
+  const reminderLines = await buildReminderLines(userId, cfg, today);
 
   return {
     profile,
@@ -81,8 +85,44 @@ export async function buildContext(
       ...fatigueLines,
       ...whoopLines,
       ...scanLines,
+      ...measurementLines,
+      ...reminderLines,
     ],
   };
+}
+
+export async function buildReminderLines(
+  userId: string,
+  cfg: DayConfig,
+  today: string,
+): Promise<string[]> {
+  const reminders = await getUpcomingReminders(userId, cfg, today);
+  if (!reminders.length) return [];
+  return reminders.map((reminder) => {
+    const statusText =
+      reminder.status === "overdue"
+        ? "overdue"
+        : `due ${reminder.due_day}`;
+    const lastText = reminder.last_day ? `, last ${reminder.last_day}` : "";
+    return `Reminder (${statusText}): ${reminder.label}${lastText}.`;
+  });
+}
+
+export async function buildMeasurementLines(userId: string): Promise<string[]> {
+  const [waist, weight] = await Promise.all([
+    getLatestMeasurement(userId, "waist"),
+    getLatestMeasurement(userId, "weight"),
+  ]);
+  const parts = [
+    waist?.value != null
+      ? `waist ${waist.value}${measurementUnit("waist")} (${waist.logical_day})`
+      : null,
+    weight?.value != null
+      ? `weight ${weight.value}${measurementUnit("weight")} (${weight.logical_day})`
+      : null,
+  ].filter((part): part is string => Boolean(part));
+  if (!parts.length) return [];
+  return [`Latest logged measurements: ${parts.join(", ")}.`];
 }
 
 export async function buildFatigueLines(

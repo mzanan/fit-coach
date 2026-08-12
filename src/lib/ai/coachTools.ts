@@ -15,7 +15,9 @@ import {
 } from "@/lib/catalogMeal";
 import { searchCatalog } from "@/lib/ai/coachCatalogSearch";
 import { previewFailure } from "@/lib/ai/coachContext";
+import { getLatestMeasurement, saveMeasurement } from "@/lib/data/bodyMeasurements";
 import { getActiveRule, saveRule } from "@/lib/data/coachRules";
+import { CADENCE_DEFS, TREATMENT_END_SUFFIX } from "@/lib/reminders";
 import {
   getDayFatigue,
   recentFatigueAverage,
@@ -29,6 +31,9 @@ import {
   FATIGUE_TIMES_OF_DAY,
   FATIGUE_TOOL,
   MEAL_CATEGORIES,
+  MEASUREMENT_TOOL,
+  MEASUREMENT_TYPES,
+  MEASUREMENT_VALUE_MAX,
   RULE_TOOL,
   WORKOUT_TOOL,
   WRITE_TOOL,
@@ -36,12 +41,13 @@ import {
 } from "@/lib/constants";
 import type {
   LogFatiguePreview,
+  LogMeasurementPreview,
   LogMealPreview,
   LogWorkoutSessionPreview,
   PendingPreview,
   UpdateRulePreview,
 } from "@/lib/data/coachPendingWrite";
-import { shiftDay } from "@/lib/dates";
+import { dayConfig, shiftDay } from "@/lib/dates";
 import { getDayData } from "@/lib/data/today";
 import {
   getExerciseSessions,
@@ -58,6 +64,7 @@ import {
   evaluateProgression,
   PROGRESSION_SESSIONS_REQUIRED,
 } from "@/lib/workoutHistory";
+import { getUpcomingReminders } from "@/lib/reminders";
 
 const { body_scans, meals, workouts } = schema;
 
@@ -332,6 +339,61 @@ export async function previewLogWorkoutSession(
   };
 }
 
+const MEASUREMENT_TYPE_KEYS = MEASUREMENT_TYPES.map((t) => t.key) as [
+  string,
+  ...string[],
+];
+
+const measurementTypeSchema = z.enum(MEASUREMENT_TYPE_KEYS);
+const measurementValueSchema = z
+  .number()
+  .positive()
+  .max(MEASUREMENT_VALUE_MAX)
+  .nullable()
+  .default(null);
+
+const logMeasurementInput = z
+  .object({
+    type: measurementTypeSchema,
+    value: measurementValueSchema,
+  })
+  .refine(
+    (data) => (data.type === "photo" ? data.value === null : data.value !== null),
+    {
+      message: "value is required unless type is photo",
+      path: ["value"],
+    },
+  );
+
+export async function previewLogMeasurement(
+  userId: string,
+  today: string,
+  input: unknown,
+): Promise<
+  | { ok: true; preview: Omit<LogMeasurementPreview, "toolCallId"> }
+  | { ok: false; reason: ResolveFailure; error: string }
+> {
+  const parsed = logMeasurementInput.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      reason: "not_found",
+      error: "The coach asked to log a measurement it did not describe properly.",
+    };
+  }
+  const previous = await getLatestMeasurement(userId, parsed.data.type);
+  return {
+    ok: true,
+    preview: {
+      toolName: MEASUREMENT_TOOL,
+      day: today,
+      type: parsed.data.type,
+      value: parsed.data.value,
+      previousValue: previous?.value ?? null,
+    },
+  };
+}
+
 export async function previewApproval(
   userId: string,
   today: string,
@@ -372,6 +434,19 @@ export async function previewApproval(
       return {
         ok: false,
         text: "The coach tried to log a workout but the request came back malformed. Ask again.",
+      };
+    }
+    return {
+      ok: true,
+      preview: { ...result.preview, toolCallId: approval.toolCallId },
+    };
+  }
+  if (approval.toolName === MEASUREMENT_TOOL) {
+    const result = await previewLogMeasurement(userId, today, approval.input);
+    if (!result.ok) {
+      return {
+        ok: false,
+        text: "The coach tried to log a measurement but the request came back malformed. Ask again.",
       };
     }
     return {
@@ -569,6 +644,10 @@ export function buildCoachTools(
           -(PROGRESS_FATIGUE_WINDOW_DAYS - 1),
         );
         const fatigue = await recentFatigueAverage(userId, fatigueWindowStart);
+        const [latestWaist, latestWeight] = await Promise.all([
+          getLatestMeasurement(userId, "waist"),
+          getLatestMeasurement(userId, "weight"),
+        ]);
 
         return {
           first_logged_day: firstLoggedDay,
@@ -577,6 +656,12 @@ export function buildCoachTools(
             fatigue == null
               ? null
               : { average_score: round(fatigue.average, 1), entries: fatigue.count },
+          latest_waist_cm: latestWaist?.value != null
+            ? { value: latestWaist.value, day: latestWaist.logical_day }
+            : null,
+          latest_weight_kg: latestWeight?.value != null
+            ? { value: latestWeight.value, day: latestWeight.logical_day }
+            : null,
           scans: scans.map((scan) => ({
             taken_at: scan.taken_at.toISOString().slice(0, 10),
             weight_kg: scan.weight_kg,
@@ -585,6 +670,15 @@ export function buildCoachTools(
             visceral_fat_level: scan.visceral_fat_level,
           })),
         };
+      }),
+    }),
+    get_upcoming_reminders: tool({
+      description:
+        "Get overdue/upcoming reminders you should raise proactively: progress photo (default every 4 weeks), waist measurement (default every 2 weeks), the next InBody scan if the user set a cadence for it, and any standing rule stored as a `..._end_date` (e.g. a treatment or medication end date). Read-only, no confirmation needed. Reminders already due are also included automatically in your context every turn, so you rarely need to call this yourself; use it if you want to double-check before mentioning one.",
+      inputSchema: z.object({}),
+      execute: safe("get_upcoming_reminders", async () => {
+        const reminders = await getUpcomingReminders(userId, dayConfig(profile), today);
+        return { reminders };
       }),
     }),
   };
@@ -643,19 +737,24 @@ export function buildCoachTools(
     }),
     update_rule: tool({
       description:
-        "Set or change a standing rule for this user: a fixed operational fact the coach must always follow until it is changed again, e.g. medication timing, a dietary restriction, routine split, or a reminder cadence. Use a short snake_case `key` naming the rule and the exact `value`. Setting an existing key replaces its value; the previous value stops applying. Only call this when the user asks to set or change a rule, never for a one-off preference (that belongs in memory, not here). The user confirms before anything is written.",
+        "Set or change a standing rule for this user: a fixed operational fact the coach must always follow until it is changed again, e.g. medication timing, a dietary restriction, routine split, or a reminder cadence. Use a short snake_case `key` naming the rule and the exact `value`. Setting an existing key replaces its value; the previous value stops applying. Only call this when the user asks to set or change a rule, never for a one-off preference (that belongs in memory, not here). The user confirms before anything is written." +
+        ` Reserved keys read by the reminder system, use these EXACT keys and formats or the reminder never fires: ${CADENCE_DEFS.map((d) => `\`${d.ruleKey}\``).join(", ")} take an integer number of days as the value, e.g. key "${CADENCE_DEFS[2].ruleKey}" value "21" for "recordame el InBody cada 21 días". Any key ending in "${TREATMENT_END_SUFFIX}" (e.g. "creatine${TREATMENT_END_SUFFIX}") takes a value in exactly YYYY-MM-DD format, e.g. key "creatine${TREATMENT_END_SUFFIX}" value "2026-08-30" for "estoy tomando creatina hasta el 30 de agosto". Never invent a differently-named or differently-formatted key for these two cases.`,
       inputSchema: z.object({
         key: z
           .string()
           .trim()
           .min(1)
-          .describe("short snake_case name for the rule, e.g. medication_timing"),
+          .describe(
+            `short snake_case name for the rule, e.g. medication_timing. For reminder cadences and treatment end dates use the reserved keys and formats from the tool description (${CADENCE_DEFS.map((d) => d.ruleKey).join(", ")}, or any key ending in ${TREATMENT_END_SUFFIX})`,
+          ),
         value: z
           .string()
           .trim()
           .min(1)
           .max(300)
-          .describe("the exact rule value to store"),
+          .describe(
+            "the exact rule value to store. For reminder cadence keys, an integer number of days. For *_end_date keys, exactly YYYY-MM-DD",
+          ),
       }),
       execute: safe(
         "update_rule",
@@ -734,6 +833,31 @@ export function buildCoachTools(
                 sets: exercise.sets,
               })),
             },
+          };
+        },
+      ),
+    }),
+    log_measurement: tool({
+      description:
+        "Log a body measurement: waist (cm) or weight (kg) with its value, or a progress photo (no value, just marks that one was taken today). Only call this when the user reports a measurement or confirms they took a progress photo. Never invent a value. The user confirms before anything is written.",
+      inputSchema: z.object({
+        type: measurementTypeSchema.describe("waist, weight, or photo"),
+        value: measurementValueSchema.describe(
+          "the measured value, cm for waist or kg for weight; omit or pass null for photo",
+        ),
+      }),
+      execute: safe(
+        "log_measurement",
+        async (input: { type: string; value: number | null }) => {
+          const value = input.type === "photo" ? null : input.value;
+          await saveMeasurement(userId, {
+            type: input.type,
+            value,
+            logical_day: today,
+          });
+          return {
+            logged: true,
+            measurement: { type: input.type, value },
           };
         },
       ),
