@@ -226,7 +226,8 @@ function FatigueItem({ preview }: { preview: LogFatiguePreview }) {
   return (
     <div className="space-y-1">
       <p className="text-body font-medium">
-        {fatigueTimeLabel(preview.timeOfDay)} fatigue: {preview.score}/5
+        {fatigueTimeLabel(preview.timeOfDay)}
+        {preview.score != null ? ` fatigue: ${preview.score}/5` : " sleep (energy pending)"}
       </p>
       {extras ? <p className="text-meta text-muted-foreground">{extras}</p> : null}
       {preview.previousScore != null ? (

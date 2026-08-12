@@ -230,7 +230,9 @@ const fatigueScoreSchema = z
   .number()
   .int()
   .min(FATIGUE_SCORE_MIN)
-  .max(FATIGUE_SCORE_MAX);
+  .max(FATIGUE_SCORE_MAX)
+  .nullable()
+  .default(null);
 
 const fatigueSleepHoursSchema = z
   .number()
@@ -770,13 +772,13 @@ export function buildCoachTools(
     }),
     log_fatigue: tool({
       description:
-        "Log the user's fatigue/energy score (1-5) for a moment of the day: morning or post_lunch. Only call this when the user reports it or answers your own check-in question. Logging the same time_of_day again for today replaces the earlier value. sleep_hours and sleep_location are optional, pass them only when the user mentioned them, otherwise leave them null. The user confirms before anything is written.",
+        "Log the user's fatigue/energy score (1-5) and/or sleep info for a moment of the day: morning or post_lunch. All three fields (score, sleep_hours, sleep_location) are optional and independent: pass a field only when the user mentioned it in THIS message, leave it null otherwise, and logging the same time_of_day again today only overwrites the fields you pass, it never blanks out a field the user already logged earlier with a null from a later call that didn't mention it. If the user only mentions sleep (e.g. 'dormí 6 horas') without saying how they felt, call this with score null to save the sleep data, but you MUST still ask them for the energy score in your reply so it can be logged in a follow-up turn. The user confirms before anything is written.",
       inputSchema: z.object({
         time_of_day: z
           .enum(TIME_OF_DAY_KEYS)
           .describe("morning or post_lunch"),
         score: fatigueScoreSchema.describe(
-          "fatigue/energy score, 1 (exhausted) to 5 (fresh)",
+          "fatigue/energy score, 1 (exhausted) to 5 (fresh); null if the user didn't say",
         ),
         sleep_hours: fatigueSleepHoursSchema.describe(
           "hours slept, only if the user mentioned it (0 is valid for an all-nighter)",
@@ -789,7 +791,7 @@ export function buildCoachTools(
         "log_fatigue",
         async (input: {
           time_of_day: string;
-          score: number;
+          score: number | null;
           sleep_hours: number | null;
           sleep_location: string | null;
         }) => {

@@ -43,7 +43,7 @@ export interface LogFatiguePreview {
   toolName: typeof FATIGUE_TOOL;
   day: string;
   timeOfDay: string;
-  score: number;
+  score: number | null;
   sleepHours: number | null;
   sleepLocation: string | null;
   previousScore: number | null;
