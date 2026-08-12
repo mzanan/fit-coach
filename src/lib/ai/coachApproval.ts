@@ -34,6 +34,7 @@ import {
   takePendingWrite,
   type LogFatiguePreview,
   type LogMealPreview,
+  type LogWorkoutSessionPreview,
   type PendingPreview,
 } from "@/lib/data/coachPendingWrite";
 import { getDayData } from "@/lib/data/today";
@@ -45,6 +46,7 @@ import {
   fatigueExtrasLabel,
   fatigueTimeLabel,
   INTERRUPTED_ANSWER,
+  WORKOUT_TOOL,
   WRITE_TOOL,
   WRITE_TOOLS,
 } from "@/lib/constants";
@@ -165,9 +167,14 @@ export async function resolvePendingWrite(
       (preview): preview is LogFatiguePreview =>
         preview.toolName === FATIGUE_TOOL,
     );
+    const workoutPreview = pending.previews.find(
+      (preview): preview is LogWorkoutSessionPreview =>
+        preview.toolName === WORKOUT_TOOL,
+    );
     const day =
       mealPreview?.day ??
       fatiguePreview?.day ??
+      workoutPreview?.day ??
       todayLogicalDay(dayConfig(profile));
     const chosen =
       mealPreview && itemId
@@ -333,11 +340,18 @@ function fatigueLoggedLine(
   return `Logged ${fatigueTimeLabel(preview.timeOfDay)} fatigue: ${preview.score}/5${extras ? ` (${extras})` : ""}.`;
 }
 
+function workoutLoggedLine(preview: LogWorkoutSessionPreview): string {
+  const exerciseCount = preview.exercises.length;
+  const label = preview.label || "workout";
+  return `Logged ${label}: ${exerciseCount} exercise${exerciseCount === 1 ? "" : "s"}.`;
+}
+
 function confirmationLines(previews: PendingPreview[]): string {
   return previews
     .map((preview) => {
       if (preview.toolName === WRITE_TOOL) return mealLoggedLine(preview);
       if (preview.toolName === FATIGUE_TOOL) return fatigueLoggedLine(preview);
+      if (preview.toolName === WORKOUT_TOOL) return workoutLoggedLine(preview);
       return `Rule "${preview.key}" set to: ${preview.newValue}.`;
     })
     .join("\n");

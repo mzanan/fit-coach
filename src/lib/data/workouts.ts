@@ -8,11 +8,82 @@ import type {
   WorkoutExercise,
   WorkoutSet,
 } from "@/lib/db/schema";
+import { resolveExerciseCatalog } from "@/lib/data/exerciseCatalog";
 import { formatExerciseMeta } from "@/lib/exercises";
 import { normalizeSearch } from "@/lib/search";
+import { newId } from "@/lib/utils";
 import { topSet, type HistorySet } from "@/lib/workoutHistory";
 
 const { workouts, workout_exercises, workout_sets, exercise_catalog } = schema;
+
+export type WorkoutExecutor =
+  | typeof db
+  | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function fetchSetsGroupedByExercise(
+  executor: WorkoutExecutor,
+  userId: string,
+  exerciseIds: string[],
+): Promise<Map<string, WorkoutSet[]>> {
+  const byEx = new Map<string, WorkoutSet[]>();
+  if (!exerciseIds.length) return byEx;
+  const sets = await executor
+    .select()
+    .from(workout_sets)
+    .where(
+      and(
+        eq(workout_sets.user_id, userId),
+        inArray(workout_sets.exercise_id, exerciseIds),
+      ),
+    )
+    .orderBy(asc(workout_sets.set_index));
+  for (const s of sets) {
+    const list = byEx.get(s.exercise_id) ?? [];
+    list.push(s);
+    byEx.set(s.exercise_id, list);
+  }
+  return byEx;
+}
+
+export interface GetOrCreateWorkoutResult {
+  id: string;
+  label: string | null;
+}
+
+export async function getOrCreateWorkout(
+  executor: WorkoutExecutor,
+  userId: string,
+  day: string,
+  label?: string | null,
+): Promise<GetOrCreateWorkoutResult> {
+  const existing = await executor
+    .select()
+    .from(workouts)
+    .where(and(eq(workouts.user_id, userId), eq(workouts.logical_day, day)))
+    .limit(1);
+
+  if (existing[0]) {
+    if (label && label !== existing[0].label) {
+      await executor
+        .update(workouts)
+        .set({ label })
+        .where(eq(workouts.id, existing[0].id));
+      return { id: existing[0].id, label };
+    }
+    return { id: existing[0].id, label: existing[0].label };
+  }
+
+  const id = newId();
+  const storedLabel = label?.trim() || null;
+  await executor.insert(workouts).values({
+    id,
+    user_id: userId,
+    logical_day: day,
+    label: storedLabel,
+    created_at: new Date(),
+  });
+  return { id, label: storedLabel };
+}
 
 export interface ExerciseFull extends WorkoutExercise {
   sets: WorkoutSet[];
@@ -82,25 +153,7 @@ export async function hydrateWorkout(
   }));
 
   const exIds = exercises.map((e) => e.id);
-  const sets = exIds.length
-    ? await db
-        .select()
-        .from(workout_sets)
-        .where(
-          and(
-            eq(workout_sets.user_id, userId),
-            inArray(workout_sets.exercise_id, exIds),
-          ),
-        )
-        .orderBy(asc(workout_sets.set_index))
-    : [];
-
-  const byEx = new Map<string, WorkoutSet[]>();
-  for (const s of sets) {
-    const list = byEx.get(s.exercise_id) ?? [];
-    list.push(s);
-    byEx.set(s.exercise_id, list);
-  }
+  const byEx = await fetchSetsGroupedByExercise(db, userId, exIds);
 
   return {
     ...workout,
@@ -149,25 +202,11 @@ export async function getWorkoutHistory(
     .orderBy(asc(workout_exercises.sort));
 
   const exerciseIds = exercises.map((e) => e.id);
-  const sets = exerciseIds.length
-    ? await db
-        .select()
-        .from(workout_sets)
-        .where(
-          and(
-            eq(workout_sets.user_id, userId),
-            inArray(workout_sets.exercise_id, exerciseIds),
-          ),
-        )
-        .orderBy(asc(workout_sets.set_index))
-    : [];
-
-  const setsByExercise = new Map<string, WorkoutSet[]>();
-  for (const s of sets) {
-    const list = setsByExercise.get(s.exercise_id) ?? [];
-    list.push(s);
-    setsByExercise.set(s.exercise_id, list);
-  }
+  const setsByExercise = await fetchSetsGroupedByExercise(
+    db,
+    userId,
+    exerciseIds,
+  );
 
   const exercisesByWorkout = new Map<string, WorkoutExercise[]>();
   for (const e of exercises) {
@@ -241,4 +280,160 @@ export async function getWorkoutHistory(
     .map(([, v]) => v.displayName);
 
   return { lastByName: Object.fromEntries(lastByName), names, lastLabel };
+}
+
+export interface WorkoutSessionSetInput {
+  reps: number | null;
+  weight: number | null;
+  per_side: boolean;
+}
+
+export interface WorkoutSessionExerciseInput {
+  name: string;
+  exercise_catalog_id?: string | null;
+  sets: WorkoutSessionSetInput[];
+  notes?: string;
+}
+
+export interface WorkoutSessionInput {
+  session_type: string;
+  exercises: WorkoutSessionExerciseInput[];
+}
+
+export interface ResolvedWorkoutExercise {
+  name: string;
+  catalogId: string | null;
+  notes: string | null;
+  sets: WorkoutSessionSetInput[];
+}
+
+export interface ResolvedWorkoutSession {
+  label: string;
+  exercises: ResolvedWorkoutExercise[];
+}
+
+export async function resolveWorkoutSession(
+  input: WorkoutSessionInput,
+): Promise<ResolvedWorkoutSession> {
+  const exercises = await Promise.all(
+    input.exercises.map(async (exercise) => {
+      const resolved = await resolveExerciseCatalog(
+        exercise.name,
+        exercise.exercise_catalog_id,
+      );
+      return {
+        name: resolved.name,
+        catalogId: resolved.catalogId,
+        notes: exercise.notes?.trim() || null,
+        sets: exercise.sets,
+      };
+    }),
+  );
+  return { label: input.session_type.trim(), exercises };
+}
+
+export async function insertWorkoutSession(
+  userId: string,
+  day: string,
+  session: ResolvedWorkoutSession,
+): Promise<string> {
+  return db.transaction(async (tx) => {
+    const workout = await getOrCreateWorkout(tx, userId, day, session.label);
+
+    const existingCount = await tx
+      .select({ id: workout_exercises.id })
+      .from(workout_exercises)
+      .where(eq(workout_exercises.workout_id, workout.id));
+    let sort = existingCount.length;
+
+    const exerciseRows = session.exercises.map((exercise) => ({
+      id: newId(),
+      workout_id: workout.id,
+      user_id: userId,
+      name: exercise.name,
+      sort: sort++,
+      notes: exercise.notes,
+      exercise_catalog_id: exercise.catalogId,
+    }));
+    await tx.insert(workout_exercises).values(exerciseRows);
+
+    const setRows = session.exercises.flatMap((exercise, i) =>
+      exercise.sets.map((set, index) => ({
+        id: newId(),
+        exercise_id: exerciseRows[i].id,
+        user_id: userId,
+        set_index: index + 1,
+        reps: set.reps,
+        weight: set.weight,
+        per_side: set.per_side,
+      })),
+    );
+    if (setRows.length) {
+      await tx.insert(workout_sets).values(setRows);
+    }
+
+    return workout.id;
+  });
+}
+
+export interface ExerciseSessionSets {
+  day: string;
+  sets: HistorySet[];
+}
+
+export async function getExerciseSessions(
+  userId: string,
+  exerciseName: string,
+  limit: number,
+): Promise<ExerciseSessionSets[]> {
+  const key = normalizeSearch(exerciseName);
+  const recentWorkouts = await db
+    .select({ id: workouts.id, day: workouts.logical_day })
+    .from(workouts)
+    .where(eq(workouts.user_id, userId))
+    .orderBy(desc(workouts.logical_day))
+    .limit(60);
+  if (!recentWorkouts.length) return [];
+
+  const workoutIds = recentWorkouts.map((w) => w.id);
+  const exercises = await db
+    .select({
+      id: workout_exercises.id,
+      workout_id: workout_exercises.workout_id,
+      name: workout_exercises.name,
+      sort: workout_exercises.sort,
+    })
+    .from(workout_exercises)
+    .where(
+      and(
+        eq(workout_exercises.user_id, userId),
+        inArray(workout_exercises.workout_id, workoutIds),
+      ),
+    )
+    .orderBy(asc(workout_exercises.sort));
+
+  const matching = exercises.filter((e) => normalizeSearch(e.name) === key);
+
+  const byWorkout = new Map<string, (typeof matching)[number]>();
+  for (const e of matching) {
+    const existing = byWorkout.get(e.workout_id);
+    if (!existing || e.sort < existing.sort) byWorkout.set(e.workout_id, e);
+  }
+
+  const picked = recentWorkouts
+    .filter((w) => byWorkout.has(w.id))
+    .slice(0, limit)
+    .map((w) => ({ day: w.day, exerciseId: byWorkout.get(w.id)!.id }));
+
+  const exerciseIds = picked.map((p) => p.exerciseId);
+  const byExercise = await fetchSetsGroupedByExercise(db, userId, exerciseIds);
+
+  return picked.map((p) => ({
+    day: p.day,
+    sets: (byExercise.get(p.exerciseId) ?? []).map((s) => ({
+      reps: s.reps,
+      weight: s.weight,
+      per_side: s.per_side,
+    })),
+  }));
 }

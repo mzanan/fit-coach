@@ -5,12 +5,13 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db, schema } from "@/lib/db";
-import { findExerciseByName } from "@/lib/data/exerciseCatalog";
+import { resolveExerciseCatalog } from "@/lib/data/exerciseCatalog";
+import { getOrCreateWorkout } from "@/lib/data/workouts";
 import { requireUser } from "@/lib/session";
 import { dayString } from "@/lib/validation";
 import { newId } from "@/lib/utils";
 
-const { workouts, workout_exercises, workout_sets, exercise_catalog } = schema;
+const { workouts, workout_exercises, workout_sets } = schema;
 
 const createWorkoutSchema = z.object({
   day: dayString,
@@ -21,32 +22,9 @@ export async function ensureWorkout(input: unknown): Promise<string> {
   const user = await requireUser();
   const { day, label } = createWorkoutSchema.parse(input);
 
-  const existing = await db
-    .select()
-    .from(workouts)
-    .where(and(eq(workouts.user_id, user.id), eq(workouts.logical_day, day)))
-    .limit(1);
-  if (existing[0]) {
-    if (label && label !== existing[0].label) {
-      await db
-        .update(workouts)
-        .set({ label })
-        .where(eq(workouts.id, existing[0].id));
-    }
-    revalidatePath("/workout");
-    return existing[0].id;
-  }
-
-  const id = newId();
-  await db.insert(workouts).values({
-    id,
-    user_id: user.id,
-    logical_day: day,
-    label: label?.trim() || null,
-    created_at: new Date(),
-  });
+  const result = await getOrCreateWorkout(db, user.id, day, label);
   revalidatePath("/workout");
-  return id;
+  return result.id;
 }
 
 async function ownsWorkout(userId: string, workoutId: string) {
@@ -69,25 +47,7 @@ export async function addExercise(input: unknown) {
   const { workoutId, name, exerciseCatalogId } = addExerciseSchema.parse(input);
   if (!(await ownsWorkout(user.id, workoutId))) throw new Error("Not found");
 
-  let catalogId: string | null = null;
-  let resolvedName = name.trim();
-  if (exerciseCatalogId) {
-    const catalogEntry = await db
-      .select({ id: exercise_catalog.id, name: exercise_catalog.name })
-      .from(exercise_catalog)
-      .where(eq(exercise_catalog.id, exerciseCatalogId))
-      .limit(1);
-    if (catalogEntry[0]) {
-      catalogId = catalogEntry[0].id;
-      resolvedName = catalogEntry[0].name;
-    }
-  } else {
-    const byName = await findExerciseByName(resolvedName);
-    if (byName) {
-      catalogId = byName.id;
-      resolvedName = byName.name;
-    }
-  }
+  const resolved = await resolveExerciseCatalog(name, exerciseCatalogId);
 
   const count = await db
     .select({ id: workout_exercises.id })
@@ -98,9 +58,9 @@ export async function addExercise(input: unknown) {
     id: newId(),
     workout_id: workoutId,
     user_id: user.id,
-    name: resolvedName,
+    name: resolved.name,
     sort: count.length,
-    exercise_catalog_id: catalogId,
+    exercise_catalog_id: resolved.catalogId,
   });
   revalidatePath("/workout");
 }

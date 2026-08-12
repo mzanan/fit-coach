@@ -12,16 +12,19 @@ import {
   fatigueExtrasLabel,
   fatigueTimeLabel,
   RULE_TOOL,
+  WORKOUT_TOOL,
   WRITE_TOOL,
 } from "@/lib/constants";
 import type {
   LogFatiguePreview,
   LogMealPreview,
+  LogWorkoutSessionPreview,
   PendingPreview,
   UpdateRulePreview,
 } from "@/lib/data/coachPendingWrite";
 import { kcalOf } from "@/lib/macros";
 import { cn } from "@/lib/utils";
+import { formatSetLine } from "@/lib/workoutHistory";
 
 interface DisplayOption {
   id: string;
@@ -52,6 +55,12 @@ function isFatiguePreview(
   preview: PendingPreview,
 ): preview is LogFatiguePreview {
   return preview.toolName === FATIGUE_TOOL;
+}
+
+function isWorkoutPreview(
+  preview: PendingPreview,
+): preview is LogWorkoutSessionPreview {
+  return preview.toolName === WORKOUT_TOOL;
 }
 
 function weightOf(name: string): number {
@@ -143,18 +152,24 @@ function MealItem({
   );
 }
 
-function kindsOf(mealCount: number, ruleCount: number, fatigueCount: number): number {
-  return [mealCount, ruleCount, fatigueCount].filter(Boolean).length;
+function kindsOf(
+  mealCount: number,
+  ruleCount: number,
+  fatigueCount: number,
+  workoutCount: number,
+): number {
+  return [mealCount, ruleCount, fatigueCount, workoutCount].filter(Boolean).length;
 }
 
 function promptFor(
   mealCount: number,
   ruleCount: number,
   fatigueCount: number,
+  workoutCount: number,
   ambiguous: boolean,
 ): string {
   const tail = "Nothing is written until you confirm.";
-  if (kindsOf(mealCount, ruleCount, fatigueCount) > 1) {
+  if (kindsOf(mealCount, ruleCount, fatigueCount, workoutCount) > 1) {
     return `Confirm these changes? ${tail}`;
   }
   if (ruleCount) {
@@ -162,6 +177,9 @@ function promptFor(
   }
   if (fatigueCount) {
     return `${fatigueCount === 1 ? "Log this fatigue check-in?" : "Log these fatigue check-ins?"} ${tail}`;
+  }
+  if (workoutCount) {
+    return `${workoutCount === 1 ? "Log this workout?" : "Log these workouts?"} ${tail}`;
   }
   if (ambiguous) return `Which one? ${tail}`;
   return `${mealCount === 1 ? "Log this meal?" : "Log these meals?"} ${tail}`;
@@ -171,10 +189,12 @@ function confirmLabelFor(
   mealCount: number,
   ruleCount: number,
   fatigueCount: number,
+  workoutCount: number,
 ): string {
-  if (kindsOf(mealCount, ruleCount, fatigueCount) > 1) return "Confirm";
+  if (kindsOf(mealCount, ruleCount, fatigueCount, workoutCount) > 1) return "Confirm";
   if (ruleCount) return ruleCount === 1 ? "Set it" : "Set them";
   if (fatigueCount) return fatigueCount === 1 ? "Log it" : "Log them";
+  if (workoutCount) return workoutCount === 1 ? "Log it" : "Log them";
   return mealCount === 1 ? "Log it" : "Log them";
 }
 
@@ -192,6 +212,21 @@ function RuleItem({ preview }: { preview: UpdateRulePreview }) {
           ? `${preview.oldValue} → ${preview.newValue}`
           : preview.newValue}
       </p>
+    </div>
+  );
+}
+
+function WorkoutItem({ preview }: { preview: LogWorkoutSessionPreview }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-body font-medium">{preview.label || "Workout"}</p>
+      <div className="space-y-0.5">
+        {preview.exercises.map((exercise, index) => (
+          <p key={index} className="text-meta text-muted-foreground">
+            {exercise.name}: {formatSetLine(exercise.sets)}
+          </p>
+        ))}
+      </div>
     </div>
   );
 }
@@ -225,6 +260,7 @@ export function ApprovalCard({
   const mealPreviews = previews.filter(isMealPreview);
   const rulePreviews = previews.filter(isRulePreview);
   const fatiguePreviews = previews.filter(isFatiguePreview);
+  const workoutPreviews = previews.filter(isWorkoutPreview);
   const firstMeal = mealPreviews[0];
 
   const options = firstMeal ? optionsOf(firstMeal) : [];
@@ -242,12 +278,14 @@ export function ApprovalCard({
     mealPreviews.length,
     rulePreviews.length,
     fatiguePreviews.length,
+    workoutPreviews.length,
     ambiguous,
   );
   const confirmLabel = confirmLabelFor(
     mealPreviews.length,
     rulePreviews.length,
     fatiguePreviews.length,
+    workoutPreviews.length,
   );
 
   return (
@@ -263,6 +301,11 @@ export function ApprovalCard({
           if (isFatiguePreview(preview)) {
             return (
               <FatigueItem key={`${preview.toolCallId}-${index}`} preview={preview} />
+            );
+          }
+          if (isWorkoutPreview(preview)) {
+            return (
+              <WorkoutItem key={`${preview.toolCallId}-${index}`} preview={preview} />
             );
           }
           const isFirstMeal = preview === firstMeal;

@@ -226,7 +226,8 @@ export const COACH_MAX_DURATION_SECONDS = 300;
 export const WRITE_TOOL = "log_meal";
 export const RULE_TOOL = "update_rule";
 export const FATIGUE_TOOL = "log_fatigue";
-export const WRITE_TOOLS = [WRITE_TOOL, RULE_TOOL, FATIGUE_TOOL];
+export const WORKOUT_TOOL = "log_workout_session";
+export const WRITE_TOOLS = [WRITE_TOOL, RULE_TOOL, FATIGUE_TOOL, WORKOUT_TOOL];
 
 export const FATIGUE_TIMES_OF_DAY = [
   { key: "morning", label: "Morning" },

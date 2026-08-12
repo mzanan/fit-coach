@@ -30,21 +30,34 @@ import {
   FATIGUE_TOOL,
   MEAL_CATEGORIES,
   RULE_TOOL,
+  WORKOUT_TOOL,
   WRITE_TOOL,
   type MealCategoryKey,
 } from "@/lib/constants";
 import type {
   LogFatiguePreview,
   LogMealPreview,
+  LogWorkoutSessionPreview,
   PendingPreview,
   UpdateRulePreview,
 } from "@/lib/data/coachPendingWrite";
 import { shiftDay } from "@/lib/dates";
 import { getDayData } from "@/lib/data/today";
-import { getRecentWorkouts, hydrateWorkout } from "@/lib/data/workouts";
+import {
+  getExerciseSessions,
+  getRecentWorkouts,
+  hydrateWorkout,
+  insertWorkoutSession,
+  resolveWorkoutSession,
+  type WorkoutSessionInput,
+} from "@/lib/data/workouts";
 import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
 import { round } from "@/lib/utils";
+import {
+  evaluateProgression,
+  PROGRESSION_SESSIONS_REQUIRED,
+} from "@/lib/workoutHistory";
 
 const { body_scans, meals, workouts } = schema;
 
@@ -268,6 +281,57 @@ export async function previewLogFatigue(
   };
 }
 
+const workoutSetInput = z.object({
+  reps: z.number().int().min(0).max(1000).nullable(),
+  weight: z.number().min(0).max(2000).nullable(),
+  per_side: z.boolean().default(false),
+});
+
+const workoutExerciseInput = z.object({
+  name: z.string().trim().min(1),
+  exercise_catalog_id: z.string().min(1).optional().nullable(),
+  sets: z.array(workoutSetInput).min(1).max(20),
+  notes: z.string().trim().max(300).optional(),
+});
+
+const logWorkoutSessionInput = z.object({
+  session_type: z.string().trim().min(1).max(60),
+  exercises: z.array(workoutExerciseInput).min(1).max(15),
+});
+
+export async function previewLogWorkoutSession(
+  userId: string,
+  today: string,
+  input: unknown,
+): Promise<
+  | { ok: true; preview: Omit<LogWorkoutSessionPreview, "toolCallId"> }
+  | { ok: false; reason: ResolveFailure; error: string }
+> {
+  const parsed = logWorkoutSessionInput.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      reason: "not_found",
+      error: "The coach asked to log a workout session it did not describe properly.",
+    };
+  }
+  const resolved = await resolveWorkoutSession(
+    parsed.data as WorkoutSessionInput,
+  );
+  return {
+    ok: true,
+    preview: {
+      toolName: WORKOUT_TOOL,
+      day: today,
+      label: resolved.label,
+      exercises: resolved.exercises.map((exercise) => ({
+        name: exercise.name,
+        sets: exercise.sets,
+      })),
+    },
+  };
+}
+
 export async function previewApproval(
   userId: string,
   today: string,
@@ -295,6 +359,19 @@ export async function previewApproval(
       return {
         ok: false,
         text: "The coach tried to log fatigue but the request came back malformed. Ask again.",
+      };
+    }
+    return {
+      ok: true,
+      preview: { ...result.preview, toolCallId: approval.toolCallId },
+    };
+  }
+  if (approval.toolName === WORKOUT_TOOL) {
+    const result = await previewLogWorkoutSession(userId, today, approval.input);
+    if (!result.ok) {
+      return {
+        ok: false,
+        text: "The coach tried to log a workout but the request came back malformed. Ask again.",
       };
     }
     return {
@@ -423,6 +500,33 @@ export function buildCoachTools(
           })),
         };
       }),
+    }),
+    check_progression_eligible: tool({
+      description:
+        `Check whether the user's last ${PROGRESSION_SESSIONS_REQUIRED} sessions of a given exercise were both "clean" (reps held steady or increased across every set, no set finishing weaker than it started). This is the signal to raise the weight next time. Pass the exact exercise name, e.g. from get_workouts. Read-only, no confirmation needed.`,
+      inputSchema: z.object({
+        exercise_name: z
+          .string()
+          .trim()
+          .min(1)
+          .describe("exact exercise name, e.g. from get_workouts"),
+      }),
+      execute: safe(
+        "check_progression_eligible",
+        async ({ exercise_name }: { exercise_name: string }) => {
+          const sessions = await getExerciseSessions(
+            userId,
+            exercise_name,
+            PROGRESSION_SESSIONS_REQUIRED,
+          );
+          const result = evaluateProgression(sessions);
+          return {
+            exercise: exercise_name,
+            eligible: result.eligible,
+            reason: result.reason,
+          };
+        },
+      ),
     }),
     get_progress_overview: tool({
       description:
@@ -604,6 +708,31 @@ export function buildCoachTools(
               score: input.score,
               sleep_hours: input.sleep_hours,
               sleep_location: input.sleep_location,
+            },
+          };
+        },
+      ),
+    }),
+    log_workout_session: tool({
+      description:
+        "Log a completed gym session: which exercises, and for each one its sets with reps and weight (per_side true when the weight is per dumbbell/side rather than total). The sets array needs ONE ENTRY PER SET actually performed: \"3x8 at 60kg\" is three separate set objects, each {reps: 8, weight: 60}, never one entry meant to summarize all three. Only call this when the user reports what they actually did in the gym. session_type is a short label like \"Upper A\". Pass exercise_catalog_id only when you have a real id (e.g. from get_workouts or a catalog search); omit it entirely otherwise, never pass null, and the app will try to match the exercise by name itself. weight can be null for bodyweight sets. The user confirms before anything is written.",
+      inputSchema: logWorkoutSessionInput,
+      execute: safe(
+        "log_workout_session",
+        async (input: z.infer<typeof logWorkoutSessionInput>) => {
+          const resolved = await resolveWorkoutSession(
+            input as WorkoutSessionInput,
+          );
+          await insertWorkoutSession(userId, today, resolved);
+          revalidatePath("/workout");
+          return {
+            logged: true,
+            session: {
+              label: resolved.label,
+              exercises: resolved.exercises.map((exercise) => ({
+                name: exercise.name,
+                sets: exercise.sets,
+              })),
             },
           };
         },
