@@ -12,7 +12,7 @@ export type CoachStreamEvent =
       generated: boolean;
       daySummary?: DaySummary;
       stopped?: boolean;
-      learning?: boolean;
+      learned?: string[];
     }
   | { type: "approval"; approvalId: string; previews: PendingPreview[] }
   | { type: "error" };
@@ -49,7 +49,7 @@ export function coachNdjsonResponse(
                 generated: result.generated,
                 daySummary: result.daySummary,
                 stopped: result.stopped,
-                learning: result.learning,
+                learned: result.learned,
               },
         );
       } catch {

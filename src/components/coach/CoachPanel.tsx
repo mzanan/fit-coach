@@ -88,7 +88,7 @@ function Turn({ bubble }: { bubble: ChatBubble }) {
         {bubble.content}
       </p>
       {bubble.daySummary ? <MacroTable summary={bubble.daySummary} /> : null}
-      {bubble.learned ? <LearnedChip learned={bubble.learned} /> : null}
+      {bubble.learned?.length ? <LearnedChip facts={bubble.learned} /> : null}
     </div>
   );
 }

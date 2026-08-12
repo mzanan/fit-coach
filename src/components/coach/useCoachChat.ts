@@ -13,7 +13,6 @@ import {
   COACH_MAX_DURATION_SECONDS,
   INTERRUPTED_ANSWER,
 } from "@/lib/constants";
-import { settledLearned, type LearnedState } from "@/lib/coachLearned";
 import type {
   CoachMessage,
   CoachMessageStatus,
@@ -29,7 +28,7 @@ export interface ChatBubble {
   status: CoachMessageStatus;
   reasoning?: string;
   daySummary?: DaySummary;
-  learned?: LearnedState;
+  learned?: string[];
 }
 
 export interface PendingApproval {
@@ -51,35 +50,13 @@ type CoachStreamEvent =
       generated: boolean;
       daySummary?: DaySummary;
       stopped?: boolean;
-      learning?: boolean;
+      learned?: string[];
     }
   | { type: "approval"; approvalId: string; previews: PendingPreview[] }
   | { type: "error" };
 
 const REATTACH_POLL_MS = 2000;
 const MAX_FUNCTION_DURATION_MS = (COACH_MAX_DURATION_SECONDS + 30) * 1000;
-const LEARNED_POLL_MS = 2500;
-const LEARNED_POLL_TRIES = 12;
-
-async function pollLearned(
-  id: string,
-  signal: AbortSignal,
-): Promise<LearnedState | undefined> {
-  for (let attempt = 0; attempt < LEARNED_POLL_TRIES; attempt += 1) {
-    await new Promise((resolve) => setTimeout(resolve, LEARNED_POLL_MS));
-    if (signal.aborted) return undefined;
-    try {
-      const res = await fetch(`/api/coach/message/${id}`, { signal });
-      if (!res.ok) return undefined;
-      const data = (await res.json()) as { learned: LearnedState | null };
-      if (data.learned?.state === "done") return data.learned;
-    } catch {
-      return undefined;
-    }
-  }
-  return undefined;
-}
-
 const STATUS: Record<string, string> = {
   thinking: "Thinking",
   get_today: "Reading today's meals and targets",
@@ -101,7 +78,7 @@ function toBubbles(messages: CoachMessage[]): ChatBubble[] {
         ? "stopped"
         : message.status,
     daySummary: message.daySummary,
-    learned: settledLearned(message.learned),
+    learned: message.learned,
   }));
 }
 
@@ -147,14 +124,6 @@ export function useCoachChat(
   } | null>(null);
   const activeUrlRef = useRef<string | null>(null);
   const pendingStopRef = useRef(false);
-  const learnedWatchers = useRef<Set<AbortController>>(new Set());
-
-  const stopLearnedWatchers = useCallback(() => {
-    learnedWatchers.current.forEach((watcher) => watcher.abort());
-    learnedWatchers.current.clear();
-  }, []);
-
-  useEffect(() => stopLearnedWatchers, [stopLearnedWatchers]);
 
   useEffect(() => {
     anchor?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -237,7 +206,7 @@ export function useCoachChat(
       let thoughts = "";
       let generated = true;
       let stopped = false;
-      let learning = false;
+      let learned: string[] | undefined;
       let assistantId: string | null = null;
       let daySummary: DaySummary | undefined;
       let approval: PendingApproval | null = null;
@@ -282,7 +251,7 @@ export function useCoachChat(
           generated = event.generated;
           daySummary = event.daySummary;
           stopped = event.stopped ?? false;
-          learning = event.learning === true;
+          learned = event.learned;
         } else if (event.type === "approval") {
           approval = {
             approvalId: event.approvalId,
@@ -298,34 +267,18 @@ export function useCoachChat(
         setPending(approval);
       } else {
         const answered = localBubble("assistant", answer);
-        const watched = learning ? assistantId : null;
-        const bubbleId = watched ?? answered.id;
         setBubbles((current) => [
           ...current,
           {
             ...answered,
-            id: bubbleId,
+            id: assistantId ?? answered.id,
             generated,
             status: stopped ? "stopped" : "done",
             reasoning: thoughts.trim() || undefined,
             daySummary,
-            learned: watched ? { state: "pending" } : undefined,
+            learned,
           },
         ]);
-        if (watched) {
-          const watch = new AbortController();
-          learnedWatchers.current.add(watch);
-          void pollLearned(watched, watch.signal)
-            .then((learned) => {
-              if (watch.signal.aborted) return;
-              setBubbles((current) =>
-                current.map((bubble) =>
-                  bubble.id === bubbleId ? { ...bubble, learned } : bubble,
-                ),
-              );
-            })
-            .finally(() => learnedWatchers.current.delete(watch));
-        }
       }
     } catch (error) {
       if ((error as Error).name === "AbortError") {
@@ -415,7 +368,6 @@ export function useCoachChat(
   }
 
   function clear() {
-    stopLearnedWatchers();
     setBubbles([]);
     setPending(null);
     setConfirmOpen(false);

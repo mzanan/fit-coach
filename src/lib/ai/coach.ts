@@ -33,7 +33,7 @@ import {
   COACH_MAX_TURNS_PER_HOUR,
   COACH_TURN_WINDOW_MS,
 } from "@/lib/ai/limits";
-import { learnFromExchange, retrieveFacts } from "@/lib/ai/facts";
+import { learnFromMessage, retrieveFacts } from "@/lib/ai/facts";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
 import { canWriteMeals } from "@/lib/ai/writeGate";
 import { listActiveRules } from "@/lib/data/coachRules";
@@ -44,7 +44,6 @@ import {
   getConversation,
   getExchangeStatus,
   recentTurnCount,
-  saveLearned,
   updateExchangeContent,
   type CoachMessage,
   type ExchangeRef,
@@ -72,7 +71,7 @@ export type CoachResult =
       daySummary?: DaySummary;
       stopped?: boolean;
       truncated?: boolean;
-      learning?: boolean;
+      learned?: string[];
     }
   | {
       status: "pending";
@@ -211,60 +210,48 @@ function bufferedOnEvent(
   };
 }
 
-function deferLearn(run: () => Promise<void>): void {
+export function deferMemory(
+  ref: ModelRef,
+  userId: string,
+  memory: string | null,
+  exchange: string,
+): void {
   after(() =>
-    run().catch((err) =>
+    refreshCoachMemory(ref, userId, memory, exchange).catch((err) =>
       console.error(
-        "coach: background learn failed",
+        "coach: background memory refresh failed",
         err instanceof Error ? err.message : err,
       ),
     ),
   );
 }
 
-export async function learn(
+export async function learnFromQuestion(
   ref: ModelRef,
   userId: string,
-  memory: string | null,
-  exchange: string,
-  hasQuestion: boolean,
+  question: string | undefined,
+  appGenerated: boolean,
 ): Promise<string[]> {
-  await refreshCoachMemory(ref, userId, memory, exchange);
-  if (!hasQuestion) return [];
-  return learnFromExchange(ref, userId, exchange, "coach");
+  if (appGenerated || !question?.trim()) return [];
+  return learnFromMessage(ref, userId, question.trim(), "coach");
 }
 
-export function shouldLearn(options: {
-  question?: string;
-  text: string;
-  appGenerated: boolean;
-  signal?: AbortSignal;
-}): boolean {
-  return (
-    Boolean(options.text) &&
-    Boolean(options.question?.trim()) &&
-    !options.appGenerated &&
-    !options.signal?.aborted
-  );
-}
+const LEARNED_ADDENDUM_HEAD =
+  "You just recorded this about the user, from the message they sent you in this turn:";
 
-export function deferLearnFor(
-  exchange: ExchangeRef,
-  run: () => Promise<string[]>,
-): void {
-  deferLearn(async () => {
-    let facts: string[] = [];
-    try {
-      facts = await run();
-    } finally {
-      await saveLearned(exchange, facts).catch((err) =>
-        console.error(
-          "coach: could not record what was learned",
-          err instanceof Error ? err.message : err,
-        ),
-      );
-    }
-  });
+const LEARNED_ADDENDUM_TAIL =
+  "Open your reply by acknowledging it in one short clause, in the user's language, so they know it was saved. Then answer their message. Take it into account in this very answer: if it is a food preference and the food is not in their catalog, say so and offer to add it, do not just ignore it and suggest something else.";
+
+export function learnedAddendum(facts: string[]): string[] {
+  return facts.length
+    ? [
+        [
+          LEARNED_ADDENDUM_HEAD,
+          ...facts.map((fact) => `- ${fact}`),
+          LEARNED_ADDENDUM_TAIL,
+        ].join("\n"),
+      ]
+    : [];
 }
 
 const SUMMARY_FALLBACK_ASK =
@@ -305,6 +292,7 @@ export async function toolSetup(
   history: CoachMessage[],
   allowWrite: boolean,
   question?: string,
+  learned: string[] = [],
 ) {
   const today = todayLogicalDay(dayConfig(profile));
   const { memory, parts } = await memoryFactsAndRules(userId, profile, today, question);
@@ -320,6 +308,7 @@ export async function toolSetup(
         (allowWrite ? WRITE_TOOLS_ADDENDUM : NO_WRITE_ADDENDUM) +
         SUGGESTION_ADDENDUM,
       ...parts,
+      ...learnedAddendum(learned),
     ].join("\n\n"),
     messages: [
       ...history.map((message) => ({
@@ -362,7 +351,15 @@ async function toolReply(
   appGenerated = false,
 ): Promise<CoachResult> {
   const allowWrite = canWriteMeals(ref.model);
-  const setup = await toolSetup(userId, profile, history, allowWrite, question);
+  const learned = await learnFromQuestion(ref, userId, question, appGenerated);
+  const setup = await toolSetup(
+    userId,
+    profile,
+    history,
+    allowWrite,
+    question,
+    learned,
+  );
 
   try {
     const {
@@ -434,16 +431,12 @@ async function toolReply(
           text,
           toolLog.some((entry) => entry.startsWith(`${CATALOG_SEARCH_TOOL}(`)),
         ));
-      const learning = shouldLearn({ question, text, appGenerated, signal });
       if (!signal?.aborted) {
-        deferLearnFor(exchange, () =>
-          learn(
-            ref,
-            userId,
-            setup.memory,
-            exchangeOf(toolLog, question, answer, appGenerated),
-            learning,
-          ),
+        deferMemory(
+          ref,
+          userId,
+          setup.memory,
+          exchangeOf(toolLog, question, answer, appGenerated),
         );
       }
       return {
@@ -451,7 +444,7 @@ async function toolReply(
         text: answer,
         generated: true,
         truncated: interrupted,
-        learning,
+        learned,
       };
     }
 
@@ -476,12 +469,12 @@ async function contextReply(
   userId: string,
   profile: Profile,
   history: CoachMessage[],
-  exchange: ExchangeRef,
   question?: string,
   signal?: AbortSignal,
   appGenerated = false,
 ): Promise<CoachResult> {
   const ctx = await buildContext(userId, profile);
+  const learned = await learnFromQuestion(ref, userId, question, appGenerated);
   const { memory, parts } = await memoryFactsAndRules(
     userId,
     profile,
@@ -503,6 +496,7 @@ async function contextReply(
           content: [
             COACH_FRAME + diningRule(profile) + coachingRules(profile),
             ...parts,
+            ...learnedAddendum(learned),
           ].join("\n\n"),
         },
         ...history.map((message) => ({
@@ -514,21 +508,18 @@ async function contextReply(
       600,
       signal,
     );
-    const learning = shouldLearn({ question, text, appGenerated, signal });
     if (text) {
       const asked = appGenerated
         ? "(tapped the weekly summary button)"
         : question?.trim() || "(daily check-in)";
       const transcript = `${ctx.lines.join("\n")}\nUser: ${asked}\nCoach: ${text}`;
-      if (!signal?.aborted) {
-        deferLearnFor(exchange, () => learn(ref, userId, memory, transcript, learning));
-      }
+      if (!signal?.aborted) deferMemory(ref, userId, memory, transcript);
     }
     return {
       status: "answered",
       text: text || aiErrorReply(ctx),
       generated: Boolean(text),
-      learning,
+      learned,
     };
   } catch (error) {
     return {
@@ -634,7 +625,6 @@ export async function coachReply(
             userId,
             profile,
             history,
-            exchange,
             question,
             controller.signal,
             summary,
@@ -670,7 +660,7 @@ export async function coachReply(
   const finalized = await finishExchange(exchange, result.text, {
     generated: result.generated,
     force: true,
-    learning: result.learning === true,
+    learned: result.learned,
   });
   if (!finalized) {
     await updateExchangeContent(exchange, result.text);

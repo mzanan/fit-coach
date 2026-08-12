@@ -1,30 +1,17 @@
-export type LearnedState =
-  | { state: "pending" }
-  | { state: "done"; facts: string[] };
-
-export const LEARNING_STATE = JSON.stringify({ state: "pending" });
-
-export function parseLearned(raw: string | null): LearnedState | undefined {
-  if (!raw) return undefined;
+export function parseLearned(raw: string | null): string[] {
+  if (!raw) return [];
   try {
-    const parsed = JSON.parse(raw) as LearnedState;
-    if (parsed?.state === "pending") return { state: "pending" };
-    if (parsed?.state !== "done") return undefined;
-    const facts = Array.isArray(parsed.facts)
-      ? parsed.facts.filter((fact): fact is string => typeof fact === "string")
-      : [];
-    return { state: "done", facts };
+    const parsed = JSON.parse(raw) as unknown;
+    const facts = Array.isArray(parsed)
+      ? parsed
+      : (parsed as { facts?: unknown })?.facts;
+    if (!Array.isArray(facts)) return [];
+    return facts.filter((fact): fact is string => typeof fact === "string");
   } catch {
-    return undefined;
+    return [];
   }
 }
 
-export function learnedState(facts: string[]): string {
-  return JSON.stringify({ state: "done", facts });
-}
-
-export function settledLearned(
-  learned: LearnedState | undefined,
-): LearnedState | undefined {
-  return learned?.state === "pending" ? undefined : learned;
+export function serializeLearned(facts: string[]): string {
+  return JSON.stringify(facts);
 }

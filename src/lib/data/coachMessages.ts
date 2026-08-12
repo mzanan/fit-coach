@@ -3,12 +3,7 @@ import "server-only";
 import { and, asc, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
 
 import type { DaySummary } from "@/lib/ai/coach";
-import {
-  learnedState,
-  LEARNING_STATE,
-  parseLearned,
-  type LearnedState,
-} from "@/lib/coachLearned";
+import { parseLearned, serializeLearned } from "@/lib/coachLearned";
 import { db, schema } from "@/lib/db";
 import { newId } from "@/lib/utils";
 
@@ -26,7 +21,7 @@ export interface CoachMessage {
   status: CoachMessageStatus;
   created_at: Date;
   daySummary?: DaySummary;
-  learned?: LearnedState;
+  learned?: string[];
 }
 
 export interface ExchangeRef {
@@ -187,13 +182,13 @@ export interface FinishOptions {
   generated: boolean;
   daySummary?: DaySummary;
   force?: boolean;
-  learning?: boolean;
+  learned?: string[];
 }
 
 export async function finishExchange(
   ref: ExchangeRef,
   answer: string,
-  { generated, daySummary, force = false, learning = false }: FinishOptions,
+  { generated, daySummary, force = false, learned }: FinishOptions,
 ): Promise<boolean> {
   let finalized = false;
   await db.transaction(async (tx) => {
@@ -215,7 +210,7 @@ export async function finishExchange(
       .set({
         content: answer,
         day_summary: daySummary ? JSON.stringify(daySummary) : null,
-        ...(learning ? { learned: LEARNING_STATE } : {}),
+        ...(learned?.length ? { learned: serializeLearned(learned) } : {}),
       })
       .where(
         and(
@@ -297,21 +292,6 @@ export async function getMessage(
     daySummary: parseDaySummary(row.day_summary),
     learned: parseLearned(row.learned),
   };
-}
-
-export async function saveLearned(
-  ref: ExchangeRef,
-  facts: string[],
-): Promise<void> {
-  await db
-    .update(coach_messages)
-    .set({ learned: learnedState(facts) })
-    .where(
-      and(
-        eq(coach_messages.id, ref.assistantId),
-        eq(coach_messages.user_id, ref.userId),
-      ),
-    );
 }
 
 export async function expireStaleMessage(
