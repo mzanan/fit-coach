@@ -346,7 +346,11 @@ function fatigueLoggedLine(
   preview: Extract<PendingPreview, { toolName: typeof FATIGUE_TOOL }>,
 ): string {
   const extras = fatigueExtrasLabel(preview.sleepHours, preview.sleepLocation);
-  return `Logged ${fatigueTimeLabel(preview.timeOfDay)} fatigue: ${preview.score}/5${extras ? ` (${extras})` : ""}.`;
+  const label = fatigueTimeLabel(preview.timeOfDay);
+  if (preview.score == null) {
+    return `Logged ${label} sleep${extras ? ` (${extras})` : ""}, energy score still pending.`;
+  }
+  return `Logged ${label} fatigue: ${preview.score}/5${extras ? ` (${extras})` : ""}.`;
 }
 
 function workoutLoggedLine(preview: LogWorkoutSessionPreview): string {

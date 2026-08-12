@@ -297,7 +297,7 @@ export const fatigue_logs = sqliteTable(
       .references(() => user.id, { onDelete: "cascade" }),
     logical_day: text("logical_day").notNull(),
     time_of_day: text("time_of_day").notNull(),
-    score: integer("score").notNull(),
+    score: integer("score"),
     sleep_hours: real("sleep_hours"),
     sleep_location: text("sleep_location"),
     created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),

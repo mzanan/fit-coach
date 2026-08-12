@@ -204,6 +204,13 @@
       "when": 1786459400939,
       "tag": "0028_body_measurements",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1786517052387,
+      "tag": "0029_fatigue_score_nullable",
+      "breakpoints": true
     }
   ]
 }

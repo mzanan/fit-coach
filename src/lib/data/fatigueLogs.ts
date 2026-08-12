@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 
 import { db, schema } from "@/lib/db";
 import { newId } from "@/lib/utils";
@@ -10,7 +10,7 @@ const { fatigue_logs } = schema;
 export interface FatigueLogRow {
   logical_day: string;
   time_of_day: string;
-  score: number;
+  score: number | null;
   sleep_hours: number | null;
   sleep_location: string | null;
 }
@@ -41,9 +41,10 @@ export async function saveFatigueLog(
         fatigue_logs.time_of_day,
       ],
       set: {
-        score: input.score,
-        sleep_hours: input.sleep_hours,
-        sleep_location: input.sleep_location,
+        score: input.score ?? sql`${fatigue_logs.score}`,
+        sleep_hours: input.sleep_hours ?? sql`${fatigue_logs.sleep_hours}`,
+        sleep_location:
+          input.sleep_location ?? sql`${fatigue_logs.sleep_location}`,
         created_at: now,
       },
     });
@@ -83,7 +84,8 @@ export async function recentFatigueAverage(
         gte(fatigue_logs.logical_day, sinceLogicalDay),
       ),
     );
-  if (!rows.length) return null;
-  const sum = rows.reduce((acc, r) => acc + r.score, 0);
-  return { average: sum / rows.length, count: rows.length };
+  const scored = rows.filter((r): r is { score: number } => r.score != null);
+  if (!scored.length) return null;
+  const sum = scored.reduce((acc, r) => acc + r.score, 0);
+  return { average: sum / scored.length, count: scored.length };
 }

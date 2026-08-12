@@ -131,8 +131,10 @@ export async function buildFatigueLines(
 ): Promise<string[]> {
   const rows = await getDayFatigue(userId, today);
   if (!rows.length) return [];
-  const parts = rows.map(
-    (row) => `${fatigueTimeLabel(row.time_of_day)} ${row.score}/5`,
+  const parts = rows.map((row) =>
+    row.score != null
+      ? `${fatigueTimeLabel(row.time_of_day)} ${row.score}/5`
+      : `${fatigueTimeLabel(row.time_of_day)} sleep logged, energy score pending`,
   );
   return [`Fatigue logged today: ${parts.join(", ")}.`];
 }
