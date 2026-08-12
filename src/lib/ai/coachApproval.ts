@@ -5,7 +5,7 @@ import type { ModelMessage } from "ai";
 import { userModelRef } from "@/lib/ai/aiCredentials";
 import { toolsRouting } from "@/lib/ai/capabilities";
 import {
-  deferLearn,
+  deferLearnFor,
   exchangeOf,
   learn,
   toolSetup,
@@ -274,9 +274,21 @@ export async function resolvePendingWrite(
     const daySummary = wroteMeal
       ? await daySummaryAfterWrite(userId, profile, day)
       : undefined;
-    await finishExchange(exchange, answer, Boolean(text), daySummary);
+    const learning =
+      Boolean(text) &&
+      !signal?.aborted &&
+      Boolean(question) &&
+      !appGenerated;
+    await finishExchange(
+      exchange,
+      answer,
+      Boolean(text),
+      daySummary,
+      false,
+      learning,
+    );
     if (text && !signal?.aborted) {
-      deferLearn(() =>
+      deferLearnFor(exchange, () =>
         learn(
           ref,
           userId,
@@ -291,6 +303,7 @@ export async function resolvePendingWrite(
       text: answer,
       generated: Boolean(text),
       daySummary,
+      learning,
     };
   } catch {
     if (signal?.aborted) {

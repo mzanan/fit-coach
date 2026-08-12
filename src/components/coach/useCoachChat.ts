@@ -16,6 +16,7 @@ import {
 import type {
   CoachMessage,
   CoachMessageStatus,
+  LearnedState,
 } from "@/lib/data/coachMessages";
 import type { PendingPreview } from "@/lib/data/coachPendingWrite";
 import { readNdjson } from "@/lib/ndjson";
@@ -28,6 +29,7 @@ export interface ChatBubble {
   status: CoachMessageStatus;
   reasoning?: string;
   daySummary?: DaySummary;
+  learned?: LearnedState;
 }
 
 export interface PendingApproval {
@@ -49,12 +51,30 @@ type CoachStreamEvent =
       generated: boolean;
       daySummary?: DaySummary;
       stopped?: boolean;
+      learning?: boolean;
     }
   | { type: "approval"; approvalId: string; previews: PendingPreview[] }
   | { type: "error" };
 
 const REATTACH_POLL_MS = 2000;
 const MAX_FUNCTION_DURATION_MS = (COACH_MAX_DURATION_SECONDS + 30) * 1000;
+const LEARNED_POLL_MS = 2500;
+const LEARNED_POLL_TRIES = 12;
+
+async function pollLearned(id: string): Promise<LearnedState | undefined> {
+  for (let attempt = 0; attempt < LEARNED_POLL_TRIES; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, LEARNED_POLL_MS));
+    try {
+      const res = await fetch(`/api/coach/message/${id}`);
+      if (!res.ok) return undefined;
+      const data = (await res.json()) as { learned: LearnedState | null };
+      if (data.learned?.state === "done") return data.learned;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
 
 const STATUS: Record<string, string> = {
   thinking: "Thinking",
@@ -77,7 +97,14 @@ function toBubbles(messages: CoachMessage[]): ChatBubble[] {
         ? "stopped"
         : message.status,
     daySummary: message.daySummary,
+    learned: settledLearned(message.learned),
   }));
+}
+
+function settledLearned(
+  learned: LearnedState | undefined,
+): LearnedState | undefined {
+  return learned?.state === "pending" ? undefined : learned;
 }
 
 function isStaleStream(createdAt: Date): boolean {
@@ -204,6 +231,8 @@ export function useCoachChat(
       let thoughts = "";
       let generated = true;
       let stopped = false;
+      let learning = false;
+      let assistantId: string | null = null;
       let daySummary: DaySummary | undefined;
       let approval: PendingApproval | null = null;
 
@@ -211,6 +240,7 @@ export function useCoachChat(
         if (event.type === "status") {
           setStatus(STATUS[event.tool] ?? STATUS.thinking);
         } else if (event.type === "started") {
+          assistantId = event.assistantId;
           setStreamingExchange({ ids: event.ids });
           if (pendingStopRef.current) {
             pendingStopRef.current = false;
@@ -246,6 +276,7 @@ export function useCoachChat(
           generated = event.generated;
           daySummary = event.daySummary;
           stopped = event.stopped ?? false;
+          learning = event.learning === true;
         } else if (event.type === "approval") {
           approval = {
             approvalId: event.approvalId,
@@ -260,16 +291,30 @@ export function useCoachChat(
       if (approval) {
         setPending(approval);
       } else {
+        const answered = localBubble("assistant", answer);
+        const watched = learning ? assistantId : null;
+        const bubbleId = watched ?? answered.id;
         setBubbles((current) => [
           ...current,
           {
-            ...localBubble("assistant", answer),
+            ...answered,
+            id: bubbleId,
             generated,
             status: stopped ? "stopped" : "done",
             reasoning: thoughts.trim() || undefined,
             daySummary,
+            learned: watched ? { state: "pending" } : undefined,
           },
         ]);
+        if (watched) {
+          void pollLearned(watched).then((learned) =>
+            setBubbles((current) =>
+              current.map((bubble) =>
+                bubble.id === bubbleId ? { ...bubble, learned } : bubble,
+              ),
+            ),
+          );
+        }
       }
     } catch (error) {
       if ((error as Error).name === "AbortError") {

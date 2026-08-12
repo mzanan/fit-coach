@@ -12,6 +12,10 @@ export const HISTORY_TURNS = 12;
 
 export type CoachMessageStatus = "done" | "stopped" | "streaming";
 
+export type LearnedState =
+  | { state: "pending" }
+  | { state: "done"; facts: string[] };
+
 export interface CoachMessage {
   id: string;
   role: "user" | "assistant";
@@ -20,6 +24,7 @@ export interface CoachMessage {
   status: CoachMessageStatus;
   created_at: Date;
   daySummary?: DaySummary;
+  learned?: LearnedState;
 }
 
 export interface ExchangeRef {
@@ -42,6 +47,23 @@ function parseDaySummary(raw: string | null): DaySummary | undefined {
   if (!raw) return undefined;
   try {
     return JSON.parse(raw) as DaySummary;
+  } catch {
+    return undefined;
+  }
+}
+
+const LEARNING = JSON.stringify({ state: "pending" });
+
+function parseLearned(raw: string | null): LearnedState | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as LearnedState;
+    if (parsed?.state === "pending") return { state: "pending" };
+    if (parsed?.state !== "done") return undefined;
+    const facts = Array.isArray(parsed.facts)
+      ? parsed.facts.filter((fact): fact is string => typeof fact === "string")
+      : [];
+    return { state: "done", facts };
   } catch {
     return undefined;
   }
@@ -92,6 +114,7 @@ export async function getFullConversation(
     status: toStatus(row.status),
     created_at: row.created_at,
     daySummary: parseDaySummary(row.day_summary),
+    learned: parseLearned(row.learned),
   }));
 }
 
@@ -180,6 +203,7 @@ export async function finishExchange(
   generated: boolean,
   daySummary?: DaySummary,
   force = false,
+  learning = false,
 ): Promise<boolean> {
   let finalized = false;
   await db.transaction(async (tx) => {
@@ -201,6 +225,7 @@ export async function finishExchange(
       .set({
         content: answer,
         day_summary: daySummary ? JSON.stringify(daySummary) : null,
+        ...(learning ? { learned: LEARNING } : {}),
       })
       .where(
         and(
@@ -280,7 +305,23 @@ export async function getMessage(
     status: toStatus(row.status),
     created_at: row.created_at,
     daySummary: parseDaySummary(row.day_summary),
+    learned: parseLearned(row.learned),
   };
+}
+
+export async function saveLearned(
+  ref: ExchangeRef,
+  facts: string[],
+): Promise<void> {
+  await db
+    .update(coach_messages)
+    .set({ learned: JSON.stringify({ state: "done", facts }) })
+    .where(
+      and(
+        eq(coach_messages.id, ref.assistantId),
+        eq(coach_messages.user_id, ref.userId),
+      ),
+    );
 }
 
 export async function expireStaleMessage(

@@ -231,8 +231,8 @@ export async function learnFromExchange(
   userId: string,
   exchange: string,
   source: string,
-): Promise<void> {
-  if (!hasEmbeddings()) return;
+): Promise<string[]> {
+  if (!hasEmbeddings()) return [];
   try {
     const { facts, language } = await chatJson<{
       facts?: ExtractedFact[];
@@ -248,7 +248,7 @@ export async function learnFromExchange(
 
     await detectChatLanguage(userId, language);
 
-    if (!facts?.length) return;
+    if (!facts?.length) return [];
 
     const valid = facts
       .slice(0, MAX_FACTS_PER_EXCHANGE)
@@ -267,14 +267,18 @@ export async function learnFromExchange(
       if (fact.subject) lastBySubject.set(fact.subject, index);
     });
 
+    const saved: string[] = [];
     for (const [index, fact] of valid.entries()) {
       if (fact.subject && lastBySubject.get(fact.subject) !== index) continue;
       await saveFact(userId, fact.content, fact.category, fact.subject, source);
+      saved.push(fact.content);
     }
+    return saved;
   } catch (err) {
     console.error(
       "coach facts: learning from exchange failed",
       err instanceof Error ? err.message : err,
     );
+    return [];
   }
 }

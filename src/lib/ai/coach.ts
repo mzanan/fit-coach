@@ -44,6 +44,7 @@ import {
   getConversation,
   getExchangeStatus,
   recentTurnCount,
+  saveLearned,
   updateExchangeContent,
   type CoachMessage,
   type ExchangeRef,
@@ -71,6 +72,7 @@ export type CoachResult =
       daySummary?: DaySummary;
       stopped?: boolean;
       truncated?: boolean;
+      learning?: boolean;
     }
   | {
       status: "pending";
@@ -209,7 +211,7 @@ function bufferedOnEvent(
   };
 }
 
-export function deferLearn(run: () => Promise<void>): void {
+function deferLearn(run: () => Promise<void>): void {
   after(() =>
     run().catch((err) =>
       console.error(
@@ -226,11 +228,29 @@ export async function learn(
   memory: string | null,
   exchange: string,
   hasQuestion: boolean,
-): Promise<void> {
+): Promise<string[]> {
   await refreshCoachMemory(ref, userId, memory, exchange);
-  if (hasQuestion) {
-    await learnFromExchange(ref, userId, exchange, "coach");
-  }
+  if (!hasQuestion) return [];
+  return learnFromExchange(ref, userId, exchange, "coach");
+}
+
+export function deferLearnFor(
+  exchange: ExchangeRef,
+  run: () => Promise<string[]>,
+): void {
+  deferLearn(async () => {
+    let facts: string[] = [];
+    try {
+      facts = await run();
+    } finally {
+      await saveLearned(exchange, facts).catch((err) =>
+        console.error(
+          "coach: could not record what was learned",
+          err instanceof Error ? err.message : err,
+        ),
+      );
+    }
+  });
 }
 
 const SUMMARY_FALLBACK_ASK =
@@ -400,14 +420,15 @@ async function toolReply(
           text,
           toolLog.some((entry) => entry.startsWith(`${CATALOG_SEARCH_TOOL}(`)),
         ));
+      const learning = Boolean(question?.trim()) && !appGenerated;
       if (!signal?.aborted) {
-        deferLearn(() =>
+        deferLearnFor(exchange, () =>
           learn(
             ref,
             userId,
             setup.memory,
             exchangeOf(toolLog, question, answer, appGenerated),
-            Boolean(question?.trim()) && !appGenerated,
+            learning,
           ),
         );
       }
@@ -416,6 +437,7 @@ async function toolReply(
         text: answer,
         generated: true,
         truncated: interrupted,
+        learning: learning && !signal?.aborted,
       };
     }
 
@@ -440,6 +462,7 @@ async function contextReply(
   userId: string,
   profile: Profile,
   history: CoachMessage[],
+  exchange: ExchangeRef,
   question?: string,
   signal?: AbortSignal,
   appGenerated = false,
@@ -477,18 +500,23 @@ async function contextReply(
       600,
       signal,
     );
+    const learning =
+      Boolean(text) &&
+      Boolean(question?.trim()) &&
+      !appGenerated &&
+      !signal?.aborted;
     if (text) {
       const asked = appGenerated
         ? "(tapped the weekly summary button)"
         : question?.trim() || "(daily check-in)";
-      const exchange = `${ctx.lines.join("\n")}\nUser: ${asked}\nCoach: ${text}`;
+      const transcript = `${ctx.lines.join("\n")}\nUser: ${asked}\nCoach: ${text}`;
       if (!signal?.aborted) {
-        deferLearn(() =>
+        deferLearnFor(exchange, () =>
           learn(
             ref,
             userId,
             memory,
-            exchange,
+            transcript,
             Boolean(question?.trim()) && !appGenerated,
           ),
         );
@@ -498,6 +526,7 @@ async function contextReply(
       status: "answered",
       text: text || aiErrorReply(ctx),
       generated: Boolean(text),
+      learning,
     };
   } catch (error) {
     return {
@@ -603,6 +632,7 @@ export async function coachReply(
             userId,
             profile,
             history,
+            exchange,
             question,
             controller.signal,
             summary,
@@ -641,6 +671,7 @@ export async function coachReply(
     result.generated,
     undefined,
     true,
+    result.learning === true,
   );
   if (!finalized) {
     await updateExchangeContent(exchange, result.text);
