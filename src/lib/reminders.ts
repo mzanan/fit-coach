@@ -17,10 +17,10 @@ export interface ReminderItem {
 }
 
 const UPCOMING_WINDOW_DAYS = 3;
-const TREATMENT_END_SUFFIX = "_end_date";
+export const TREATMENT_END_SUFFIX = "_end_date";
 const DATE_SHAPE = /^\d{4}-\d{2}-\d{2}$/;
 
-const CADENCE_DEFS = [
+export const CADENCE_DEFS = [
   {
     type: "photo",
     label: "Progress photo",

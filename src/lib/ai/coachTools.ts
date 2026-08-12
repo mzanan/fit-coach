@@ -17,6 +17,7 @@ import { searchCatalog } from "@/lib/ai/coachCatalogSearch";
 import { previewFailure } from "@/lib/ai/coachContext";
 import { getLatestMeasurement, saveMeasurement } from "@/lib/data/bodyMeasurements";
 import { getActiveRule, saveRule } from "@/lib/data/coachRules";
+import { CADENCE_DEFS, TREATMENT_END_SUFFIX } from "@/lib/reminders";
 import {
   getDayFatigue,
   recentFatigueAverage,
@@ -736,19 +737,24 @@ export function buildCoachTools(
     }),
     update_rule: tool({
       description:
-        "Set or change a standing rule for this user: a fixed operational fact the coach must always follow until it is changed again, e.g. medication timing, a dietary restriction, routine split, or a reminder cadence. Use a short snake_case `key` naming the rule and the exact `value`. Setting an existing key replaces its value; the previous value stops applying. Only call this when the user asks to set or change a rule, never for a one-off preference (that belongs in memory, not here). The user confirms before anything is written.",
+        "Set or change a standing rule for this user: a fixed operational fact the coach must always follow until it is changed again, e.g. medication timing, a dietary restriction, routine split, or a reminder cadence. Use a short snake_case `key` naming the rule and the exact `value`. Setting an existing key replaces its value; the previous value stops applying. Only call this when the user asks to set or change a rule, never for a one-off preference (that belongs in memory, not here). The user confirms before anything is written." +
+        ` Reserved keys read by the reminder system, use these EXACT keys and formats or the reminder never fires: ${CADENCE_DEFS.map((d) => `\`${d.ruleKey}\``).join(", ")} take an integer number of days as the value, e.g. key "${CADENCE_DEFS[2].ruleKey}" value "21" for "recordame el InBody cada 21 días". Any key ending in "${TREATMENT_END_SUFFIX}" (e.g. "creatine${TREATMENT_END_SUFFIX}") takes a value in exactly YYYY-MM-DD format, e.g. key "creatine${TREATMENT_END_SUFFIX}" value "2026-08-30" for "estoy tomando creatina hasta el 30 de agosto". Never invent a differently-named or differently-formatted key for these two cases.`,
       inputSchema: z.object({
         key: z
           .string()
           .trim()
           .min(1)
-          .describe("short snake_case name for the rule, e.g. medication_timing"),
+          .describe(
+            `short snake_case name for the rule, e.g. medication_timing. For reminder cadences and treatment end dates use the reserved keys and formats from the tool description (${CADENCE_DEFS.map((d) => d.ruleKey).join(", ")}, or any key ending in ${TREATMENT_END_SUFFIX})`,
+          ),
         value: z
           .string()
           .trim()
           .min(1)
           .max(300)
-          .describe("the exact rule value to store"),
+          .describe(
+            "the exact rule value to store. For reminder cadence keys, an integer number of days. For *_end_date keys, exactly YYYY-MM-DD",
+          ),
       }),
       execute: safe(
         "update_rule",
