@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, desc, eq, sql } from "drizzle-orm";
+import { z } from "zod";
 
 import { chatJson } from "@/lib/ai/provider";
 import type { ModelRef } from "@/lib/ai/aiCredentials";
@@ -48,11 +49,16 @@ Also return "language": the language the user's own messages (the "User:" lines)
 Return JSON: {"facts":[{"content":"...","category":"preference|constraint|correction|routine|context","subject":"..."}],"language":"..."}`;
 }
 
-interface ExtractedFact {
-  content: string;
-  category: string;
-  subject?: string;
-}
+const extractedFactSchema = z.object({
+  content: z.string().optional(),
+  category: z.string().optional(),
+  subject: z.string().optional(),
+});
+
+const learnResultSchema = z.object({
+  facts: z.array(extractedFactSchema).optional(),
+  language: z.string().optional(),
+});
 
 export function normalizeSubject(value: string | undefined): string | null {
   if (!value) return null;
@@ -84,8 +90,8 @@ export interface RetrievedFact {
   distance: number;
 }
 
-function isCategory(value: string): value is CoachFactCategory {
-  return (COACH_FACT_CATEGORY_KEYS as readonly string[]).includes(value);
+function isCategory(value: string | undefined): value is CoachFactCategory {
+  return value !== undefined && (COACH_FACT_CATEGORY_KEYS as readonly string[]).includes(value);
 }
 
 async function semanticMatches(
@@ -234,16 +240,15 @@ export async function learnFromExchange(
 ): Promise<void> {
   if (!hasEmbeddings()) return;
   try {
-    const { facts, language } = await chatJson<{
-      facts?: ExtractedFact[];
-      language?: string;
-    }>(
+    const { facts, language } = await chatJson(
       ref,
       [
         { role: "system", content: extractSystem(await knownSubjects(userId)) },
         { role: "user", content: exchange },
       ],
       800,
+      undefined,
+      learnResultSchema,
     );
 
     await detectChatLanguage(userId, language);

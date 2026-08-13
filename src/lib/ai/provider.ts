@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { ZodType } from "zod";
+
 import {
   generateObject,
   generateText,
@@ -587,6 +589,7 @@ export async function chatJson<T>(
   messages: ChatMessage[],
   maxTokens = 4000,
   signal?: AbortSignal,
+  schema?: ZodType<T>,
 ): Promise<T> {
   const providerOptions: SharedV4ProviderOptions | undefined =
     ref.provider === "google"
@@ -618,9 +621,21 @@ export async function chatJson<T>(
       output: "no-schema",
       repairText: async (options) => unwrapJson(options),
     });
+  const validate = (object: unknown): T => {
+    if (!schema) return object as T;
+    const parsed = schema.safeParse(object);
+    if (!parsed.success) {
+      console.error(
+        `chatJson schema mismatch on ${ref.provider}/${ref.model}`,
+        parsed.error.issues.slice(0, 5),
+      );
+      throw parsed.error;
+    }
+    return parsed.data;
+  };
   try {
     const { object } = await attempt();
-    return object as T;
+    return validate(object);
   } catch (error) {
     if (NoObjectGeneratedError.isInstance(error) && !error.text) {
       console.error(
@@ -628,7 +643,7 @@ export async function chatJson<T>(
       );
       try {
         const { object } = await attempt();
-        return object as T;
+        return validate(object);
       } catch (retryError) {
         error = retryError;
       }
