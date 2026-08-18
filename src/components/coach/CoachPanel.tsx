@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { DiningModeAsk } from "@/components/coach/DiningModeAsk";
 import { EffortMenu } from "@/components/coach/EffortMenu";
 import { ApprovalCard } from "@/components/coach/ApprovalCard";
+import { LearnedChip } from "@/components/coach/LearnedChip";
 import { MacroTable } from "@/components/coach/MacroTable";
 import {
   useCoachChat,
@@ -87,6 +88,7 @@ function Turn({ bubble }: { bubble: ChatBubble }) {
         {bubble.content}
       </p>
       {bubble.daySummary ? <MacroTable summary={bubble.daySummary} /> : null}
+      {bubble.learned?.length ? <LearnedChip facts={bubble.learned} /> : null}
     </div>
   );
 }

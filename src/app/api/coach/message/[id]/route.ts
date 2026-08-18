@@ -31,5 +31,6 @@ export async function GET(
     status: stale ? "stopped" : message.status,
     generated: message.generated,
     daySummary: message.daySummary ?? null,
+    learned: message.learned ?? null,
   });
 }

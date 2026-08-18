@@ -3,6 +3,7 @@ import "server-only";
 import { and, asc, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
 
 import type { DaySummary } from "@/lib/ai/coach";
+import { parseLearned, serializeLearned } from "@/lib/coachLearned";
 import { db, schema } from "@/lib/db";
 import { newId } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ export interface CoachMessage {
   status: CoachMessageStatus;
   created_at: Date;
   daySummary?: DaySummary;
+  learned?: string[];
 }
 
 export interface ExchangeRef {
@@ -46,6 +48,7 @@ function parseDaySummary(raw: string | null): DaySummary | undefined {
     return undefined;
   }
 }
+
 
 export async function getConversation(
   userId: string,
@@ -92,6 +95,7 @@ export async function getFullConversation(
     status: toStatus(row.status),
     created_at: row.created_at,
     daySummary: parseDaySummary(row.day_summary),
+    learned: parseLearned(row.learned),
   }));
 }
 
@@ -174,12 +178,17 @@ export async function beginExchange(
   };
 }
 
+export interface FinishOptions {
+  generated: boolean;
+  daySummary?: DaySummary;
+  force?: boolean;
+  learned?: string[];
+}
+
 export async function finishExchange(
   ref: ExchangeRef,
   answer: string,
-  generated: boolean,
-  daySummary?: DaySummary,
-  force = false,
+  { generated, daySummary, force = false, learned }: FinishOptions,
 ): Promise<boolean> {
   let finalized = false;
   await db.transaction(async (tx) => {
@@ -201,6 +210,7 @@ export async function finishExchange(
       .set({
         content: answer,
         day_summary: daySummary ? JSON.stringify(daySummary) : null,
+        ...(learned?.length ? { learned: serializeLearned(learned) } : {}),
       })
       .where(
         and(
@@ -215,10 +225,14 @@ export async function finishExchange(
 export async function updateExchangeContent(
   ref: ExchangeRef,
   content: string,
+  learned?: string[],
 ): Promise<void> {
   await db
     .update(coach_messages)
-    .set({ content })
+    .set({
+      content,
+      ...(learned?.length ? { learned: serializeLearned(learned) } : {}),
+    })
     .where(
       and(
         eq(coach_messages.id, ref.assistantId),
@@ -280,6 +294,7 @@ export async function getMessage(
     status: toStatus(row.status),
     created_at: row.created_at,
     daySummary: parseDaySummary(row.day_summary),
+    learned: parseLearned(row.learned),
   };
 }
 

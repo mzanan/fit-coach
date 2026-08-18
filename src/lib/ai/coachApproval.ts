@@ -5,9 +5,8 @@ import type { ModelMessage } from "ai";
 import { userModelRef } from "@/lib/ai/aiCredentials";
 import { toolsRouting } from "@/lib/ai/capabilities";
 import {
-  deferLearn,
+  deferMemory,
   exchangeOf,
-  learn,
   toolSetup,
   turnLimitReached,
   TURN_LIMIT_TEXT,
@@ -28,6 +27,7 @@ import {
   discardExchange,
   finishExchange,
   getConversation,
+  updateExchangeContent,
 } from "@/lib/data/coachMessages";
 import {
   savePendingWrite,
@@ -94,6 +94,7 @@ export async function resolvePendingWrite(
 
   const question = pending.question ?? undefined;
   const appGenerated = pending.appGenerated;
+  const learned = pending.learned;
 
   if (!approved) {
     const exchange = await beginExchange(
@@ -103,8 +104,8 @@ export async function resolvePendingWrite(
       "stopped",
     );
     try {
-      await finishExchange(exchange, DENIED, false);
-      return { status: "answered", text: DENIED, generated: false };
+      await finishExchange(exchange, DENIED, { generated: false, learned });
+      return { status: "answered", text: DENIED, generated: false, learned };
     } catch (error) {
       await discardExchange(exchange);
       throw error;
@@ -158,7 +159,14 @@ export async function resolvePendingWrite(
       toolPin = null;
     }
     const history = await getConversation(userId);
-    const setup = await toolSetup(userId, profile, history, allowWrite, question);
+    const setup = await toolSetup(
+      userId,
+      profile,
+      history,
+      allowWrite,
+      question,
+      learned,
+    );
 
     const answered = [
       ...pending.messages,
@@ -214,7 +222,13 @@ export async function resolvePendingWrite(
       });
 
     if (signal?.aborted) {
-      return { status: "answered", text: INTERRUPTED_ANSWER, generated: false };
+      await updateExchangeContent(exchange, INTERRUPTED_ANSWER, learned);
+      return {
+        status: "answered",
+        text: INTERRUPTED_ANSWER,
+        generated: false,
+        learned,
+      };
     }
 
     if (approvals.length) {
@@ -225,6 +239,7 @@ export async function resolvePendingWrite(
         [...answered, ...messages],
         approvals,
         appGenerated,
+        learned,
         signal,
       );
       if (chained) {
@@ -240,11 +255,15 @@ export async function resolvePendingWrite(
     );
     if (!writeOutputs.some((output) => output.logged)) {
       const failure = writeOutputs.find((output) => output.error)?.error;
-      await finishExchange(exchange, failure ?? NOT_WRITTEN, false);
+      await finishExchange(exchange, failure ?? NOT_WRITTEN, {
+        generated: false,
+        learned,
+      });
       return {
         status: "answered",
         text: failure ?? NOT_WRITTEN,
         generated: false,
+        learned,
       };
     }
 
@@ -274,16 +293,17 @@ export async function resolvePendingWrite(
     const daySummary = wroteMeal
       ? await daySummaryAfterWrite(userId, profile, day)
       : undefined;
-    await finishExchange(exchange, answer, Boolean(text), daySummary);
+    await finishExchange(exchange, answer, {
+      generated: Boolean(text),
+      daySummary,
+      learned,
+    });
     if (text && !signal?.aborted) {
-      deferLearn(() =>
-        learn(
-          ref,
-          userId,
-          setup.memory,
-          exchangeOf(toolLog, question, answer, appGenerated),
-          Boolean(question) && !appGenerated,
-        ),
+      deferMemory(
+        ref,
+        userId,
+        setup.memory,
+        exchangeOf(toolLog, question, answer, appGenerated),
       );
     }
     return {
@@ -291,13 +311,25 @@ export async function resolvePendingWrite(
       text: answer,
       generated: Boolean(text),
       daySummary,
+      learned,
     };
   } catch {
     if (signal?.aborted) {
-      return { status: "answered", text: INTERRUPTED_ANSWER, generated: false };
+      await updateExchangeContent(exchange, INTERRUPTED_ANSWER, learned);
+      return {
+        status: "answered",
+        text: INTERRUPTED_ANSWER,
+        generated: false,
+        learned,
+      };
     }
-    await finishExchange(exchange, RESUME_FAILED, false);
-    return { status: "answered", text: RESUME_FAILED, generated: false };
+    await finishExchange(exchange, RESUME_FAILED, { generated: false, learned });
+    return {
+      status: "answered",
+      text: RESUME_FAILED,
+      generated: false,
+      learned,
+    };
   }
 }
 
@@ -308,6 +340,7 @@ async function chainApproval(
   messages: ModelMessage[],
   approvals: ApprovalRequest[],
   appGenerated: boolean,
+  learned: string[],
   signal?: AbortSignal,
 ): Promise<CoachResult | null> {
   const resolved = await Promise.all(
@@ -325,6 +358,7 @@ async function chainApproval(
       approvalIds: approvals.map((approval) => approval.approvalId),
       question: question ?? null,
       appGenerated,
+      learned,
       messages,
       previews,
     });

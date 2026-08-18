@@ -19,7 +19,10 @@ export function embeddingModelTag(): string {
   return `${MODEL}/${EMBEDDING_DIM}`;
 }
 
-export async function embed(text: string): Promise<number[]> {
+export async function embed(
+  text: string,
+  signal?: AbortSignal,
+): Promise<number[]> {
   const key = apiKey();
   if (!key) throw new Error("AI_EMBEDDING_API_KEY not set");
 
@@ -33,6 +36,7 @@ export async function embed(text: string): Promise<number[]> {
         content: { parts: [{ text }] },
         outputDimensionality: EMBEDDING_DIM,
       }),
+      signal,
     },
   );
   if (!res.ok) throw new Error(`embedding ${res.status}`);

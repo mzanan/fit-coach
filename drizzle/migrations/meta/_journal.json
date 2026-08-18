@@ -211,6 +211,13 @@
       "when": 1786517052387,
       "tag": "0029_fatigue_score_nullable",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1786520889750,
+      "tag": "0030_coach_message_learned",
+      "breakpoints": true
     }
   ]
 }

@@ -28,6 +28,7 @@ export interface ChatBubble {
   status: CoachMessageStatus;
   reasoning?: string;
   daySummary?: DaySummary;
+  learned?: string[];
 }
 
 export interface PendingApproval {
@@ -49,13 +50,13 @@ type CoachStreamEvent =
       generated: boolean;
       daySummary?: DaySummary;
       stopped?: boolean;
+      learned?: string[];
     }
   | { type: "approval"; approvalId: string; previews: PendingPreview[] }
   | { type: "error" };
 
 const REATTACH_POLL_MS = 2000;
 const MAX_FUNCTION_DURATION_MS = (COACH_MAX_DURATION_SECONDS + 30) * 1000;
-
 const STATUS: Record<string, string> = {
   thinking: "Thinking",
   get_today: "Reading today's meals and targets",
@@ -77,6 +78,7 @@ function toBubbles(messages: CoachMessage[]): ChatBubble[] {
         ? "stopped"
         : message.status,
     daySummary: message.daySummary,
+    learned: message.learned,
   }));
 }
 
@@ -153,6 +155,7 @@ export function useCoachChat(
           status: CoachMessageStatus;
           generated: boolean;
           daySummary: DaySummary | null;
+          learned: string[] | null;
         };
         setBubbles((current) =>
           current.map((bubble) =>
@@ -163,6 +166,7 @@ export function useCoachChat(
                   status: data.status,
                   generated: data.generated,
                   daySummary: data.daySummary ?? undefined,
+                  learned: data.learned ?? undefined,
                 }
               : bubble,
           ),
@@ -204,6 +208,8 @@ export function useCoachChat(
       let thoughts = "";
       let generated = true;
       let stopped = false;
+      let learned: string[] | undefined;
+      let assistantId: string | null = null;
       let daySummary: DaySummary | undefined;
       let approval: PendingApproval | null = null;
 
@@ -211,6 +217,7 @@ export function useCoachChat(
         if (event.type === "status") {
           setStatus(STATUS[event.tool] ?? STATUS.thinking);
         } else if (event.type === "started") {
+          assistantId = event.assistantId;
           setStreamingExchange({ ids: event.ids });
           if (pendingStopRef.current) {
             pendingStopRef.current = false;
@@ -246,6 +253,7 @@ export function useCoachChat(
           generated = event.generated;
           daySummary = event.daySummary;
           stopped = event.stopped ?? false;
+          learned = event.learned;
         } else if (event.type === "approval") {
           approval = {
             approvalId: event.approvalId,
@@ -260,14 +268,17 @@ export function useCoachChat(
       if (approval) {
         setPending(approval);
       } else {
+        const answered = localBubble("assistant", answer);
         setBubbles((current) => [
           ...current,
           {
-            ...localBubble("assistant", answer),
+            ...answered,
+            id: assistantId ?? answered.id,
             generated,
             status: stopped ? "stopped" : "done",
             reasoning: thoughts.trim() || undefined,
             daySummary,
+            learned,
           },
         ]);
       }
