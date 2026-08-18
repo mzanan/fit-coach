@@ -11,6 +11,7 @@ import {
   NoSuchToolError,
   type FinishReason,
   type LanguageModel,
+  type LanguageModelUsage,
   type ModelMessage,
   type ToolCallRepairFunction,
   type ToolSet,
@@ -26,11 +27,27 @@ import {
   COACH_MAX_TOOL_STEPS,
 } from "@/lib/ai/limits";
 import type { ReasoningEffort } from "@/lib/ai/options";
-import { logAiEvent } from "@/lib/data/aiEvents";
+import { logAiEvent, type UsageTotals } from "@/lib/data/aiEvents";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
+}
+
+function addUsage(
+  totals: UsageTotals,
+  usage: LanguageModelUsage | undefined,
+): void {
+  if (!usage) return;
+  if (usage.inputTokens != null) {
+    totals.inputTokens = (totals.inputTokens ?? 0) + usage.inputTokens;
+  }
+  if (usage.outputTokens != null) {
+    totals.outputTokens = (totals.outputTokens ?? 0) + usage.outputTokens;
+  }
+  if (usage.totalTokens != null) {
+    totals.totalTokens = (totals.totalTokens ?? 0) + usage.totalTokens;
+  }
 }
 
 function split(messages: ChatMessage[]): {
@@ -55,12 +72,14 @@ export async function chat(
   messages: ChatMessage[],
   maxTokens = 600,
   signal?: AbortSignal,
+  onUsage?: (usage: UsageTotals) => void,
 ): Promise<string> {
   const { instructions, turns } = split(messages);
   const maxOutputTokens = maxTokens + googleThinkingBudget(ref);
   const providerOptions = googleOnlyOptions(ref);
   const model = resolveModel(ref);
-  const { text, finishReason } = await generateText({
+  const totals: UsageTotals = {};
+  const { text, finishReason, usage } = await generateText({
     model,
     instructions,
     messages: turns,
@@ -68,8 +87,12 @@ export async function chat(
     providerOptions,
     abortSignal: signal,
   });
-  if (finishReason !== "length" || !text.trim()) return text.trim();
-  return continueGeneratedText(
+  addUsage(totals, usage);
+  if (finishReason !== "length" || !text.trim()) {
+    onUsage?.(totals);
+    return text.trim();
+  }
+  const continued = await continueGeneratedText(
     model,
     instructions,
     turns,
@@ -77,7 +100,10 @@ export async function chat(
     maxOutputTokens,
     providerOptions,
     signal,
+    totals,
   );
+  onUsage?.(totals);
+  return continued;
 }
 
 const GOOGLE_THINKING: Record<ReasoningEffort, number> = {
@@ -157,6 +183,7 @@ async function continueGeneratedText(
   maxOutputTokens: number,
   providerOptions: SharedV4ProviderOptions | undefined,
   signal: AbortSignal | undefined,
+  totals?: UsageTotals,
 ): Promise<string> {
   let finishReason: FinishReason = "length";
   for (let i = 0; i < TEXT_CONTINUE_LIMIT && finishReason === "length"; i++) {
@@ -172,6 +199,7 @@ async function continueGeneratedText(
       providerOptions,
       abortSignal: signal,
     });
+    if (totals) addUsage(totals, result.usage);
     text += continuationDelta(text, result.text);
     finishReason = result.finishReason;
   }
@@ -188,6 +216,7 @@ async function continueStreamedText(
   signal: AbortSignal | undefined,
   onEvent: (event: CoachEvent) => void,
   tools?: ToolSet,
+  totals?: UsageTotals,
 ): Promise<{ text: string; newMessages: ModelMessage[]; aborted: boolean }> {
   let finishReason: FinishReason = "length";
   let aborted = false;
@@ -217,6 +246,7 @@ async function continueStreamedText(
       } else if (part.type === "finish") {
         sawFinish = true;
         finishReason = part.finishReason;
+        if (totals) addUsage(totals, part.totalUsage);
       } else if (part.type === "abort") {
         aborted = true;
       }
@@ -264,6 +294,7 @@ export interface ToolStreamResult {
   writeAttempted: boolean;
   writeOutputs: WriteOutput[];
   interrupted: boolean;
+  usage: UsageTotals;
 }
 
 export interface ToolStreamOptions {
@@ -373,6 +404,7 @@ export async function chatToolsStream(
   const toolLog: string[] = [];
   const approvals: ApprovalRequest[] = [];
   const writeOutputs: WriteOutput[] = [];
+  const usageTotals: UsageTotals = {};
   let writeAttempted = false;
   let text = "";
   let sawAbort = false;
@@ -415,6 +447,7 @@ export async function chatToolsStream(
     } else if (part.type === "finish") {
       sawFinish = true;
       finishReason = part.finishReason;
+      addUsage(usageTotals, part.totalUsage);
     }
   }
   let interrupted = sawAbort && !sawFinish;
@@ -431,6 +464,7 @@ export async function chatToolsStream(
       options.signal,
       options.onEvent,
       options.tools,
+      usageTotals,
     );
     text += continued.text;
     messages = [...messages, ...continued.newMessages];
@@ -450,6 +484,7 @@ export async function chatToolsStream(
       writeAttempted,
       writeOutputs,
       interrupted,
+      usage: usageTotals,
     };
   }
 
@@ -481,6 +516,7 @@ export async function chatToolsStream(
     } else if (part.type === "finish") {
       sawFinish = true;
       finishReason = part.finishReason;
+      addUsage(usageTotals, part.totalUsage);
     }
   }
   interrupted = sawAbort && !sawFinish;
@@ -496,6 +532,8 @@ export async function chatToolsStream(
       providerOptions,
       options.signal,
       options.onEvent,
+      undefined,
+      usageTotals,
     );
     text += continued.text;
     if (continued.aborted) interrupted = true;
@@ -509,6 +547,7 @@ export async function chatToolsStream(
     writeAttempted,
     writeOutputs,
     interrupted,
+    usage: usageTotals,
   };
 }
 

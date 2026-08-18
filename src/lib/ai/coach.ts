@@ -57,7 +57,11 @@ import {
   savePendingWrite,
   type PendingPreview,
 } from "@/lib/data/coachPendingWrite";
-import { logAiEvent } from "@/lib/data/aiEvents";
+import {
+  logAiEvent,
+  logExchange,
+  type UsageTotals,
+} from "@/lib/data/aiEvents";
 import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import type { Profile } from "@/lib/db/schema";
 import {
@@ -264,6 +268,7 @@ async function toolReply(
       writeAttempted,
       writeOutputs,
       interrupted,
+      usage,
     } = await chatToolsStream(routeOnly ? { ...ref, routeOnly } : ref, {
       userId,
       instructions: setup.instructions,
@@ -334,6 +339,15 @@ async function toolReply(
           exchangeOf(toolLog, question, answer, appGenerated),
         );
       }
+      after(() =>
+        logExchange(
+          userId,
+          ref,
+          exchange.assistantId,
+          setup.instructions,
+          usage,
+        ),
+      );
       return {
         status: "answered",
         text: answer,
@@ -364,6 +378,7 @@ async function contextReply(
   userId: string,
   profile: Profile,
   history: CoachMessage[],
+  exchange: ExchangeRef,
   question?: string,
   signal?: AbortSignal,
   appGenerated = false,
@@ -382,18 +397,18 @@ async function contextReply(
     question?.trim() ? `User question: ${question.trim()}` : askOf(question),
   ].join("\n");
 
+  const instructions = [
+    COACH_FRAME + diningRule(profile) + coachingRules(profile),
+    ...parts,
+    ...learnedAddendum(learned),
+  ].join("\n\n");
+
   try {
+    let usage: UsageTotals = {};
     const text = await chat(
       ref,
       [
-        {
-          role: "system",
-          content: [
-            COACH_FRAME + diningRule(profile) + coachingRules(profile),
-            ...parts,
-            ...learnedAddendum(learned),
-          ].join("\n\n"),
-        },
+        { role: "system", content: instructions },
         ...history.map((message) => ({
           role: message.role,
           content: message.content,
@@ -402,6 +417,9 @@ async function contextReply(
       ],
       600,
       signal,
+      (totals) => {
+        usage = totals;
+      },
     );
     if (text) {
       const asked = appGenerated
@@ -409,6 +427,9 @@ async function contextReply(
         : question?.trim() || "(daily check-in)";
       const transcript = `${ctx.lines.join("\n")}\nUser: ${asked}\nCoach: ${text}`;
       if (!signal?.aborted) deferMemory(ref, userId, memory, transcript);
+      after(() =>
+        logExchange(userId, ref, exchange.assistantId, instructions, usage),
+      );
     }
     return {
       status: "answered",
@@ -520,6 +541,7 @@ export async function coachReply(
             userId,
             profile,
             history,
+            exchange,
             question,
             controller.signal,
             summary,

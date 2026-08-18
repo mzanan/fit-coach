@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ModelMessage } from "ai";
+import { after } from "next/server";
 
 import { userModelRef } from "@/lib/ai/aiCredentials";
 import { toolsRouting } from "@/lib/ai/capabilities";
@@ -21,7 +22,7 @@ import {
   type CoachEvent,
 } from "@/lib/ai/provider";
 import { canWriteMeals } from "@/lib/ai/writeGate";
-import { logAiEvent } from "@/lib/data/aiEvents";
+import { logAiEvent, logExchange } from "@/lib/data/aiEvents";
 import {
   beginExchange,
   discardExchange,
@@ -198,7 +199,7 @@ export async function resolvePendingWrite(
         ? mealPreview.variants.find((variant) => variant.id === itemId)
         : undefined;
 
-    const { text, toolLog, writeOutputs, approvals, messages } =
+    const { text, toolLog, writeOutputs, approvals, messages, usage } =
       await chatToolsStream(toolPin ? { ...ref, routeOnly: toolPin } : ref, {
         userId,
         instructions: setup.instructions,
@@ -298,6 +299,9 @@ export async function resolvePendingWrite(
       daySummary,
       learned,
     });
+    after(() =>
+      logExchange(userId, ref, exchange.assistantId, setup.instructions, usage),
+    );
     if (text && !signal?.aborted) {
       deferMemory(
         ref,

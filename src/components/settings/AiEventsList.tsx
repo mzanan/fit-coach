@@ -3,7 +3,11 @@ import { formatInTimeZone } from "date-fns-tz";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pill } from "@/components/ui/Pill";
 import { Surface } from "@/components/ui/Surface";
-import type { AiEvent } from "@/lib/data/aiEvents";
+import {
+  exchangeSummary,
+  parseExchangeDetail,
+  type AiEvent,
+} from "@/lib/data/aiEvents";
 
 const KIND_LABEL: Record<AiEvent["kind"], string> = {
   write_requested_unresolved: "Write not confirmed",
@@ -11,6 +15,7 @@ const KIND_LABEL: Record<AiEvent["kind"], string> = {
   turn_limit_hit: "Turn limit reached",
   rate_limited: "Provider rate limit",
   cron_maintenance: "Nightly maintenance",
+  exchange: "Model call",
 };
 
 function labelFor(event: AiEvent): string {
@@ -20,12 +25,21 @@ function labelFor(event: AiEvent): string {
   return KIND_LABEL[event.kind];
 }
 
+function detailFor(event: AiEvent): string | null {
+  if (event.kind === "exchange") {
+    const parsed = parseExchangeDetail(event.detail);
+    return parsed ? exchangeSummary(parsed) : event.detail;
+  }
+  return event.detail;
+}
+
 const KIND_TONE: Record<AiEvent["kind"], "muted" | "brand"> = {
   write_requested_unresolved: "muted",
   tool_repair: "muted",
   turn_limit_hit: "muted",
   rate_limited: "muted",
   cron_maintenance: "brand",
+  exchange: "muted",
 };
 
 export function AiEventsList({
@@ -46,28 +60,31 @@ export function AiEventsList({
 
   return (
     <Surface radius="xl" className="divide-y divide-border overflow-hidden">
-      {events.map((event) => (
-        <div key={event.id} className="flex items-start gap-3 px-card py-3.5">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <Pill tone={KIND_TONE[event.kind]}>{labelFor(event)}</Pill>
-              {event.model ? (
-                <span className="truncate text-meta text-muted-foreground">
-                  {event.model}
-                </span>
+      {events.map((event) => {
+        const detail = detailFor(event);
+        return (
+          <div key={event.id} className="flex items-start gap-3 px-card py-3.5">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <Pill tone={KIND_TONE[event.kind]}>{labelFor(event)}</Pill>
+                {event.model ? (
+                  <span className="truncate text-meta text-muted-foreground">
+                    {event.model}
+                  </span>
+                ) : null}
+              </div>
+              {detail ? (
+                <p className="mt-1 truncate text-meta text-muted-foreground">
+                  {detail}
+                </p>
               ) : null}
             </div>
-            {event.detail ? (
-              <p className="mt-1 truncate text-meta text-muted-foreground">
-                {event.detail}
-              </p>
-            ) : null}
+            <span className="shrink-0 text-meta text-muted-foreground">
+              {formatInTimeZone(event.created_at, timezone, "d MMM, HH:mm")}
+            </span>
           </div>
-          <span className="shrink-0 text-meta text-muted-foreground">
-            {formatInTimeZone(event.created_at, timezone, "d MMM, HH:mm")}
-          </span>
-        </div>
-      ))}
+        );
+      })}
     </Surface>
   );
 }
