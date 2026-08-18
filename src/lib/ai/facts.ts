@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, desc, eq, sql } from "drizzle-orm";
+import { z } from "zod";
 
 import { chatJson } from "@/lib/ai/provider";
 import type { ModelRef } from "@/lib/ai/aiCredentials";
@@ -48,13 +49,18 @@ Also return "language": the language the message is written in, as an English na
 Return JSON: {"facts":[{"content":"...","category":"preference|constraint|correction|routine|context","subject":"..."}],"language":"..."}`;
 }
 
-interface ExtractedFact {
-  content: string;
-  category: string;
-  subject?: string;
-}
+const extractedFactSchema = z.object({
+  content: z.string().nullish(),
+  category: z.string().nullish(),
+  subject: z.string().nullish(),
+});
 
-export function normalizeSubject(value: string | undefined): string | null {
+const learnResultSchema = z.object({
+  facts: z.array(extractedFactSchema).nullish(),
+  language: z.string().nullish(),
+});
+
+export function normalizeSubject(value: string | null | undefined): string | null {
   if (!value) return null;
   const slug = value
     .normalize("NFD")
@@ -84,8 +90,8 @@ export interface RetrievedFact {
   distance: number;
 }
 
-function isCategory(value: string): value is CoachFactCategory {
-  return (COACH_FACT_CATEGORY_KEYS as readonly string[]).includes(value);
+function isCategory(value: string | null | undefined): value is CoachFactCategory {
+  return value != null && (COACH_FACT_CATEGORY_KEYS as readonly string[]).includes(value);
 }
 
 async function semanticMatches(
@@ -238,10 +244,7 @@ export async function learnFromMessage(
 ): Promise<string[]> {
   if (!hasEmbeddings() || !message.trim() || signal?.aborted) return [];
   try {
-    const { facts, language } = await chatJson<{
-      facts?: ExtractedFact[];
-      language?: string;
-    }>(
+    const { facts, language } = await chatJson(
       ref,
       [
         { role: "system", content: extractSystem(await knownSubjects(userId)) },
@@ -249,6 +252,7 @@ export async function learnFromMessage(
       ],
       800,
       signal,
+      learnResultSchema,
     );
 
     await detectChatLanguage(userId, language);

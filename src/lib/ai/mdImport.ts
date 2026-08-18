@@ -167,27 +167,24 @@ export async function extractFromMarkdown(
     console.log(
       `md import: part ${i + 1}/${chunks.length}, ${chunks[i].length} chars, model ${ref.provider}/${ref.model}, output budget ${budget}`,
     );
-    const raw = await chatJson<unknown>(
-      ref,
-      [
-        { role: "system", content: SYSTEM },
-        {
-          role: "user",
-          content: `Markdown log (part ${i + 1} of ${chunks.length}):\n\n${chunks[i]}`,
-        },
-      ],
-      budget,
-      signal,
-    );
-    const parsed = mdExtraction.safeParse(raw);
-    if (parsed.success) {
-      parts.push(parsed.data);
-    } else {
-      console.error(
-        `md import: part ${i + 1} did not match the schema`,
-        parsed.error.issues.slice(0, 5),
-        JSON.stringify(raw).slice(0, 600),
+    try {
+      const part = await chatJson(
+        ref,
+        [
+          { role: "system", content: SYSTEM },
+          {
+            role: "user",
+            content: `Markdown log (part ${i + 1} of ${chunks.length}):\n\n${chunks[i]}`,
+          },
+        ],
+        budget,
+        signal,
+        mdExtraction,
       );
+      parts.push(part);
+    } catch (error) {
+      if (!(error instanceof z.ZodError)) throw error;
+      console.error(`md import: part ${i + 1} did not match the schema`);
       parts.push({
         days: [],
         catalog_items: [],
