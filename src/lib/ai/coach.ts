@@ -405,6 +405,7 @@ async function toolReply(
           approvalIds: approvals.map((approval) => approval.approvalId),
           question: question?.trim() || null,
           appGenerated,
+          learned,
           messages,
           previews,
         });

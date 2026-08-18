@@ -93,6 +93,7 @@ export async function resolvePendingWrite(
 
   const question = pending.question ?? undefined;
   const appGenerated = pending.appGenerated;
+  const learned = pending.learned;
 
   if (!approved) {
     const exchange = await beginExchange(
@@ -102,8 +103,8 @@ export async function resolvePendingWrite(
       "stopped",
     );
     try {
-      await finishExchange(exchange, DENIED, { generated: false });
-      return { status: "answered", text: DENIED, generated: false };
+      await finishExchange(exchange, DENIED, { generated: false, learned });
+      return { status: "answered", text: DENIED, generated: false, learned };
     } catch (error) {
       await discardExchange(exchange);
       throw error;
@@ -157,7 +158,14 @@ export async function resolvePendingWrite(
       toolPin = null;
     }
     const history = await getConversation(userId);
-    const setup = await toolSetup(userId, profile, history, allowWrite, question);
+    const setup = await toolSetup(
+      userId,
+      profile,
+      history,
+      allowWrite,
+      question,
+      learned,
+    );
 
     const answered = [
       ...pending.messages,
@@ -224,6 +232,7 @@ export async function resolvePendingWrite(
         [...answered, ...messages],
         approvals,
         appGenerated,
+        learned,
         signal,
       );
       if (chained) {
@@ -239,11 +248,15 @@ export async function resolvePendingWrite(
     );
     if (!writeOutputs.some((output) => output.logged)) {
       const failure = writeOutputs.find((output) => output.error)?.error;
-      await finishExchange(exchange, failure ?? NOT_WRITTEN, { generated: false });
+      await finishExchange(exchange, failure ?? NOT_WRITTEN, {
+        generated: false,
+        learned,
+      });
       return {
         status: "answered",
         text: failure ?? NOT_WRITTEN,
         generated: false,
+        learned,
       };
     }
 
@@ -276,6 +289,7 @@ export async function resolvePendingWrite(
     await finishExchange(exchange, answer, {
       generated: Boolean(text),
       daySummary,
+      learned,
     });
     if (text && !signal?.aborted) {
       deferMemory(
@@ -290,6 +304,7 @@ export async function resolvePendingWrite(
       text: answer,
       generated: Boolean(text),
       daySummary,
+      learned,
     };
   } catch {
     if (signal?.aborted) {
@@ -307,6 +322,7 @@ async function chainApproval(
   messages: ModelMessage[],
   approvals: ApprovalRequest[],
   appGenerated: boolean,
+  learned: string[],
   signal?: AbortSignal,
 ): Promise<CoachResult | null> {
   const resolved = await Promise.all(
@@ -324,6 +340,7 @@ async function chainApproval(
       approvalIds: approvals.map((approval) => approval.approvalId),
       question: question ?? null,
       appGenerated,
+      learned,
       messages,
       previews,
     });

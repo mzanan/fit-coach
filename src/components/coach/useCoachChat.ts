@@ -155,6 +155,7 @@ export function useCoachChat(
           status: CoachMessageStatus;
           generated: boolean;
           daySummary: DaySummary | null;
+          learned: string[] | null;
         };
         setBubbles((current) =>
           current.map((bubble) =>
@@ -165,6 +166,7 @@ export function useCoachChat(
                   status: data.status,
                   generated: data.generated,
                   daySummary: data.daySummary ?? undefined,
+                  learned: data.learned ?? undefined,
                 }
               : bubble,
           ),

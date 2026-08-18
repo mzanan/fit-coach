@@ -82,6 +82,7 @@ export interface PendingWrite {
   approvalIds: string[];
   question: string | null;
   appGenerated: boolean;
+  learned: string[];
   messages: ModelMessage[];
   previews: PendingPreview[];
 }
@@ -95,6 +96,7 @@ function toRow(userId: string, pending: PendingWrite) {
       messages: pending.messages,
       approvalIds: pending.approvalIds,
       appGenerated: pending.appGenerated,
+      learned: pending.learned,
     }),
     preview: JSON.stringify(pending.previews),
     created_at: new Date(),
@@ -125,18 +127,21 @@ function parseMessages(raw: string): {
   messages: ModelMessage[];
   approvalIds: string[];
   appGenerated: boolean;
+  learned: string[];
 } | null {
   try {
     const parsed = JSON.parse(raw) as {
       messages?: ModelMessage[];
       approvalIds?: string[];
       appGenerated?: boolean;
+      learned?: string[];
     };
     if (!Array.isArray(parsed.messages)) return null;
     return {
       messages: parsed.messages,
       approvalIds: Array.isArray(parsed.approvalIds) ? parsed.approvalIds : [],
       appGenerated: parsed.appGenerated === true,
+      learned: Array.isArray(parsed.learned) ? parsed.learned : [],
     };
   } catch {
     return null;
@@ -195,6 +200,7 @@ export async function takePendingWrite(
       : [row.approval_id],
     question: row.question,
     appGenerated: parsed.appGenerated,
+    learned: parsed.learned,
     messages: parsed.messages,
     previews,
   };
