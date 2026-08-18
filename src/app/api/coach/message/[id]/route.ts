@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { COACH_MAX_DURATION_SECONDS } from "@/lib/constants";
 import { expireStaleMessage, getMessage } from "@/lib/data/coachMessages";
-import { getUser } from "@/lib/session";
+import { requireApiUser } from "@/lib/session";
 
 const MAX_STREAM_AGE_MS = (COACH_MAX_DURATION_SECONDS + 30) * 1000;
 
@@ -10,10 +10,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const user = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await requireApiUser();
+  if (user instanceof NextResponse) return user;
 
   const { id } = await params;
   const message = await getMessage(user.id, id);

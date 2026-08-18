@@ -2,17 +2,15 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { stopExchange } from "@/lib/data/coachMessages";
-import { getUser } from "@/lib/session";
+import { requireApiUser } from "@/lib/session";
 
 const bodySchema = z.object({
   ids: z.array(z.string().min(1).max(64)).min(1).max(2),
 });
 
 export async function POST(request: Request) {
-  const user = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await requireApiUser();
+  if (user instanceof NextResponse) return user;
 
   let body: unknown;
   try {
