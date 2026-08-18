@@ -4,20 +4,9 @@ import { useEffect, useRef, useState } from "react";
 
 import { addSet } from "@/lib/actions/workouts";
 import type { WorkoutSet } from "@/lib/db/schema";
+import { prefillFrom } from "@/lib/setPrefill";
 import type { HistorySet } from "@/lib/workoutHistory";
 import { useAction } from "@/hooks/useAction";
-
-function prefillFrom(
-  lastCurrentSet: WorkoutSet | null,
-  lastSessionTop: HistorySet | null,
-) {
-  const source = lastCurrentSet ?? lastSessionTop;
-  return {
-    reps: source?.reps != null ? String(source.reps) : "",
-    weight: source?.weight != null ? String(source.weight) : "",
-    perSide: source?.per_side ?? false,
-  };
-}
 
 export function useAddSet({
   exerciseId,

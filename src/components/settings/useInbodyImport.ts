@@ -12,7 +12,6 @@ import {
   type SavedScan,
   type ScanInput,
 } from "@/lib/actions/inbody";
-import type { InbodyExtraction } from "@/lib/ai/inbody";
 import {
   BODY_SEGMENTS,
   INBODY_NUMERIC_KEYS,
@@ -20,35 +19,11 @@ import {
   type Segmental,
 } from "@/lib/constants";
 import { compressImage } from "@/lib/imageCompress";
+import { toDraft, type ScanDraft } from "@/lib/inbodyDraft";
 
-export interface ScanDraft {
-  taken_at: string;
-  notes: string;
-  values: Record<string, string>;
-  texts: Record<string, string>;
-}
+export type { ScanDraft } from "@/lib/inbodyDraft";
 
 export type FieldStatus = Record<string, "absent" | "illegible" | "suspect">;
-
-function toDraft(x: InbodyExtraction): ScanDraft {
-  const record = x as unknown as Record<string, unknown>;
-  return {
-    taken_at: x.test_datetime?.slice(0, 16).replace(" ", "T") ?? "",
-    notes: "",
-    values: Object.fromEntries(
-      INBODY_NUMERIC_KEYS.map((key) => {
-        const value = record[key];
-        return [key, value == null ? "" : String(value)];
-      }),
-    ),
-    texts: Object.fromEntries(
-      INBODY_TEXT_KEYS.map((key) => {
-        const value = record[key];
-        return [key, value == null ? "" : String(value)];
-      }),
-    ),
-  };
-}
 
 export interface DuplicateScan {
   pending: ScanInput;
