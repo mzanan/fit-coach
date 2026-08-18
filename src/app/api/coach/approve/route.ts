@@ -4,7 +4,7 @@ import { z } from "zod";
 import { resolvePendingWrite } from "@/lib/ai/coachApproval";
 import { coachNdjsonResponse } from "@/lib/coachStream";
 import { ensureProfile } from "@/lib/profile";
-import { getUser } from "@/lib/session";
+import { requireApiUser } from "@/lib/session";
 
 const bodySchema = z.object({
   approvalId: z.string().min(1),
@@ -13,10 +13,8 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const user = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await requireApiUser();
+  if (user instanceof NextResponse) return user;
 
   let body: unknown;
   try {

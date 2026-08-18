@@ -2,6 +2,7 @@ import "server-only";
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 import { cache } from "react";
 
 import { auth } from "@/lib/auth";
@@ -28,4 +29,10 @@ export async function requireUser(): Promise<SessionUser> {
   const user = await getUser();
   if (!user) redirect("/login");
   return user;
+}
+
+export async function requireApiUser(): Promise<SessionUser | NextResponse> {
+  const user = await getUser();
+  if (user) return user;
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }

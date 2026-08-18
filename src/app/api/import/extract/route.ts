@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { runMdExtraction, type ImportSource } from "@/lib/ai/mdExtract";
-import { getUser } from "@/lib/session";
+import { requireApiUser } from "@/lib/session";
 
 export const maxDuration = 300;
 
 export async function POST(request: Request) {
-  const user = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await requireApiUser();
+  if (user instanceof NextResponse) return user;
 
   let sources: ImportSource[] = [];
   try {
