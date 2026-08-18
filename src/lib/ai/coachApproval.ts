@@ -27,6 +27,7 @@ import {
   discardExchange,
   finishExchange,
   getConversation,
+  updateExchangeContent,
 } from "@/lib/data/coachMessages";
 import {
   savePendingWrite,
@@ -221,7 +222,13 @@ export async function resolvePendingWrite(
       });
 
     if (signal?.aborted) {
-      return { status: "answered", text: INTERRUPTED_ANSWER, generated: false };
+      await updateExchangeContent(exchange, INTERRUPTED_ANSWER, learned);
+      return {
+        status: "answered",
+        text: INTERRUPTED_ANSWER,
+        generated: false,
+        learned,
+      };
     }
 
     if (approvals.length) {
@@ -308,10 +315,21 @@ export async function resolvePendingWrite(
     };
   } catch {
     if (signal?.aborted) {
-      return { status: "answered", text: INTERRUPTED_ANSWER, generated: false };
+      await updateExchangeContent(exchange, INTERRUPTED_ANSWER, learned);
+      return {
+        status: "answered",
+        text: INTERRUPTED_ANSWER,
+        generated: false,
+        learned,
+      };
     }
-    await finishExchange(exchange, RESUME_FAILED, { generated: false });
-    return { status: "answered", text: RESUME_FAILED, generated: false };
+    await finishExchange(exchange, RESUME_FAILED, { generated: false, learned });
+    return {
+      status: "answered",
+      text: RESUME_FAILED,
+      generated: false,
+      learned,
+    };
   }
 }
 

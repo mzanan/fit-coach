@@ -225,10 +225,14 @@ export async function finishExchange(
 export async function updateExchangeContent(
   ref: ExchangeRef,
   content: string,
+  learned?: string[],
 ): Promise<void> {
   await db
     .update(coach_messages)
-    .set({ content })
+    .set({
+      content,
+      ...(learned?.length ? { learned: serializeLearned(learned) } : {}),
+    })
     .where(
       and(
         eq(coach_messages.id, ref.assistantId),
