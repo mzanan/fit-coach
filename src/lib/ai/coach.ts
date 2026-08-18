@@ -307,6 +307,7 @@ async function toolReply(
           learned,
           messages,
           previews,
+          askedAt: exchange.askedAt.toISOString(),
         });
       }
       return {

@@ -85,6 +85,7 @@ export interface PendingWrite {
   learned: string[];
   messages: ModelMessage[];
   previews: PendingPreview[];
+  askedAt: string | null;
 }
 
 function toRow(userId: string, pending: PendingWrite) {
@@ -97,6 +98,7 @@ function toRow(userId: string, pending: PendingWrite) {
       approvalIds: pending.approvalIds,
       appGenerated: pending.appGenerated,
       learned: pending.learned,
+      askedAt: pending.askedAt,
     }),
     preview: JSON.stringify(pending.previews),
     created_at: new Date(),
@@ -128,6 +130,7 @@ function parseMessages(raw: string): {
   approvalIds: string[];
   appGenerated: boolean;
   learned: string[];
+  askedAt: string | null;
 } | null {
   try {
     const parsed = JSON.parse(raw) as {
@@ -135,6 +138,7 @@ function parseMessages(raw: string): {
       approvalIds?: string[];
       appGenerated?: boolean;
       learned?: string[];
+      askedAt?: string | null;
     };
     if (!Array.isArray(parsed.messages)) return null;
     return {
@@ -142,6 +146,7 @@ function parseMessages(raw: string): {
       approvalIds: Array.isArray(parsed.approvalIds) ? parsed.approvalIds : [],
       appGenerated: parsed.appGenerated === true,
       learned: Array.isArray(parsed.learned) ? parsed.learned : [],
+      askedAt: typeof parsed.askedAt === "string" ? parsed.askedAt : null,
     };
   } catch {
     return null;
@@ -203,6 +208,7 @@ export async function takePendingWrite(
     learned: parsed.learned,
     messages: parsed.messages,
     previews,
+    askedAt: parsed.askedAt,
   };
 }
 

@@ -29,6 +29,7 @@ export interface ExchangeRef {
   ids: string[];
   assistantId: string;
   pendingStatus: "streaming" | "stopped";
+  askedAt: Date;
 }
 
 function toRole(value: string): "user" | "assistant" {
@@ -139,8 +140,11 @@ export async function beginExchange(
   question: string | null,
   placeholder: string,
   status: "streaming" | "stopped" = "streaming",
+  askedAt?: Date | null,
 ): Promise<ExchangeRef> {
   const now = Date.now();
+  const questionAt =
+    askedAt && askedAt.getTime() < now ? askedAt : new Date(now);
   const assistantId = newId();
   const questionId = question ? newId() : null;
   const rows = [
@@ -154,7 +158,7 @@ export async function beginExchange(
             generated: false,
             status,
             day_summary: null,
-            created_at: new Date(now),
+            created_at: questionAt,
           },
         ]
       : []),
@@ -175,6 +179,7 @@ export async function beginExchange(
     ids: [...(questionId ? [questionId] : []), assistantId],
     assistantId,
     pendingStatus: status,
+    askedAt: questionAt,
   };
 }
 
