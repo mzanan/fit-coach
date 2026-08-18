@@ -233,8 +233,9 @@ export async function learnFromMessage(
   userId: string,
   message: string,
   source: string,
+  signal?: AbortSignal,
 ): Promise<string[]> {
-  if (!hasEmbeddings() || !message.trim()) return [];
+  if (!hasEmbeddings() || !message.trim() || signal?.aborted) return [];
   try {
     const { facts, language } = await chatJson<{
       facts?: ExtractedFact[];
@@ -246,6 +247,7 @@ export async function learnFromMessage(
         { role: "user", content: message },
       ],
       800,
+      signal,
     );
 
     await detectChatLanguage(userId, language);

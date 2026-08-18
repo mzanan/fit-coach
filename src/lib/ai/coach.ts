@@ -231,9 +231,10 @@ export async function learnFromQuestion(
   userId: string,
   question: string | undefined,
   appGenerated: boolean,
+  signal?: AbortSignal,
 ): Promise<string[]> {
   if (appGenerated || !question?.trim()) return [];
-  return learnFromMessage(ref, userId, question.trim(), "coach");
+  return learnFromMessage(ref, userId, question.trim(), "coach", signal);
 }
 
 const LEARNED_ADDENDUM_HEAD =
@@ -351,7 +352,7 @@ async function toolReply(
   appGenerated = false,
 ): Promise<CoachResult> {
   const allowWrite = canWriteMeals(ref.model);
-  const learned = await learnFromQuestion(ref, userId, question, appGenerated);
+  const learned = await learnFromQuestion(ref, userId, question, appGenerated, signal);
   const setup = await toolSetup(
     userId,
     profile,
@@ -475,7 +476,7 @@ async function contextReply(
   appGenerated = false,
 ): Promise<CoachResult> {
   const ctx = await buildContext(userId, profile);
-  const learned = await learnFromQuestion(ref, userId, question, appGenerated);
+  const learned = await learnFromQuestion(ref, userId, question, appGenerated, signal);
   const { memory, parts } = await memoryFactsAndRules(
     userId,
     profile,
