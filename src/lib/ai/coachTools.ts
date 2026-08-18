@@ -14,7 +14,7 @@ import {
   type ResolveFailure,
 } from "@/lib/catalogMeal";
 import { searchCatalog } from "@/lib/ai/coachCatalogSearch";
-import { previewFailure } from "@/lib/ai/coachContext";
+import { previewFailure } from "@/lib/ai/coachReplyText";
 import { getLatestMeasurement, saveMeasurement } from "@/lib/data/bodyMeasurements";
 import { getActiveRule, saveRule } from "@/lib/data/coachRules";
 import { CADENCE_DEFS, TREATMENT_END_SUFFIX } from "@/lib/reminders";

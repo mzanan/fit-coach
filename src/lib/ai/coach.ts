@@ -5,17 +5,16 @@ import { after } from "next/server";
 
 import { userModelRef, type ModelRef } from "@/lib/ai/aiCredentials";
 import { toolsRouting } from "@/lib/ai/capabilities";
+import { buildContext, buildReminderLines } from "@/lib/ai/coachContext";
 import {
   aiErrorReply,
   askOf,
-  buildContext,
-  buildReminderLines,
   deterministicReply,
   exchangeOf,
   learnedAddendum,
   limitErrorReply,
   unloggedWarning,
-} from "@/lib/ai/coachContext";
+} from "@/lib/ai/coachReplyText";
 import { bufferedOnEvent, watchForStop } from "@/lib/ai/coachStreamControl";
 import { offCatalogWarning } from "@/lib/ai/coachSuggestionGate";
 import { buildCoachTools, previewApproval } from "@/lib/ai/coachTools";

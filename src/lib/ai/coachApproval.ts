@@ -12,7 +12,7 @@ import {
   type CoachResult,
   type DaySummary,
 } from "@/lib/ai/coach";
-import { exchangeOf } from "@/lib/ai/coachContext";
+import { exchangeOf } from "@/lib/ai/coachReplyText";
 import { buildCoachTools, previewApproval } from "@/lib/ai/coachTools";
 import {
   approvalResponseMessage,
