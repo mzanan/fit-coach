@@ -628,7 +628,9 @@ export async function chatJson<T>(
       console.error(
         `chatJson schema mismatch on ${ref.provider}/${ref.model}`,
         parsed.error.issues.slice(0, 5),
-        JSON.stringify(object).slice(0, 600),
+        process.env.NODE_ENV === "production"
+          ? undefined
+          : JSON.stringify(object).slice(0, 600),
       );
       throw parsed.error;
     }
