@@ -1,5 +1,3 @@
-"use client";
-
 import { AddExercise } from "@/components/workout/AddExercise";
 import { ExerciseCard } from "@/components/workout/ExerciseCard";
 import { StartWorkout } from "@/components/workout/StartWorkout";
