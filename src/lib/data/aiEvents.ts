@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
 import { desc, eq, lt } from "drizzle-orm";
 
 import { db, schema } from "@/lib/db";
@@ -12,7 +14,21 @@ export type AiEventKind =
   | "tool_repair"
   | "turn_limit_hit"
   | "rate_limited"
-  | "cron_maintenance";
+  | "cron_maintenance"
+  | "exchange";
+
+export interface UsageTotals {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+}
+
+export interface ExchangeDetail extends UsageTotals {
+  messageId: string;
+  promptHash: string;
+  promptChars: number;
+  prompt?: string;
+}
 
 export interface AiEvent {
   id: string;
@@ -45,6 +61,55 @@ export async function logAiEvent(
       err instanceof Error ? err.message : err,
     );
   }
+}
+
+export async function logExchange(
+  userId: string,
+  ref: { provider: string; model: string },
+  messageId: string,
+  prompt: string,
+  usage: UsageTotals,
+): Promise<void> {
+  const detail: ExchangeDetail = {
+    messageId,
+    promptHash: createHash("sha256").update(prompt).digest("hex").slice(0, 16),
+    promptChars: prompt.length,
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    totalTokens: usage.totalTokens,
+    ...(process.env.NODE_ENV === "production" ? {} : { prompt }),
+  };
+  await logAiEvent(userId, "exchange", {
+    provider: ref.provider,
+    model: ref.model,
+    detail: JSON.stringify(detail),
+  });
+}
+
+export function parseExchangeDetail(raw: string | null): ExchangeDetail | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as ExchangeDetail;
+    return typeof parsed?.messageId === "string" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function eventDetailText(event: AiEvent): string | null {
+  if (event.kind === "exchange") {
+    const parsed = parseExchangeDetail(event.detail);
+    return parsed ? exchangeSummary(parsed) : event.detail;
+  }
+  return event.detail;
+}
+
+export function exchangeSummary(detail: ExchangeDetail): string {
+  const tokens =
+    detail.inputTokens != null || detail.outputTokens != null
+      ? `${detail.inputTokens ?? "?"} in / ${detail.outputTokens ?? "?"} out tokens`
+      : "token usage not reported";
+  return `${tokens} · prompt ${detail.promptChars} chars (${detail.promptHash}) · msg ${detail.messageId.slice(0, 8)}`;
 }
 
 const RECENT_EVENTS_LIMIT = 50;

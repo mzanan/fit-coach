@@ -89,6 +89,10 @@ Until now, nothing in this app ran unless a user sent a chat message: the per-tu
 
 Both run per-user through the same BYOK model reference every other AI call uses; a user with no saved key is skipped, not defaulted to a system key. Memory consolidation's model call is bounded to 60 seconds per user, so one slow or hung provider response can't consume the whole cron run and leave the remaining users unprocessed. The trigger itself (plain Vercel Cron over Workflow DevKit and Inngest) was chosen in an isolated lab, same method as everything else in this section.
 
+### Observability
+
+The AI layer logs its own behavior to an `ai_events` table, readable per user under Settings > AI > Activity: rate limits, turn caps, repaired or unresolvable tool calls, nightly maintenance runs, and one `exchange` event per generated coach answer carrying the model, a hash of the composed system prompt and the token usage behind that specific message. Outside production the event also stores the full prompt text, so a "the model ignored X" report can be answered by reading what was actually sent instead of reproducing the conversation live.
+
 ## Method
 
 Components that can be built more than one way get an isolated experiment before they touch this repo, kept in a separate `labs` repository: the provider abstraction, the tool loop, human-in-the-loop approval, and the memory supersession question above were each measured before being integrated. Several findings only surfaced that way, including that one free model never calls a write tool at all under a prompt that makes two others call it reliably.
