@@ -1,10 +1,11 @@
 import "server-only";
 
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { categoryLabel, fatigueTimeLabel, measurementUnit } from "@/lib/constants";
 import { dayConfig, shiftDay, todayLogicalDay, type DayConfig } from "@/lib/dates";
 import { getLatestMeasurement } from "@/lib/data/bodyMeasurements";
+import { recentScans } from "@/lib/data/bodyScans";
 import { getDayFatigue } from "@/lib/data/fatigueLogs";
 import { getDayData } from "@/lib/data/today";
 import { getUpcomingReminders } from "@/lib/reminders";
@@ -15,7 +16,7 @@ import { getWhoopConnection } from "@/lib/integrations/whoop";
 import { kcalOf } from "@/lib/macros";
 import { round } from "@/lib/utils";
 
-const { meals, body_scans } = schema;
+const { meals } = schema;
 
 export interface CoachContext {
   profile: Profile;
@@ -137,12 +138,7 @@ export async function buildFatigueLines(
 }
 
 export async function buildScanLines(userId: string): Promise<string[]> {
-  const [scan] = await db
-    .select()
-    .from(body_scans)
-    .where(eq(body_scans.user_id, userId))
-    .orderBy(desc(body_scans.taken_at))
-    .limit(1);
+  const [scan] = await recentScans(userId, 1);
   if (!scan) return [];
   const parts = [
     scan.weight_kg != null ? `weight ${scan.weight_kg}kg` : null,

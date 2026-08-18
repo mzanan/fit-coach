@@ -195,3 +195,12 @@ export async function getLatestScanTakenAt(userId: string): Promise<Date | null>
     .limit(1);
   return rows[0]?.taken_at ?? null;
 }
+
+export async function recentScans(userId: string, limit: number): Promise<BodyScan[]> {
+  return db
+    .select()
+    .from(body_scans)
+    .where(eq(body_scans.user_id, userId))
+    .orderBy(desc(body_scans.taken_at))
+    .limit(limit);
+}
