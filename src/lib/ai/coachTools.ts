@@ -1,6 +1,6 @@
 import "server-only";
 
-import { countDistinct, desc, eq } from "drizzle-orm";
+import { countDistinct, eq } from "drizzle-orm";
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 
@@ -16,6 +16,7 @@ import {
 import { searchCatalog } from "@/lib/ai/coachCatalogSearch";
 import { previewFailure } from "@/lib/ai/coachReplyText";
 import { getLatestMeasurement, saveMeasurement } from "@/lib/data/bodyMeasurements";
+import { recentScans } from "@/lib/data/bodyScans";
 import { getActiveRule, saveRule } from "@/lib/data/coachRules";
 import { CADENCE_DEFS, TREATMENT_END_SUFFIX } from "@/lib/reminders";
 import {
@@ -66,7 +67,7 @@ import {
 } from "@/lib/workoutHistory";
 import { getUpcomingReminders } from "@/lib/reminders";
 
-const { body_scans, meals, workouts } = schema;
+const { meals, workouts } = schema;
 
 const CATEGORY_KEYS = MEAL_CATEGORIES.map((c) => c.key) as [
   MealCategoryKey,
@@ -561,12 +562,7 @@ export function buildCoachTools(
         "Get the user's latest InBody body scans (weight, skeletal muscle, body fat, visceral fat).",
       inputSchema: z.object({}),
       execute: safe("get_body_scans", async () => {
-        const scans = await db
-          .select()
-          .from(body_scans)
-          .where(eq(body_scans.user_id, userId))
-          .orderBy(desc(body_scans.taken_at))
-          .limit(SCAN_LIMIT);
+        const scans = await recentScans(userId, SCAN_LIMIT);
         return {
           scans: scans.map((scan) => ({
             taken_at: scan.taken_at.toISOString().slice(0, 10),
@@ -610,12 +606,7 @@ export function buildCoachTools(
         "Get the user's full progress arc since they started using the app: every InBody scan on record, not just the latest, the day they first logged a meal or workout, how many distinct days they have logged meals since, and their average fatigue/energy score over the last two weeks. Use this for a weekly or overall progress summary, comparing against where the user started, never for a single day's question.",
       inputSchema: z.object({}),
       execute: safe("get_progress_overview", async () => {
-        const scans = await db
-          .select()
-          .from(body_scans)
-          .where(eq(body_scans.user_id, userId))
-          .orderBy(desc(body_scans.taken_at))
-          .limit(PROGRESS_SCAN_LIMIT);
+        const scans = await recentScans(userId, PROGRESS_SCAN_LIMIT);
 
         const [firstMeal] = await db
           .select({ day: meals.logical_day })
