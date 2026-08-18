@@ -170,7 +170,7 @@ export async function beginExchange(
       generated: false,
       status,
       day_summary: null,
-      created_at: new Date(now + 1),
+      created_at: new Date(questionAt.getTime() + 1),
     },
   ];
   await db.insert(coach_messages).values(rows);
