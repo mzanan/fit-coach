@@ -2,9 +2,6 @@ import "server-only";
 
 import { and, desc, eq, inArray } from "drizzle-orm";
 
-import type { ModelRef } from "@/lib/ai/aiCredentials";
-import { PROVIDER_LABEL } from "@/lib/ai/options";
-import type { ResolveFailure } from "@/lib/catalogMeal";
 import { categoryLabel, fatigueTimeLabel, measurementUnit } from "@/lib/constants";
 import { dayConfig, shiftDay, todayLogicalDay, type DayConfig } from "@/lib/dates";
 import { getLatestMeasurement } from "@/lib/data/bodyMeasurements";
@@ -222,32 +219,3 @@ export async function buildWhoopLines(userId: string): Promise<string[]> {
   return [`Whoop band data: ${parts.join("; ")}.`];
 }
 
-export function deterministicReply(ctx: CoachContext): string {
-  return `Add your AI provider key in Settings > AI to enable coaching. Snapshot:\n${ctx.lines.join("\n")}`;
-}
-
-export function aiErrorReply(ctx: CoachContext): string {
-  return `The coach could not reach your AI model. Check your key and model in Settings > AI, or try again. Snapshot:\n${ctx.lines.join("\n")}`;
-}
-
-export function limitErrorReply(
-  provider: ModelRef["provider"],
-  error: unknown,
-  ctx: CoachContext,
-): string | null {
-  const status = (error as { statusCode?: number })?.statusCode;
-  const message = error instanceof Error ? error.message : "";
-  if (status !== 429 && !/rate limit|quota/i.test(message)) return null;
-
-  const label = PROVIDER_LABEL[provider];
-  const daily = /per[- ]day|RPD/i.test(message);
-  const detail = daily
-    ? "Your daily quota on the free tier is used up. It resets tomorrow, or add credits to your account."
-    : "You are being rate limited right now. Wait a minute and ask again.";
-  return `${label}: ${detail} Snapshot:\n${ctx.lines.join("\n")}`;
-}
-
-export function previewFailure(reason: ResolveFailure, error: string): string {
-  if (reason === "no_macros") return error;
-  return "The coach tried to log a meal it could not identify in your catalog. Ask again naming the item.";
-}
