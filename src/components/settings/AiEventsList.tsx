@@ -3,11 +3,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pill } from "@/components/ui/Pill";
 import { Surface } from "@/components/ui/Surface";
-import {
-  exchangeSummary,
-  parseExchangeDetail,
-  type AiEvent,
-} from "@/lib/data/aiEvents";
+import { eventDetailText, type AiEvent } from "@/lib/data/aiEvents";
 
 const KIND_LABEL: Record<AiEvent["kind"], string> = {
   write_requested_unresolved: "Write not confirmed",
@@ -23,14 +19,6 @@ function labelFor(event: AiEvent): string {
     return "Tool call could not be repaired";
   }
   return KIND_LABEL[event.kind];
-}
-
-function detailFor(event: AiEvent): string | null {
-  if (event.kind === "exchange") {
-    const parsed = parseExchangeDetail(event.detail);
-    return parsed ? exchangeSummary(parsed) : event.detail;
-  }
-  return event.detail;
 }
 
 const KIND_TONE: Record<AiEvent["kind"], "muted" | "brand"> = {
@@ -61,7 +49,7 @@ export function AiEventsList({
   return (
     <Surface radius="xl" className="divide-y divide-border overflow-hidden">
       {events.map((event) => {
-        const detail = detailFor(event);
+        const detail = eventDetailText(event);
         return (
           <div key={event.id} className="flex items-start gap-3 px-card py-3.5">
             <div className="min-w-0 flex-1">

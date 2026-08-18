@@ -96,6 +96,14 @@ export function parseExchangeDetail(raw: string | null): ExchangeDetail | null {
   }
 }
 
+export function eventDetailText(event: AiEvent): string | null {
+  if (event.kind === "exchange") {
+    const parsed = parseExchangeDetail(event.detail);
+    return parsed ? exchangeSummary(parsed) : event.detail;
+  }
+  return event.detail;
+}
+
 export function exchangeSummary(detail: ExchangeDetail): string {
   const tokens =
     detail.inputTokens != null || detail.outputTokens != null
