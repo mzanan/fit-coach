@@ -184,8 +184,9 @@ async function saveFact(
   category: CoachFactCategory,
   subject: string | null,
   source: string,
+  signal?: AbortSignal,
 ): Promise<boolean> {
-  const literal = toVectorLiteral(await embed(content));
+  const literal = toVectorLiteral(await embed(content, signal));
   const modelTag = embeddingModelTag();
   const now = Date.now();
 
@@ -273,6 +274,7 @@ export async function learnFromMessage(
 
     const fresh: string[] = [];
     for (const [index, fact] of valid.entries()) {
+      if (signal?.aborted) break;
       if (fact.subject && lastBySubject.get(fact.subject) !== index) continue;
       const changed = await saveFact(
         userId,
@@ -280,6 +282,7 @@ export async function learnFromMessage(
         fact.category,
         fact.subject,
         source,
+        signal,
       );
       if (changed) fresh.push(fact.content);
     }
