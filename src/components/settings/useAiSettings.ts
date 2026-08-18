@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import type { AiSetup } from "@/lib/ai/aiCredentials";
 import type { ModelInfo } from "@/lib/ai/capabilities";
-import { isAiProvider, type AiProvider } from "@/lib/ai/options";
+import { isAiProvider, isKeyedProvider, type AiProvider } from "@/lib/ai/options";
 import { canWriteMeals } from "@/lib/ai/writeGate";
 import {
   activateProviderAction,
@@ -23,10 +23,6 @@ const LABEL: Record<AiProvider, string> = {
   groq: "Groq",
   google: "Google",
 };
-
-function isKeyedProvider(provider: AiProvider): provider is "groq" | "google" {
-  return provider === "groq" || provider === "google";
-}
 
 export function useAiSettings(
   setup: AiSetup,

@@ -10,9 +10,12 @@ import {
 import type { DaySummary } from "@/lib/ai/coach";
 import type { ReasoningEffort } from "@/lib/ai/options";
 import {
-  COACH_MAX_DURATION_SECONDS,
-  INTERRUPTED_ANSWER,
-} from "@/lib/constants";
+  isStaleStream,
+  localBubble,
+  toBubbles,
+  type ChatBubble,
+} from "@/lib/coachBubbles";
+import { INTERRUPTED_ANSWER } from "@/lib/constants";
 import type {
   CoachMessage,
   CoachMessageStatus,
@@ -20,16 +23,7 @@ import type {
 import type { PendingPreview } from "@/lib/data/coachPendingWrite";
 import { readNdjson } from "@/lib/ndjson";
 
-export interface ChatBubble {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  generated: boolean;
-  status: CoachMessageStatus;
-  reasoning?: string;
-  daySummary?: DaySummary;
-  learned?: string[];
-}
+export type { ChatBubble } from "@/lib/coachBubbles";
 
 export interface PendingApproval {
   approvalId: string;
@@ -56,7 +50,6 @@ type CoachStreamEvent =
   | { type: "error" };
 
 const REATTACH_POLL_MS = 2000;
-const MAX_FUNCTION_DURATION_MS = (COACH_MAX_DURATION_SECONDS + 30) * 1000;
 const STATUS: Record<string, string> = {
   thinking: "Thinking",
   get_today: "Reading today's meals and targets",
@@ -66,35 +59,6 @@ const STATUS: Record<string, string> = {
   get_progress_overview: "Reading your full progress history",
   log_meal: "Preparing to log a meal",
 };
-
-function toBubbles(messages: CoachMessage[]): ChatBubble[] {
-  return messages.map((message) => ({
-    id: message.id,
-    role: message.role,
-    content: message.content,
-    generated: message.generated,
-    status:
-      message.status === "streaming" && isStaleStream(message.created_at)
-        ? "stopped"
-        : message.status,
-    daySummary: message.daySummary,
-    learned: message.learned,
-  }));
-}
-
-function isStaleStream(createdAt: Date): boolean {
-  return Date.now() - createdAt.getTime() > MAX_FUNCTION_DURATION_MS;
-}
-
-function localBubble(role: "user" | "assistant", content: string): ChatBubble {
-  return {
-    id: `local-${Date.now()}-${role}`,
-    role,
-    content,
-    generated: true,
-    status: "done",
-  };
-}
 
 export function useCoachChat(
   initial: CoachMessage[],

@@ -8,6 +8,10 @@ export function isAiProvider(value: string): value is AiProvider {
   return (AI_PROVIDERS as readonly string[]).includes(value);
 }
 
+export function isKeyedProvider(provider: AiProvider): provider is "groq" | "google" {
+  return provider === "groq" || provider === "google";
+}
+
 export function isReasoningEffort(value: string): value is ReasoningEffort {
   return (REASONING_EFFORTS as readonly string[]).includes(value);
 }
