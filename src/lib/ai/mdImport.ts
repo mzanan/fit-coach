@@ -184,7 +184,10 @@ export async function extractFromMarkdown(
       parts.push(part);
     } catch (error) {
       if (!(error instanceof z.ZodError)) throw error;
-      console.error(`md import: part ${i + 1} did not match the schema`);
+      console.error(
+        `md import: part ${i + 1} did not match the schema`,
+        error.issues.slice(0, 5),
+      );
       parts.push({
         days: [],
         catalog_items: [],

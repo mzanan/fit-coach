@@ -50,17 +50,17 @@ Return JSON: {"facts":[{"content":"...","category":"preference|constraint|correc
 }
 
 const extractedFactSchema = z.object({
-  content: z.string().optional(),
-  category: z.string().optional(),
-  subject: z.string().optional(),
+  content: z.string().nullish(),
+  category: z.string().nullish(),
+  subject: z.string().nullish(),
 });
 
 const learnResultSchema = z.object({
-  facts: z.array(extractedFactSchema).optional(),
-  language: z.string().optional(),
+  facts: z.array(extractedFactSchema).nullish(),
+  language: z.string().nullish(),
 });
 
-export function normalizeSubject(value: string | undefined): string | null {
+export function normalizeSubject(value: string | null | undefined): string | null {
   if (!value) return null;
   const slug = value
     .normalize("NFD")
@@ -90,8 +90,8 @@ export interface RetrievedFact {
   distance: number;
 }
 
-function isCategory(value: string | undefined): value is CoachFactCategory {
-  return value !== undefined && (COACH_FACT_CATEGORY_KEYS as readonly string[]).includes(value);
+function isCategory(value: string | null | undefined): value is CoachFactCategory {
+  return value != null && (COACH_FACT_CATEGORY_KEYS as readonly string[]).includes(value);
 }
 
 async function semanticMatches(
