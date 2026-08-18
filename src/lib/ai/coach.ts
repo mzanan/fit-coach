@@ -7,11 +7,16 @@ import { userModelRef, type ModelRef } from "@/lib/ai/aiCredentials";
 import { toolsRouting } from "@/lib/ai/capabilities";
 import {
   aiErrorReply,
+  askOf,
   buildContext,
   buildReminderLines,
   deterministicReply,
+  exchangeOf,
+  learnedAddendum,
   limitErrorReply,
+  unloggedWarning,
 } from "@/lib/ai/coachContext";
+import { bufferedOnEvent, watchForStop } from "@/lib/ai/coachStreamControl";
 import { offCatalogWarning } from "@/lib/ai/coachSuggestionGate";
 import { buildCoachTools, previewApproval } from "@/lib/ai/coachTools";
 import {
@@ -96,26 +101,6 @@ export async function turnLimitReached(userId: string): Promise<boolean> {
   return turns >= COACH_MAX_TURNS_PER_HOUR;
 }
 
-const LOG_INTENT =
-  /\b(registr\w*|anot\w*|logue\w*|loguear|agreg\w*|a[ñn]ad\w*|sum(?!mar)\w*|carg\w*|log)\b/i;
-
-const CLAIMED_WRITE =
-  /\b(registrad[oa]s?|registr[eé]|anotad[oa]s?|a[ñn]adid[oa]s?|agregad[oa]s?|guardad[oa]s?|logged)\b|\b(se procede a|procedo a|voy a)\s+(registrar|anotar|guardar|a[ñn]adir|agregar)/i;
-
-const NOTHING_LOGGED =
-  "\n\n(Nothing was logged. The coach did not actually run the log, so check Today and log it from there if you need it.)";
-
-function unloggedWarning(
-  question: string | undefined,
-  text: string,
-  wrote: boolean,
-): string {
-  if (wrote || !question) return "";
-  if (!LOG_INTENT.test(question)) return "";
-  if (!CLAIMED_WRITE.test(text)) return "";
-  return NOTHING_LOGGED;
-}
-
 async function memoryFactsAndRules(
   userId: string,
   profile: Profile,
@@ -161,55 +146,6 @@ async function memoryFactsAndRules(
   };
 }
 
-const STOP_POLL_MS = 1000;
-const CONTENT_FLUSH_MS = 1000;
-
-function watchForStop(
-  ref: ExchangeRef,
-  controller: AbortController,
-): () => void {
-  const interval = setInterval(() => {
-    if (controller.signal.aborted) return;
-    getExchangeStatus(ref)
-      .then((status) => {
-        if (status === "stopped") controller.abort();
-      })
-      .catch(() => {});
-  }, STOP_POLL_MS);
-  return () => clearInterval(interval);
-}
-
-function bufferedOnEvent(
-  ref: ExchangeRef,
-  forward: (event: CoachEvent) => void,
-): {
-  onEvent: (event: CoachEvent) => void;
-  buffer: () => string;
-  drain: () => Promise<void>;
-} {
-  let text = "";
-  let lastFlush = 0;
-  let inFlight: Promise<void> = Promise.resolve();
-  return {
-    onEvent(event) {
-      if (event.type === "delta") {
-        text += event.text;
-        const now = Date.now();
-        if (now - lastFlush >= CONTENT_FLUSH_MS) {
-          lastFlush = now;
-          const snapshot = text;
-          inFlight = inFlight.then(() =>
-            updateExchangeContent(ref, snapshot).catch(() => {}),
-          );
-        }
-      }
-      forward(event);
-    },
-    buffer: () => text,
-    drain: () => inFlight,
-  };
-}
-
 export function deferMemory(
   ref: ModelRef,
   userId: string,
@@ -237,24 +173,6 @@ export async function learnFromQuestion(
   return learnFromMessage(ref, userId, question.trim(), "coach", signal);
 }
 
-const LEARNED_ADDENDUM_HEAD =
-  "You just recorded this about the user, from the message they sent you in this turn:";
-
-const LEARNED_ADDENDUM_TAIL =
-  "Open your reply by acknowledging it in one short clause, in the user's language, so they know it was saved. Then answer their message. Take it into account in this very answer: if it is a food preference and the food is not in their catalog, say so and offer to add it, do not just ignore it and suggest something else.";
-
-export function learnedAddendum(facts: string[]): string[] {
-  return facts.length
-    ? [
-        [
-          LEARNED_ADDENDUM_HEAD,
-          ...facts.map((fact) => `- ${fact}`),
-          LEARNED_ADDENDUM_TAIL,
-        ].join("\n"),
-      ]
-    : [];
-}
-
 const SUMMARY_FALLBACK_ASK =
   "Give me my weekly progress summary: the week so far and overall progress since I started.";
 
@@ -279,12 +197,6 @@ async function summaryQuestion(
   } catch {
     return SUMMARY_FALLBACK_ASK;
   }
-}
-
-function askOf(question?: string): string {
-  return question?.trim()
-    ? question.trim()
-    : "Give a short read on how today and the week are going, and the next action.";
 }
 
 export async function toolSetup(
@@ -319,24 +231,6 @@ export async function toolSetup(
       { role: "user" as const, content: askOf(question) },
     ] as ModelMessage[],
   };
-}
-
-export function exchangeOf(
-  toolLog: string[],
-  question: string | undefined,
-  text: string,
-  appGenerated = false,
-): string {
-  const asked = appGenerated
-    ? "(tapped the weekly summary button)"
-    : question?.trim() || "(daily check-in)";
-  return [
-    ...(toolLog.length
-      ? ["Data the coach read from the app:", ...toolLog]
-      : []),
-    `User: ${asked}`,
-    `Coach: ${text}`,
-  ].join("\n");
 }
 
 async function toolReply(
