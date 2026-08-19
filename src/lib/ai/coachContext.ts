@@ -27,6 +27,7 @@ export interface CoachContext {
 export async function buildContext(
   userId: string,
   profile: Profile,
+  includeReminders = true,
 ): Promise<CoachContext> {
   const cfg = dayConfig(profile);
   const today = todayLogicalDay(cfg);
@@ -69,7 +70,9 @@ export async function buildContext(
   const whoopLines = await buildWhoopLines(userId);
   const scanLines = await buildScanLines(userId);
   const measurementLines = await buildMeasurementLines(userId);
-  const reminderLines = await buildReminderLines(userId, cfg, today);
+  const reminderLines = includeReminders
+    ? await buildReminderLines(userId, cfg, today)
+    : [];
 
   return {
     profile,
