@@ -17,7 +17,7 @@ Next 16 (App Router) + React 19 + Tailwind v4 + shadcn/radix. Turso via Drizzle.
 
 - `src/app/(app)/` app routes (today, catalog, coach, workout, settings); `src/app/login/`; `src/app/api/{auth,coach,cron}/`
 - `src/components/<feature>/` feature UI + colocated hooks; `src/components/ui/` primitives
-- `src/lib/` actions, ai, data, db (schema + drizzle), auth/session, macros/dates helpers
+- `src/lib/` actions, ai, data, db (schema + drizzle), auth/session, macros/dates helpers. `ai/aiCredentials.ts`, `ai/capabilities.ts` (model catalogs) and `data/catalog.ts` call `unstable_cache`, so `lib/` is coupled to the Next.js runtime and not portable as-is.
 - `src/lib/ai/` model calls (`provider`), per-user credentials (`aiCredentials`), capability gating + model catalogs (`capabilities`, merging the old registry/groqCaps/googleCaps), coach turn orchestration (`coach`, prompt text in `coachPrompt`, context/snapshot building in `coachContext`, the write-approval flow in `coachApproval`), tools (`coachTools` + catalog search/ranking in `coachCatalogSearch`, `writeGate` for the per-model write allowlist), spend/abuse constants (`limits`: turn cap, tool-step cap, continuation-retry cap), memory (`memory` summary, `facts` + `embeddings`), background maintenance (`maintenance`: daily stale-fact expiry + memory consolidation via `/api/cron/maintenance`), ingestion (`vision`, `inbody`, `mdExtract`, `mdImport`)
 
 ## Conventions
