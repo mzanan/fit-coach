@@ -96,6 +96,7 @@ export async function resolvePendingWrite(
   const question = pending.question ?? undefined;
   const appGenerated = pending.appGenerated;
   const learned = pending.learned;
+  const askedAt = pending.askedAt ? new Date(pending.askedAt) : null;
 
   if (!approved) {
     const exchange = await beginExchange(
@@ -103,6 +104,7 @@ export async function resolvePendingWrite(
       question ?? null,
       INTERRUPTED_ANSWER,
       "stopped",
+      askedAt,
     );
     try {
       await finishExchange(exchange, DENIED, { generated: false, learned });
@@ -125,6 +127,7 @@ export async function resolvePendingWrite(
     question ?? null,
     INTERRUPTED_ANSWER,
     "stopped",
+    askedAt,
   );
 
   try {
@@ -241,6 +244,7 @@ export async function resolvePendingWrite(
         approvals,
         appGenerated,
         learned,
+        pending.askedAt,
         signal,
       );
       if (chained) {
@@ -345,6 +349,7 @@ async function chainApproval(
   approvals: ApprovalRequest[],
   appGenerated: boolean,
   learned: string[],
+  askedAt: string | null,
   signal?: AbortSignal,
 ): Promise<CoachResult | null> {
   const resolved = await Promise.all(
@@ -365,6 +370,7 @@ async function chainApproval(
       learned,
       messages,
       previews,
+      askedAt,
     });
   }
   return {
