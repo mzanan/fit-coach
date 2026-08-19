@@ -3,12 +3,12 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 
 import type { AiProvider } from "@/lib/ai/options";
+import { FETCH_TIMEOUT_MS } from "@/lib/constants";
 
 const OPENROUTER_API = "https://openrouter.ai/api/v1";
 const GROQ_MODELS_URL = "https://api.groq.com/openai/v1/models";
 const GOOGLE_MODELS_URL =
   "https://generativelanguage.googleapis.com/v1beta/models";
-const FETCH_TIMEOUT_MS = 10_000;
 const CACHE_SECONDS = 3600;
 
 export interface ModelInfo {

@@ -18,6 +18,7 @@ import {
   type ModelInfo,
 } from "@/lib/ai/capabilities";
 import { AI_PROVIDERS, PROVIDER_LABEL } from "@/lib/ai/options";
+import { FETCH_TIMEOUT_MS } from "@/lib/constants";
 import { requireUser } from "@/lib/session";
 
 export interface AiActionResult {
@@ -25,7 +26,6 @@ export interface AiActionResult {
 }
 
 const OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/key";
-const FETCH_TIMEOUT_MS = 10_000;
 
 const providerSchema = z.enum(AI_PROVIDERS);
 

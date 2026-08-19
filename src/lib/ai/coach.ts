@@ -109,12 +109,15 @@ async function memoryFactsAndRules(
   profile: Profile,
   today: string,
   question?: string,
+  includeReminders = true,
 ): Promise<{ memory: string | null; parts: string[] }> {
   const [memory, facts, rules, reminderLines] = await Promise.all([
     getCoachMemory(userId),
     retrieveFacts(userId, question?.trim() ?? ""),
     listActiveRules(userId),
-    buildReminderLines(userId, dayConfig(profile), today),
+    includeReminders
+      ? buildReminderLines(userId, dayConfig(profile), today)
+      : Promise.resolve([]),
   ]);
 
   const ruleLines = rules.length
@@ -131,7 +134,7 @@ async function memoryFactsAndRules(
       ]
     : [];
 
-  const reminderBlock = reminderLines.length
+  const reminderBlock = includeReminders && reminderLines.length
     ? [
         "Overdue/upcoming reminders. Raise these yourself even if the user did not ask, but only once per conversation, do not repeat one you already raised:",
         ...reminderLines,
@@ -391,6 +394,7 @@ async function contextReply(
     profile,
     ctx.today,
     question,
+    false,
   );
 
   const userMsg = [
