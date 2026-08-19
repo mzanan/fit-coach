@@ -15,7 +15,8 @@ export type AiEventKind =
   | "turn_limit_hit"
   | "rate_limited"
   | "cron_maintenance"
-  | "exchange";
+  | "exchange"
+  | "fact_extraction_failed";
 
 export interface UsageTotals {
   inputTokens?: number;
