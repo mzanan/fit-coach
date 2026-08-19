@@ -10,7 +10,7 @@ export function useAction() {
     fn: () => Promise<T>,
     opts?: {
       success?: string;
-      onDone?: () => void;
+      onDone?: (result: T) => void;
       undo?: (result: T) => Promise<void>;
       undoSuccess?: string;
     },
@@ -42,7 +42,7 @@ export function useAction() {
             toast.success(opts.success);
           }
         }
-        opts?.onDone?.();
+        opts?.onDone?.(result);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Something went wrong");
       }

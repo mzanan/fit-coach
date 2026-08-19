@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 
@@ -83,6 +83,91 @@ export async function archiveCatalogItem(id: string) {
     .set({ archived: true, updated_at: new Date() })
     .where(and(eq(catalog_items.id, id), eq(catalog_items.user_id, user.id)));
   revalidateCatalog();
+}
+
+const idsSchema = z.object({ ids: z.array(z.string().min(1)).min(1) });
+
+export async function bulkArchiveCatalogItems(
+  input: unknown,
+): Promise<{ count: number }> {
+  const user = await requireUser();
+  const { ids } = idsSchema.parse(input);
+  const rows = await db
+    .update(catalog_items)
+    .set({ archived: true, updated_at: new Date() })
+    .where(
+      and(inArray(catalog_items.id, ids), eq(catalog_items.user_id, user.id)),
+    )
+    .returning({ id: catalog_items.id });
+  revalidateCatalog();
+  return { count: rows.length };
+}
+
+export async function bulkDeleteCatalogItems(
+  input: unknown,
+): Promise<{ count: number }> {
+  const user = await requireUser();
+  const { ids } = idsSchema.parse(input);
+  await db
+    .delete(catalog_components)
+    .where(
+      and(
+        inArray(catalog_components.item_id, ids),
+        eq(catalog_components.user_id, user.id),
+      ),
+    );
+  const rows = await db
+    .delete(catalog_items)
+    .where(
+      and(inArray(catalog_items.id, ids), eq(catalog_items.user_id, user.id)),
+    )
+    .returning({ id: catalog_items.id });
+  revalidateCatalog();
+  return { count: rows.length };
+}
+
+const clearModeSchema = z.object({ mode: z.enum(["archive", "delete"]) });
+
+export async function clearCatalog(
+  input: unknown,
+): Promise<{ count: number }> {
+  const user = await requireUser();
+  const { mode } = clearModeSchema.parse(input);
+  const scope = and(
+    eq(catalog_items.user_id, user.id),
+    eq(catalog_items.archived, false),
+  );
+  if (mode === "archive") {
+    const rows = await db
+      .update(catalog_items)
+      .set({ archived: true, updated_at: new Date() })
+      .where(scope)
+      .returning({ id: catalog_items.id });
+    revalidateCatalog();
+    return { count: rows.length };
+  }
+
+  const targets = await db
+    .select({ id: catalog_items.id })
+    .from(catalog_items)
+    .where(scope);
+  const ids = targets.map((t) => t.id);
+  if (ids.length) {
+    await db
+      .delete(catalog_components)
+      .where(
+        and(
+          inArray(catalog_components.item_id, ids),
+          eq(catalog_components.user_id, user.id),
+        ),
+      );
+  }
+  const rows = await db
+    .delete(catalog_items)
+    .where(scope)
+    .returning({ id: catalog_items.id });
+  revalidateCatalog();
+  return { count: rows.length };
 }
 
 const componentSchema = z.object({
