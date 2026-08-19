@@ -277,7 +277,8 @@ export async function resolvePendingWrite(
         if (chained.status === "pending" && chained.saved) {
           await discardExchange(exchange);
         }
-        if (chained.status !== "pending" || !logged.length) return chained;
+        if (chained.status !== "pending" || !logged.length || signal?.aborted)
+          return chained;
         return {
           ...chained,
           logged: confirmationLines(logged),
