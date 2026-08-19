@@ -1,9 +1,17 @@
+import { ActiveModelLabel } from "@/components/shell/ActiveModelLabel";
 import { UserMenu } from "@/components/shell/UserMenu";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import type { AiCredential } from "@/lib/ai/aiCredentials";
 import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-export async function AppHeader({ className }: { className?: string }) {
+export async function AppHeader({
+  className,
+  activeModel,
+}: {
+  className?: string;
+  activeModel: AiCredential | null;
+}) {
   const user = await requireUser();
 
   return (
@@ -13,10 +21,14 @@ export async function AppHeader({ className }: { className?: string }) {
         className,
       )}
     >
-      <span className="text-title font-medium tracking-(--tracking-snug)">
+      <span className="shrink-0 text-title font-medium tracking-(--tracking-snug)">
         Fit Coach
       </span>
-      <div className="flex items-center gap-1">
+      <ActiveModelLabel
+        credential={activeModel}
+        className="min-w-0 flex-1 truncate text-right"
+      />
+      <div className="flex shrink-0 items-center gap-1">
         <ThemeToggle />
         <UserMenu email={user.email} name={user.name} image={user.image} />
       </div>
