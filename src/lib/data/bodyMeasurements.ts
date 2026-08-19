@@ -52,3 +52,32 @@ export async function getLatestMeasurement(
     .limit(1);
   return row ?? null;
 }
+
+export interface MeasurementEntry {
+  id: string;
+  type: string;
+  value: number | null;
+  logical_day: string;
+}
+
+export async function listMeasurements(
+  userId: string,
+  limit: number,
+  type?: string,
+): Promise<MeasurementEntry[]> {
+  return db
+    .select({
+      id: body_measurements.id,
+      type: body_measurements.type,
+      value: body_measurements.value,
+      logical_day: body_measurements.logical_day,
+    })
+    .from(body_measurements)
+    .where(
+      type
+        ? and(eq(body_measurements.user_id, userId), eq(body_measurements.type, type))
+        : eq(body_measurements.user_id, userId),
+    )
+    .orderBy(desc(body_measurements.logical_day), desc(body_measurements.created_at))
+    .limit(limit);
+}

@@ -34,7 +34,6 @@ import {
   MEAL_CATEGORIES,
   MEASUREMENT_TOOL,
   MEASUREMENT_TYPES,
-  MEASUREMENT_VALUE_MAX,
   RULE_TOOL,
   WORKOUT_TOOL,
   WRITE_TOOL,
@@ -61,6 +60,7 @@ import {
 import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
 import { round } from "@/lib/utils";
+import { measurementValue } from "@/lib/validation";
 import {
   evaluateProgression,
   PROGRESSION_SESSIONS_REQUIRED,
@@ -348,12 +348,7 @@ const MEASUREMENT_TYPE_KEYS = MEASUREMENT_TYPES.map((t) => t.key) as [
 ];
 
 const measurementTypeSchema = z.enum(MEASUREMENT_TYPE_KEYS);
-const measurementValueSchema = z
-  .number()
-  .positive()
-  .max(MEASUREMENT_VALUE_MAX)
-  .nullable()
-  .default(null);
+const measurementValueSchema = measurementValue.nullable().default(null);
 
 const logMeasurementInput = z
   .object({
