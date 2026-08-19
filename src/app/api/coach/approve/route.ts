@@ -4,6 +4,7 @@ import { z } from "zod";
 import { resolvePendingWrite } from "@/lib/ai/coachApproval";
 import { coachNdjsonResponse } from "@/lib/coachStream";
 import { ensureProfile } from "@/lib/profile";
+import { notifyGeneratedReply } from "@/lib/push";
 import { requireApiUser } from "@/lib/session";
 
 const bodySchema = z.object({
@@ -29,15 +30,17 @@ export async function POST(request: Request) {
 
   const profile = await ensureProfile(user.id);
 
-  return coachNdjsonResponse((send) =>
-    resolvePendingWrite(
-      user.id,
-      profile,
-      parsed.data.approvalId,
-      parsed.data.approved,
-      parsed.data.itemId,
-      send,
-      request.signal,
-    ),
+  return coachNdjsonResponse(
+    (send) =>
+      resolvePendingWrite(
+        user.id,
+        profile,
+        parsed.data.approvalId,
+        parsed.data.approved,
+        parsed.data.itemId,
+        send,
+        request.signal,
+      ),
+    (result) => notifyGeneratedReply(user.id, result),
   );
 }

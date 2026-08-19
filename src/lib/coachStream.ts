@@ -19,6 +19,7 @@ export type CoachStreamEvent =
 
 export function coachNdjsonResponse(
   run: (send: (event: CoachStreamEvent) => void) => Promise<CoachResult>,
+  onDone?: (result: CoachResult) => void,
 ): Response {
   const encoder = new TextEncoder();
   let closed = false;
@@ -52,6 +53,7 @@ export function coachNdjsonResponse(
                 learned: result.learned,
               },
         );
+        onDone?.(result);
       } catch {
         send({ type: "error" });
       }

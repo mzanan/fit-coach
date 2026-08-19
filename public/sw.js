@@ -13,6 +13,47 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+
+  let payload = { title: "Coach", body: "" };
+  try {
+    const parsed = event.data.json();
+    payload = { title: parsed.title ?? "Coach", body: parsed.body ?? "" };
+  } catch {
+    payload = { title: "Coach", body: event.data.text() };
+  }
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clients) => {
+        const focused = clients.some((client) => client.focused);
+        if (focused) return;
+        return self.registration.showNotification(payload.title, {
+          body: payload.body,
+          icon: "/icon.svg",
+        });
+      }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clients) => {
+        for (const client of clients) {
+          if (client.url.includes("/coach") && "focus" in client) {
+            return client.focus();
+          }
+        }
+        return self.clients.openWindow("/coach");
+      }),
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) {

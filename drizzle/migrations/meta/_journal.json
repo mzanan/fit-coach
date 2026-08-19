@@ -225,6 +225,13 @@
       "when": 1787114799992,
       "tag": "0031_drop_ai_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1787119087009,
+      "tag": "0032_cool_devos",
+      "breakpoints": true
     }
   ]
 }
