@@ -384,7 +384,7 @@ async function contextReply(
   signal?: AbortSignal,
   appGenerated = false,
 ): Promise<CoachResult> {
-  const ctx = await buildContext(userId, profile);
+  const ctx = await buildContext(userId, profile, false);
   const learned = await learnFromQuestion(ref, userId, question, appGenerated, signal);
   const { memory, parts } = await memoryFactsAndRules(
     userId,

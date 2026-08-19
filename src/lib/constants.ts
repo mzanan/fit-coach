@@ -277,3 +277,5 @@ export function measurementUnit(key: string): string {
 }
 
 export const MEASUREMENT_VALUE_MAX = 500;
+
+export const FETCH_TIMEOUT_MS = 10_000;

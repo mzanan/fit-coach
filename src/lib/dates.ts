@@ -46,6 +46,13 @@ export function daysSinceMonday(day: string): number {
   return (weekday + 6) % 7;
 }
 
+const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+export function shortDay(iso: string): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  return WEEKDAY[d.getUTCDay()] ?? "";
+}
+
 export function formatDayLabel(day: string, todayDay: string): string {
   if (day === todayDay) return "Today";
   if (day === shiftDay(todayDay, -1)) return "Yesterday";

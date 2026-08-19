@@ -2,13 +2,7 @@ import { ColumnChart } from "@/components/ui/ColumnChart";
 import { Stat } from "@/components/ui/Stat";
 import { Surface } from "@/components/ui/Surface";
 import type { DailyIntake, PeriodAdherence } from "@/lib/data/bodyScans";
-
-const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function shortDay(iso: string): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  return WEEKDAY[d.getUTCDay()] ?? "";
-}
+import { shortDay } from "@/lib/dates";
 
 export function IntakeSinceScan({
   adherence,

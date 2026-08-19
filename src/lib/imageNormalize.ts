@@ -60,10 +60,14 @@ export async function toModelDataUrl(file: File): Promise<string> {
     return `data:${file.type || "image/jpeg"};base64,${buffer.toString("base64")}`;
   }
 
-  console.log("[inbody] decoding heic", buffer.length, "bytes");
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[inbody] decoding heic", buffer.length, "bytes");
+  }
   const { default: decode } = await import("heic-decode");
   const { width, height, data } = await decode({ buffer });
-  console.log("[inbody] heic decoded", width, "x", height);
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[inbody] heic decoded", width, "x", height);
+  }
   const scale = Math.min(1, IMAGE_MAX_DIMENSION / Math.max(width, height));
   const dw = Math.max(1, Math.round(width * scale));
   const dh = Math.max(1, Math.round(height * scale));

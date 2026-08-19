@@ -1,6 +1,7 @@
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Surface } from "@/components/ui/Surface";
 import type { Profile } from "@/lib/db/schema";
+import { topNote } from "@/lib/macroNotes";
 import type { MacroLine } from "@/lib/macros";
 
 const META: Record<string, { label: string; bar: string }> = {
@@ -8,14 +9,6 @@ const META: Record<string, { label: string; bar: string }> = {
   carbs: { label: "Carbs", bar: "bg-macro-carbs" },
   fat: { label: "Fat", bar: "bg-macro-fat" },
 };
-
-function topNote(lines: MacroLine[]): string | null {
-  const protein = lines.find((l) => l.key === "protein");
-  if (protein?.state === "low") return "Short on protein";
-  const fat = lines.find((l) => l.key === "fat");
-  if (fat?.state === "low") return "Fat too low";
-  return null;
-}
 
 export function MacroOverview({
   summary,
