@@ -46,3 +46,10 @@ export function localBubble(role: "user" | "assistant", content: string): ChatBu
     status: "done",
   };
 }
+
+export function lastUserBubbleId(bubbles: ChatBubble[]): string | null {
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    if (bubbles[i].role === "user") return bubbles[i].id;
+  }
+  return null;
+}

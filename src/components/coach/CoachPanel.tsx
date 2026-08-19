@@ -1,7 +1,16 @@
 "use client";
 
-import { ChevronRight, Eraser, Sparkles, Square } from "lucide-react";
-import { useState } from "react";
+import {
+  Check,
+  ChevronRight,
+  Copy,
+  Eraser,
+  Pencil,
+  Sparkles,
+  Square,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/Button";
 import { Collapse } from "@/components/ui/Collapse";
@@ -56,15 +65,67 @@ function Thoughts({ text }: { text: string }) {
   );
 }
 
-function Turn({ bubble }: { bubble: ChatBubble }) {
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timeout = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timeout);
+  }, [copied]);
+
+  return (
+    <button
+      type="button"
+      aria-label="Copy message"
+      onClick={() => {
+        if (!navigator.clipboard) {
+          toast.error("Clipboard not available");
+          return;
+        }
+        navigator.clipboard
+          .writeText(text)
+          .then(() => setCopied(true))
+          .catch(() => toast.error("Could not copy"));
+      }}
+      className="flex items-center text-muted-foreground opacity-100 transition-colors duration-(--dur-fast) hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
+    >
+      {copied ? (
+        <Check className="size-3.5" strokeWidth={1.5} />
+      ) : (
+        <Copy className="size-3.5" strokeWidth={1.5} />
+      )}
+    </button>
+  );
+}
+
+function Turn({
+  bubble,
+  isLastUser,
+  onEdit,
+}: {
+  bubble: ChatBubble;
+  isLastUser: boolean;
+  onEdit: () => void;
+}) {
   if (bubble.role === "user") {
     return (
-      <div className="flex justify-end">
+      <div className="group flex flex-col items-end gap-1">
         <div className="max-w-[80%] rounded-control bg-well px-4 py-3">
           <p className="whitespace-pre-wrap text-body leading-relaxed">
             {bubble.content}
           </p>
         </div>
+        {isLastUser ? (
+          <button
+            type="button"
+            aria-label="Edit message"
+            onClick={onEdit}
+            className="flex items-center text-muted-foreground opacity-100 transition-colors duration-(--dur-fast) hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
+          >
+            <Pencil className="size-3.5" strokeWidth={1.5} />
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -73,7 +134,7 @@ function Turn({ bubble }: { bubble: ChatBubble }) {
   const isStreaming = bubble.status === "streaming";
 
   return (
-    <div className="space-y-2">
+    <div className="group space-y-2">
       {!bubble.generated && !stopped && !isStreaming ? (
         <Pill tone="muted">Rule-based</Pill>
       ) : null}
@@ -89,6 +150,7 @@ function Turn({ bubble }: { bubble: ChatBubble }) {
       </p>
       {bubble.daySummary ? <MacroTable summary={bubble.daySummary} /> : null}
       {bubble.learned?.length ? <LearnedChip facts={bubble.learned} /> : null}
+      {!isStreaming ? <CopyButton text={bubble.content} /> : null}
     </div>
   );
 }
@@ -159,7 +221,12 @@ export function CoachPanel({
       {chat.bubbles.length || chat.loading || chat.streaming || chat.pending ? (
         <div className="scroll-slim min-h-0 flex-1 space-y-8 overflow-y-auto pt-block pr-1">
           {chat.bubbles.map((bubble) => (
-            <Turn key={bubble.id} bubble={bubble} />
+            <Turn
+              key={bubble.id}
+              bubble={bubble}
+              isLastUser={!chat.loading && bubble.id === chat.lastUserId}
+              onEdit={chat.editLastUserMessage}
+            />
           ))}
           {chat.reasoning ? <Thoughts text={chat.reasoning} /> : null}
           {chat.streaming ? (
