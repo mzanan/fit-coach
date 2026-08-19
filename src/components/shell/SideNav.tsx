@@ -3,13 +3,21 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { ActiveModelLabel } from "@/components/shell/ActiveModelLabel";
 import { SIDE_NAV_ITEMS, isNavActive } from "@/components/shell/navItems";
 import { UserMenu } from "@/components/shell/UserMenu";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import type { AiCredential } from "@/lib/ai/aiCredentials";
 import type { SessionUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-export function SideNav({ user }: { user: SessionUser }) {
+export function SideNav({
+  user,
+  activeModel,
+}: {
+  user: SessionUser;
+  activeModel: AiCredential | null;
+}) {
   const pathname = usePathname();
   return (
     <aside className="sticky top-0 hidden h-dvh w-rail shrink-0 flex-col border-r border-border px-3 pt-gutter pb-4 md:flex">
@@ -17,6 +25,10 @@ export function SideNav({ user }: { user: SessionUser }) {
         <span className="text-title font-medium tracking-(--tracking-snug)">
           Fit Coach
         </span>
+        <ActiveModelLabel
+          credential={activeModel}
+          className="mt-0.5 block truncate"
+        />
       </div>
       <nav className="flex flex-col gap-0.5">
         {SIDE_NAV_ITEMS.map((tab) => {

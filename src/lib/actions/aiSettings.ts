@@ -83,10 +83,7 @@ async function keyedProviderError(
 }
 
 function revalidateAi(): void {
-  revalidatePath("/settings");
-  revalidatePath("/settings/ai");
-  revalidatePath("/settings/import");
-  revalidatePath("/coach");
+  revalidatePath("/coach", "layout");
 }
 
 const keyedProvider = z.enum(["groq", "google"]);

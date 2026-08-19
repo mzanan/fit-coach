@@ -1,6 +1,7 @@
 import { AppHeader } from "@/components/shell/AppHeader";
 import { NavBar } from "@/components/shell/NavBar";
 import { SideNav } from "@/components/shell/SideNav";
+import { getAiSettings } from "@/lib/ai/aiCredentials";
 import { requireUser } from "@/lib/session";
 
 export default async function AppLayout({
@@ -9,6 +10,7 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
+  const activeModel = await getAiSettings(user.id);
 
   return (
     <>
@@ -19,9 +21,9 @@ export default async function AppLayout({
         Skip to content
       </a>
       <div className="flex h-dvh w-full overflow-hidden">
-        <SideNav user={user} />
+        <SideNav user={user} activeModel={activeModel} />
         <div className="flex w-full min-w-0 flex-1 flex-col">
-          <AppHeader className="md:hidden" />
+          <AppHeader className="md:hidden" activeModel={activeModel} />
           <main
             id="main"
             className="scroll-slim min-h-0 flex-1 overflow-y-auto pt-2 pb-6 md:pt-gutter md:pb-gutter"
