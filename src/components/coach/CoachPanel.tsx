@@ -88,7 +88,7 @@ function CopyButton({ text }: { text: string }) {
           .then(() => setCopied(true))
           .catch(() => toast.error("Could not copy"));
       }}
-      className="flex items-center text-muted-foreground opacity-100 transition-colors duration-(--dur-fast) hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
+      className="-m-4 flex items-center p-4 text-muted-foreground opacity-100 transition-colors duration-(--dur-fast) hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
     >
       {copied ? (
         <Check className="size-3.5" strokeWidth={1.5} />
@@ -121,7 +121,7 @@ function Turn({
             type="button"
             aria-label="Edit message"
             onClick={onEdit}
-            className="flex items-center text-muted-foreground opacity-100 transition-colors duration-(--dur-fast) hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
+            className="-m-4 flex items-center p-4 text-muted-foreground opacity-100 transition-colors duration-(--dur-fast) hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
           >
             <Pencil className="size-3.5" strokeWidth={1.5} />
           </button>
