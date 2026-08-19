@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { coachReply } from "@/lib/ai/coach";
 import { coachNdjsonResponse } from "@/lib/coachStream";
 import { ensureProfile } from "@/lib/profile";
+import { notifyGeneratedReply } from "@/lib/push";
 import { requireApiUser } from "@/lib/session";
 
 export const maxDuration = 300;
@@ -26,7 +27,8 @@ export async function POST(request: Request) {
 
   const profile = await ensureProfile(user.id);
 
-  return coachNdjsonResponse((send) =>
-    coachReply(user.id, profile, question, send, summary),
+  return coachNdjsonResponse(
+    (send) => coachReply(user.id, profile, question, send, summary),
+    (result) => notifyGeneratedReply(user.id, result),
   );
 }

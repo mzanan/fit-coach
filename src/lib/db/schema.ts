@@ -183,6 +183,27 @@ export const coach_memory = sqliteTable("coach_memory", {
   updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 });
 
+export const push_subscriptions = sqliteTable(
+  "push_subscriptions",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("push_subscriptions_user_endpoint_idx").on(
+      t.user_id,
+      t.endpoint,
+    ),
+    index("push_subscriptions_endpoint_idx").on(t.endpoint),
+  ],
+);
+
 export const ai_credentials = sqliteTable(
   "ai_credentials",
   {
@@ -564,3 +585,4 @@ export type WhoopCycle = typeof whoop_cycles.$inferSelect;
 export type WhoopRecovery = typeof whoop_recovery.$inferSelect;
 export type WhoopSleep = typeof whoop_sleep.$inferSelect;
 export type WhoopWorkout = typeof whoop_workouts.$inferSelect;
+export type PushSubscription = typeof push_subscriptions.$inferSelect;

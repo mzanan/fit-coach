@@ -10,6 +10,7 @@ import {
   User,
 } from "lucide-react";
 
+import { PushSubscribeRow } from "@/components/settings/PushSubscribeRow";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { ListGroup, ListRow } from "@/components/ui/ListRow";
 import { Page } from "@/components/ui/Page";
@@ -101,6 +102,8 @@ export default async function SettingsPage() {
           />
           <ListRow href="/settings/backup" icon={Database} label="Backup" />
         </ListGroup>
+
+        <PushSubscribeRow />
 
         <ListGroup className="animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards delay-(--stagger-2) duration-(--dur-slow) ease-(--ease-out-soft)">
           <SignOutButton />
