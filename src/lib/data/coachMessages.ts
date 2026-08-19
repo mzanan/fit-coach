@@ -51,7 +51,6 @@ function parseDaySummary(raw: string | null): DaySummary | undefined {
   }
 }
 
-
 export async function getConversation(
   userId: string,
   limit = HISTORY_TURNS,
@@ -83,14 +82,22 @@ export async function getConversation(
 export async function getFullConversation(
   userId: string,
 ): Promise<CoachMessage[]> {
-  const rows = (
+  const window = (
     await db
       .select()
       .from(coach_messages)
       .where(eq(coach_messages.user_id, userId))
       .orderBy(desc(coach_messages.created_at), desc(coach_messages.id))
-      .limit(COACH_HISTORY_MESSAGE_LIMIT)
+      .limit(COACH_HISTORY_MESSAGE_LIMIT + 1)
   ).reverse();
+
+  const keepsLeadingQuestion =
+    window.length > COACH_HISTORY_MESSAGE_LIMIT &&
+    window[0].role === "user" &&
+    window[1]?.role === "assistant";
+  const rows = keepsLeadingQuestion
+    ? window
+    : window.slice(-COACH_HISTORY_MESSAGE_LIMIT);
 
   return rows.map((row) => ({
     id: row.id,

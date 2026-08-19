@@ -174,6 +174,11 @@ export function useCoachChat(
         body: JSON.stringify(body),
       });
       if (res.status === 413) {
+        const sent = (body as { question?: string }).question;
+        if (sent) {
+          setBubbles((current) => current.slice(0, -1));
+          setQuestion(sent);
+        }
         toast.error("That message is too long. Shorten it and ask again.");
         return;
       }
