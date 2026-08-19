@@ -1,9 +1,10 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
 
 import type { DaySummary } from "@/lib/ai/coach";
 import { parseLearned, serializeLearned } from "@/lib/coachLearned";
+import { COACH_HISTORY_MESSAGE_LIMIT } from "@/lib/constants";
 import { db, schema } from "@/lib/db";
 import { newId } from "@/lib/utils";
 
@@ -64,7 +65,7 @@ export async function getConversation(
         eq(coach_messages.generated, true),
       ),
     )
-    .orderBy(desc(coach_messages.created_at))
+    .orderBy(desc(coach_messages.created_at), desc(coach_messages.id))
     .limit(limit);
 
   return rows
@@ -82,11 +83,14 @@ export async function getConversation(
 export async function getFullConversation(
   userId: string,
 ): Promise<CoachMessage[]> {
-  const rows = await db
-    .select()
-    .from(coach_messages)
-    .where(eq(coach_messages.user_id, userId))
-    .orderBy(asc(coach_messages.created_at));
+  const rows = (
+    await db
+      .select()
+      .from(coach_messages)
+      .where(eq(coach_messages.user_id, userId))
+      .orderBy(desc(coach_messages.created_at), desc(coach_messages.id))
+      .limit(COACH_HISTORY_MESSAGE_LIMIT)
+  ).reverse();
 
   return rows.map((row) => ({
     id: row.id,

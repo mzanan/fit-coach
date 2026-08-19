@@ -279,3 +279,7 @@ export function measurementUnit(key: string): string {
 export const MEASUREMENT_VALUE_MAX = 500;
 
 export const FETCH_TIMEOUT_MS = 10_000;
+
+export const COACH_HISTORY_MESSAGE_LIMIT = 100;
+
+export const COACH_REQUEST_MAX_BYTES = 32_768;
