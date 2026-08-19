@@ -86,6 +86,8 @@ export type CoachResult =
       approvalId: string;
       previews: PendingPreview[];
       saved: boolean;
+      logged?: string;
+      daySummary?: DaySummary;
     };
 
 export interface DaySummary {

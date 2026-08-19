@@ -235,43 +235,9 @@ export async function resolvePendingWrite(
       };
     }
 
-    if (approvals.length) {
-      const chained = await chainApproval(
-        userId,
-        day,
-        question,
-        [...answered, ...messages],
-        approvals,
-        appGenerated,
-        learned,
-        pending.askedAt,
-        signal,
-      );
-      if (chained) {
-        if (chained.status === "pending" && chained.saved) {
-          await discardExchange(exchange);
-        }
-        return chained;
-      }
-    }
-
     const outcomeByCallId = new Map(
       writeOutputs.map((output) => [output.toolCallId, output]),
     );
-    if (!writeOutputs.some((output) => output.logged)) {
-      const failure = writeOutputs.find((output) => output.error)?.error;
-      await finishExchange(exchange, failure ?? NOT_WRITTEN, {
-        generated: false,
-        learned,
-      });
-      return {
-        status: "answered",
-        text: failure ?? NOT_WRITTEN,
-        generated: false,
-        learned,
-      };
-    }
-
     const logged = pending.previews
       .filter((preview) => outcomeByCallId.get(preview.toolCallId)?.logged)
       .map((preview) => {
@@ -294,6 +260,48 @@ export async function resolvePendingWrite(
         };
       });
     const wroteMeal = logged.some((preview) => preview.toolName === WRITE_TOOL);
+
+    if (approvals.length) {
+      const chained = await chainApproval(
+        userId,
+        day,
+        question,
+        [...answered, ...messages],
+        approvals,
+        appGenerated,
+        learned,
+        pending.askedAt,
+        signal,
+      );
+      if (chained) {
+        if (chained.status === "pending" && chained.saved) {
+          await discardExchange(exchange);
+        }
+        if (chained.status !== "pending" || !logged.length) return chained;
+        return {
+          ...chained,
+          logged: confirmationLines(logged),
+          daySummary: wroteMeal
+            ? await daySummaryAfterWrite(userId, profile, day)
+            : undefined,
+        };
+      }
+    }
+
+    if (!writeOutputs.some((output) => output.logged)) {
+      const failure = writeOutputs.find((output) => output.error)?.error;
+      await finishExchange(exchange, failure ?? NOT_WRITTEN, {
+        generated: false,
+        learned,
+      });
+      return {
+        status: "answered",
+        text: failure ?? NOT_WRITTEN,
+        generated: false,
+        learned,
+      };
+    }
+
     const answer = text || confirmationLines(logged);
     const daySummary = wroteMeal
       ? await daySummaryAfterWrite(userId, profile, day)
