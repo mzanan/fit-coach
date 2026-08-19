@@ -145,7 +145,7 @@ function TrendMarks({
   const nonNullValues = values.filter(
     (v): v is number => v != null,
   );
-  const domain = computeTrendDomain(nonNullValues);
+  const domain = computeTrendDomain(nonNullValues, refValue);
   const segments = buildTrendSegments(values, domain);
   const marks = segments.flat();
   const refY =

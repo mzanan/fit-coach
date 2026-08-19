@@ -3,12 +3,16 @@ export interface TrendDomain {
   max: number;
 }
 
-export function computeTrendDomain(values: number[]): TrendDomain {
-  if (values.length === 0) return { min: 0, max: 1 };
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+export function computeTrendDomain(
+  values: number[],
+  refValue?: number,
+): TrendDomain {
+  const bounds = refValue == null ? values : [...values, refValue];
+  if (bounds.length === 0) return { min: 0, max: 1 };
+  const min = Math.min(...bounds);
+  const max = Math.max(...bounds);
   if (min === max) return { min, max };
-  const pad = (max - min) * 0.12;
+  const pad = (max - min) * 0.06;
   return { min: min - pad, max: max + pad };
 }
 
