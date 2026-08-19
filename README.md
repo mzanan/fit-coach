@@ -23,6 +23,7 @@ npm install
 cp .env.example .env.local     # every variable is documented inline
 npm run db:migrate
 npm run dev                    # http://localhost:3040
+npm test                       # unit specs (Vitest)
 ```
 
 `.env.example` states what each variable is for and which are optional. The app runs without any AI key: the coach degrades to a deterministic rule-based summary and the markdown import is disabled with a CTA.
@@ -103,7 +104,7 @@ Every change that touches logic goes through two review agents in parallel befor
 
 ## Known gaps
 
-- **No automated test suite.** Verification today is typecheck, lint, build, the review gates, and manual runtime checks against the real database. The first unit targets would be the pure logic already isolated in `src/lib` (`dates`, `macros`, `search`).
+- **Unit coverage is thin.** Vitest covers the pure logic in `src/lib` (`dates`, `macros`, `inbodyChecks`, `exercises`, `search`); everything stateful still relies on typecheck, lint, build, the review gates, and manual runtime checks against the real database.
 - **Whoop integration is code-complete but never exercised at runtime**, blocked on hardware rather than credentials.
-- **Coach replies can truncate silently** on reasoning models, where hidden reasoning tokens consume the same output budget as the answer. Diagnosed, not yet fixed.
+- **Truncated replies auto-continue, with one residual gap.** A reply cut by the output budget is continued server-side; a continuation that restarts the answer instead of continuing is detected and discarded, and the non-streaming path regenerates once with a doubled budget. On the streaming path the already-emitted text cannot be reset, so a restarted continuation there leaves the reply cut at the truncation point.
 - Facts written before supersession shipped carry no `subject` and are never superseded; they age out only by the semantic dedup path.
