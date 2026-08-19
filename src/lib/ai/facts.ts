@@ -236,6 +236,11 @@ async function saveFact(
   return !merged;
 }
 
+function isAbort(err: unknown, signal?: AbortSignal): boolean {
+  if (signal?.aborted) return true;
+  return err instanceof Error && err.name === "AbortError";
+}
+
 function errorReason(err: unknown): string {
   if (err instanceof Error) return `${err.name}: ${err.message}`.slice(0, 200);
   return "unknown error";
@@ -264,6 +269,7 @@ export async function learnFromMessage(
       learnResultSchema,
     ));
   } catch (err) {
+    if (isAbort(err, signal)) return [];
     await logAiEvent(userId, "fact_extraction_failed", {
       provider: ref.provider,
       model: ref.model,
