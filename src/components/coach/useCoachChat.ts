@@ -11,6 +11,7 @@ import type { DaySummary } from "@/lib/ai/coach";
 import type { ReasoningEffort } from "@/lib/ai/options";
 import {
   isStaleStream,
+  lastUserBubbleId,
   localBubble,
   toBubbles,
   type ChatBubble,
@@ -340,6 +341,12 @@ export function useCoachChat(
     void clearCoachChat().catch(() => toast.error("Could not clear the chat"));
   }
 
+  const editLastUserMessage = useCallback(() => {
+    const id = lastUserBubbleId(bubbles);
+    const target = bubbles.find((bubble) => bubble.id === id);
+    if (target) setQuestion(target.content);
+  }, [bubbles]);
+
   return {
     bubbles,
     question,
@@ -359,5 +366,7 @@ export function useCoachChat(
     effort,
     setEffort,
     clear,
+    lastUserId: lastUserBubbleId(bubbles),
+    editLastUserMessage,
   };
 }
