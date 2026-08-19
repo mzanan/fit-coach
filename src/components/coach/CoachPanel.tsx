@@ -88,7 +88,7 @@ function CopyButton({ text }: { text: string }) {
           .then(() => setCopied(true))
           .catch(() => toast.error("Could not copy"));
       }}
-      className="-m-4 flex items-center p-4 text-muted-foreground opacity-100 transition-colors duration-(--dur-fast) hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
+      className="flex size-11 items-center justify-center text-muted-foreground opacity-100 transition-colors duration-(--dur-fast) hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
     >
       {copied ? (
         <Check className="size-3.5" strokeWidth={1.5} />
@@ -110,7 +110,7 @@ function Turn({
 }) {
   if (bubble.role === "user") {
     return (
-      <div className="group flex flex-col items-end gap-1">
+      <div className="group flex flex-col items-end">
         <div className="max-w-[80%] rounded-control bg-well px-4 py-3">
           <p className="whitespace-pre-wrap text-body leading-relaxed">
             {bubble.content}
@@ -121,7 +121,7 @@ function Turn({
             type="button"
             aria-label="Edit message"
             onClick={onEdit}
-            className="-m-4 flex items-center p-4 text-muted-foreground opacity-100 transition-colors duration-(--dur-fast) hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
+            className="flex size-11 items-center justify-center text-muted-foreground opacity-100 transition-colors duration-(--dur-fast) hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
           >
             <Pencil className="size-3.5" strokeWidth={1.5} />
           </button>
