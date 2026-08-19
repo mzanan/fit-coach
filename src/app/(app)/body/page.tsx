@@ -5,19 +5,35 @@ import { formatInTimeZone } from "date-fns-tz";
 import { CompositionCard } from "@/components/body/CompositionCard";
 import { InbodyGuidance } from "@/components/body/InbodyGuidance";
 import { IntakeSinceScan } from "@/components/body/IntakeSinceScan";
+import { Measurements } from "@/components/body/Measurements/Measurements";
 import { RecompHero } from "@/components/body/RecompHero";
 import { Button } from "@/components/ui/Button";
 import { Page } from "@/components/ui/Page";
 import { Stat } from "@/components/ui/Stat";
 import { Surface } from "@/components/ui/Surface";
+import { listMeasurements } from "@/lib/data/bodyMeasurements";
 import { getBodyScanOverview } from "@/lib/data/bodyScans";
+import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import { ensureProfile } from "@/lib/profile";
+import { getUpcomingReminders } from "@/lib/reminders";
 import { requireUser } from "@/lib/session";
+
+const MEASUREMENTS_HISTORY_LIMIT = 20;
 
 export default async function BodyPage() {
   const user = await requireUser();
   const profile = await ensureProfile(user.id);
-  const overview = await getBodyScanOverview(user.id, profile);
+  const cfg = dayConfig(profile);
+  const today = todayLogicalDay(cfg);
+  const [overview, waistEntries, weightEntries, reminders] = await Promise.all([
+    getBodyScanOverview(user.id, profile),
+    listMeasurements(user.id, MEASUREMENTS_HISTORY_LIMIT, "waist"),
+    listMeasurements(user.id, MEASUREMENTS_HISTORY_LIMIT, "weight"),
+    getUpcomingReminders(user.id, cfg, today),
+  ]);
+  const measurements = [...waistEntries, ...weightEntries].sort((a, b) =>
+    b.logical_day.localeCompare(a.logical_day),
+  );
   const { latest, delta, adherence, daily } = overview;
 
   if (!latest) {
@@ -45,6 +61,8 @@ export default async function BodyPage() {
               title="Last 14 days"
             />
           ) : null}
+
+          <Measurements entries={measurements} reminders={reminders} today={today} />
         </div>
       </Page>
     );
@@ -132,6 +150,8 @@ export default async function BodyPage() {
             title={delta ? "Between scans" : "Since the scan"}
           />
         ) : null}
+
+        <Measurements entries={measurements} reminders={reminders} today={today} />
       </div>
     </Page>
   );
