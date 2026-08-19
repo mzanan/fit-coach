@@ -102,8 +102,23 @@ export async function chat(
     signal,
     totals,
   );
+  if (!continued.restarted) {
+    onUsage?.(totals);
+    return continued.text;
+  }
+  const retry = await generateText({
+    model,
+    instructions,
+    messages: turns,
+    maxOutputTokens: maxOutputTokens * 2,
+    providerOptions,
+    abortSignal: signal,
+  });
+  addUsage(totals, retry.usage);
   onUsage?.(totals);
-  return continued;
+  return retry.finishReason !== "length" && retry.text.trim()
+    ? retry.text.trim()
+    : continued.text;
 }
 
 const GOOGLE_THINKING: Record<ReasoningEffort, number> = {
@@ -166,6 +181,20 @@ function stripOverlap(
   return { text: next, stripped: false };
 }
 
+const RESTART_PROBE = 24;
+
+function normalizedHead(value: string, length: number): string {
+  return value.toLowerCase().replace(/\s+/g, " ").trim().slice(0, length);
+}
+
+function isRestartedContinuation(prior: string, next: string): boolean {
+  const head = normalizedHead(prior, RESTART_PROBE);
+  return (
+    head.length === RESTART_PROBE &&
+    normalizedHead(next, RESTART_PROBE) === head
+  );
+}
+
 function continuationDelta(prior: string, next: string): string {
   const { text, stripped } = stripOverlap(prior.slice(-OVERLAP_WINDOW), next);
   if (!text) return "";
@@ -184,7 +213,7 @@ async function continueGeneratedText(
   providerOptions: SharedV4ProviderOptions | undefined,
   signal: AbortSignal | undefined,
   totals?: UsageTotals,
-): Promise<string> {
+): Promise<{ text: string; restarted: boolean }> {
   let finishReason: FinishReason = "length";
   for (let i = 0; i < TEXT_CONTINUE_LIMIT && finishReason === "length"; i++) {
     const result = await generateText({
@@ -200,17 +229,20 @@ async function continueGeneratedText(
       abortSignal: signal,
     });
     if (totals) addUsage(totals, result.usage);
+    if (isRestartedContinuation(text, result.text)) {
+      return { text: text.trim(), restarted: true };
+    }
     text += continuationDelta(text, result.text);
     finishReason = result.finishReason;
   }
-  return text.trim();
+  return { text: text.trim(), restarted: false };
 }
 
 async function continueStreamedText(
   model: LanguageModel,
   instructions: string,
   priorMessages: ModelMessage[],
-  precedingTail: string,
+  priorText: string,
   maxOutputTokens: number,
   providerOptions: SharedV4ProviderOptions | undefined,
   signal: AbortSignal | undefined,
@@ -251,7 +283,8 @@ async function continueStreamedText(
         aborted = true;
       }
     }
-    const delta = continuationDelta(precedingTail + text, stepText);
+    if (isRestartedContinuation(priorText, stepText)) break;
+    const delta = continuationDelta(priorText + text, stepText);
     if (delta) {
       text += delta;
       onEvent({ type: "delta", text: delta });
@@ -458,7 +491,7 @@ export async function chatToolsStream(
       model,
       options.instructions,
       [...options.messages, ...messages],
-      text.slice(-OVERLAP_WINDOW),
+      text,
       maxOutputTokens,
       providerOptions,
       options.signal,
@@ -527,7 +560,7 @@ export async function chatToolsStream(
       model,
       closingInstructions,
       [...closingMessages, ...closingResponseMessages],
-      text.slice(-OVERLAP_WINDOW),
+      text,
       maxOutputTokens,
       providerOptions,
       options.signal,
