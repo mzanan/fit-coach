@@ -218,6 +218,13 @@
       "when": 1786520889750,
       "tag": "0030_coach_message_learned",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1787114799992,
+      "tag": "0031_drop_ai_settings",
+      "breakpoints": true
     }
   ]
 }
