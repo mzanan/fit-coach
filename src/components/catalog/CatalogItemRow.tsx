@@ -6,6 +6,7 @@ import { useState } from "react";
 import { CatalogComponentsEditor } from "@/components/catalog/CatalogComponentsEditor";
 import { CatalogForm } from "@/components/catalog/CatalogForm";
 import { Button } from "@/components/ui/Button";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ResponsiveDialog } from "@/components/ui/ResponsiveDialog";
 import { MacroChips } from "@/components/ui/MacroChips";
@@ -14,13 +15,36 @@ import { archiveCatalogItem, updateCatalogItem } from "@/lib/actions/catalog";
 import type { CatalogItemFull } from "@/lib/data/catalog";
 import { useAction } from "@/hooks/useAction";
 
-export function CatalogItemRow({ item }: { item: CatalogItemFull }) {
+export function CatalogItemRow({
+  item,
+  selectMode = false,
+  selected = false,
+  onToggleSelect,
+}: {
+  item: CatalogItemFull;
+  selectMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
+}) {
   const [editing, setEditing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { pending, run } = useAction();
 
   return (
-    <div className="flex items-start gap-3 px-card py-3.5">
+    <div
+      className="flex items-start gap-3 px-card py-3.5"
+      onClick={selectMode ? () => onToggleSelect?.(item.id) : undefined}
+      role={selectMode ? "button" : undefined}
+    >
+      {selectMode ? (
+        <Checkbox
+          checked={selected}
+          onChange={() => onToggleSelect?.(item.id)}
+          aria-label={`Select ${item.name}`}
+          className="mt-1 shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : null}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-body font-medium">
@@ -56,7 +80,11 @@ export function CatalogItemRow({ item }: { item: CatalogItemFull }) {
         ) : null}
       </div>
 
-      <div className="flex shrink-0 items-center gap-1">
+      <div
+        className={
+          selectMode ? "hidden" : "flex shrink-0 items-center gap-1"
+        }
+      >
         <Button
           variant="ghost"
           size="icon"
