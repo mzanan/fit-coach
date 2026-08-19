@@ -47,6 +47,7 @@ export function MeasurementsChart({
           <ColumnChart
             points={points}
             unit={active.unit}
+            variant="trend"
             ariaLabel={`${active.label} trend over the last ${points.length} entries`}
           />
         )}
