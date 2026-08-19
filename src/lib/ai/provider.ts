@@ -102,7 +102,7 @@ export async function chat(
     signal,
     totals,
   );
-  if (!continued.restarted) {
+  if (!continued.restarted || signal?.aborted) {
     onUsage?.(totals);
     return continued.text;
   }
