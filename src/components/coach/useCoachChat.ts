@@ -47,7 +47,13 @@ type CoachStreamEvent =
       stopped?: boolean;
       learned?: string[];
     }
-  | { type: "approval"; approvalId: string; previews: PendingPreview[] }
+  | {
+      type: "approval";
+      approvalId: string;
+      previews: PendingPreview[];
+      logged?: string;
+      daySummary?: DaySummary;
+    }
   | { type: "error" };
 
 const REATTACH_POLL_MS = 2000;
@@ -225,6 +231,13 @@ export function useCoachChat(
             previews: event.previews,
             question: null,
           };
+          if (event.logged) {
+            const chained = localBubble("assistant", event.logged);
+            setBubbles((current) => [
+              ...current,
+              { ...chained, generated: false, daySummary: event.daySummary },
+            ]);
+          }
         } else {
           throw new Error("Coach failed");
         }

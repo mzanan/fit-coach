@@ -14,7 +14,13 @@ export type CoachStreamEvent =
       stopped?: boolean;
       learned?: string[];
     }
-  | { type: "approval"; approvalId: string; previews: PendingPreview[] }
+  | {
+      type: "approval";
+      approvalId: string;
+      previews: PendingPreview[];
+      logged?: string;
+      daySummary?: DaySummary;
+    }
   | { type: "error" };
 
 export function coachNdjsonResponse(
@@ -43,6 +49,8 @@ export function coachNdjsonResponse(
                 type: "approval",
                 approvalId: result.approvalId,
                 previews: result.previews,
+                logged: result.logged,
+                daySummary: result.daySummary,
               }
             : {
                 type: "done",
