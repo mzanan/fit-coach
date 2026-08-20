@@ -12,6 +12,7 @@ const KIND_LABEL: Record<AiEvent["kind"], string> = {
   rate_limited: "Provider rate limit",
   cron_maintenance: "Nightly maintenance",
   exchange: "Model call",
+  fact_extraction_failed: "Fact extraction failed",
 };
 
 function labelFor(event: AiEvent): string {
@@ -28,6 +29,7 @@ const KIND_TONE: Record<AiEvent["kind"], "muted" | "brand"> = {
   rate_limited: "muted",
   cron_maintenance: "brand",
   exchange: "muted",
+  fact_extraction_failed: "muted",
 };
 
 export function AiEventsList({

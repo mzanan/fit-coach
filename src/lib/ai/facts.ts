@@ -13,6 +13,7 @@ import {
 } from "@/lib/ai/embeddings";
 import { db, schema } from "@/lib/db";
 import { COACH_FACT_CATEGORY_KEYS, type CoachFactCategory } from "@/lib/constants";
+import { logAiEvent } from "@/lib/data/aiEvents";
 import { detectChatLanguage } from "@/lib/profile";
 import { newId } from "@/lib/utils";
 
@@ -235,6 +236,16 @@ async function saveFact(
   return !merged;
 }
 
+function isAbort(err: unknown, signal?: AbortSignal): boolean {
+  if (signal?.aborted) return true;
+  return err instanceof Error && err.name === "AbortError";
+}
+
+function errorReason(err: unknown): string {
+  if (err instanceof Error) return `${err.name}: ${err.message}`.slice(0, 200);
+  return "unknown error";
+}
+
 export async function learnFromMessage(
   ref: ModelRef,
   userId: string,
@@ -243,8 +254,11 @@ export async function learnFromMessage(
   signal?: AbortSignal,
 ): Promise<string[]> {
   if (!hasEmbeddings() || !message.trim() || signal?.aborted) return [];
+
+  let facts: z.infer<typeof learnResultSchema>["facts"];
+  let language: string | null | undefined;
   try {
-    const { facts, language } = await chatJson(
+    ({ facts, language } = await chatJson(
       ref,
       [
         { role: "system", content: extractSystem(await knownSubjects(userId)) },
@@ -253,12 +267,31 @@ export async function learnFromMessage(
       800,
       signal,
       learnResultSchema,
-    );
+    ));
+  } catch (err) {
+    if (isAbort(err, signal)) return [];
+    await logAiEvent(userId, "fact_extraction_failed", {
+      provider: ref.provider,
+      model: ref.model,
+      detail: errorReason(err),
+    });
+    return [];
+  }
 
-    await detectChatLanguage(userId, language);
+  await detectChatLanguage(userId, language);
 
-    if (!facts?.length) return [];
+  if (facts == null) {
+    await logAiEvent(userId, "fact_extraction_failed", {
+      provider: ref.provider,
+      model: ref.model,
+      detail: "invalid shape: missing facts array",
+    });
+    return [];
+  }
 
+  if (!facts.length) return [];
+
+  try {
     const valid = facts
       .slice(0, MAX_FACTS_PER_EXCHANGE)
       .map((fact) => ({
