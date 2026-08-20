@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { coachReply } from "@/lib/ai/coach";
 import { coachNdjsonResponse } from "@/lib/coachStream";
+import { COACH_REQUEST_MAX_BYTES } from "@/lib/constants";
 import { ensureProfile } from "@/lib/profile";
 import { notifyGeneratedReply } from "@/lib/push";
 import { requireApiUser } from "@/lib/session";
@@ -12,10 +13,15 @@ export async function POST(request: Request) {
   const user = await requireApiUser();
   if (user instanceof NextResponse) return user;
 
+  const raw = await request.text();
+  if (new Blob([raw]).size > COACH_REQUEST_MAX_BYTES) {
+    return NextResponse.json({ error: "Question too long" }, { status: 413 });
+  }
+
   let question: string | undefined;
   let summary = false;
   try {
-    const body = (await request.json()) as {
+    const body = JSON.parse(raw) as {
       question?: string;
       summary?: boolean;
     };

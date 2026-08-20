@@ -173,6 +173,15 @@ export function useCoachChat(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (res.status === 413) {
+        const sent = (body as { question?: string }).question;
+        if (sent) {
+          setBubbles((current) => current.slice(0, -1));
+          setQuestion((current) => current || sent);
+        }
+        toast.error("That message is too long. Shorten it and ask again.");
+        return;
+      }
       if (!res.ok || !res.body) throw new Error("Coach unavailable");
 
       let answer = "";

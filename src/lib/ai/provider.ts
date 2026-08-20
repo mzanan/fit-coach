@@ -598,52 +598,6 @@ export function approvalResponseMessage(
   } as unknown as ModelMessage;
 }
 
-export async function chatTools(
-  ref: ModelRef,
-  options: {
-    instructions: string;
-    messages: { role: "user" | "assistant"; content: string }[];
-    tools: ToolSet;
-    maxSteps?: number;
-    maxTokens?: number;
-  },
-): Promise<{ text: string; toolLog: string[] }> {
-  const model = resolveModel(ref);
-  const maxTokens = options.maxTokens ?? 3000;
-  const providerOptions = reasoningOptions(ref);
-  const result = await generateText({
-    model,
-    instructions: options.instructions,
-    messages: options.messages,
-    tools: options.tools,
-    stopWhen: isStepCount(options.maxSteps ?? COACH_MAX_TOOL_STEPS),
-    maxOutputTokens: maxTokens + googleThinkingBudget(ref),
-    providerOptions,
-  });
-  const toolLog = result.steps.flatMap((step) =>
-    step.toolResults.map(
-      (tool) =>
-        `${tool.toolName}(${JSON.stringify(tool.input)}) -> ${JSON.stringify(tool.output).slice(0, 400)}`,
-    ),
-  );
-
-  let text = result.text.trim();
-  if (!text) {
-    const gathered = toolLog.length
-      ? `Data already read from the app:\n${toolLog.join("\n")}`
-      : "No data could be read from the app.";
-    const closing = await generateText({
-      model,
-      instructions: `${options.instructions}\n\nAnswer the user now from the data below. Do not ask for more data.`,
-      messages: [...options.messages, { role: "user", content: gathered }],
-      maxOutputTokens: maxTokens + googleThinkingBudget(ref),
-      providerOptions,
-    });
-    text = closing.text.trim();
-  }
-  return { text, toolLog };
-}
-
 function unwrapJson({ text }: { text: string }): string | null {
   const stripped = text
     .trim()
