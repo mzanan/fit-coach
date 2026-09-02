@@ -50,7 +50,8 @@ export function daysSinceMonday(day: string): number {
   return (weekday + 6) % 7;
 }
 
-const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+export const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+const WEEKDAY = WEEKDAY_LABELS;
 
 export function shortDay(iso: string): string {
   const d = new Date(`${iso}T12:00:00Z`);

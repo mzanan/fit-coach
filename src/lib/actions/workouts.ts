@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { db, schema } from "@/lib/db";
 import { resolveExerciseCatalog } from "@/lib/data/exerciseCatalog";
+import { applyProgression } from "@/lib/data/routine";
 import { getOrCreateWorkout } from "@/lib/data/workouts";
 import { requireUser } from "@/lib/session";
 import { dayString } from "@/lib/validation";
@@ -77,7 +78,7 @@ export async function addSet(input: unknown) {
   const { exerciseId, reps, weight, per_side } = setSchema.parse(input);
 
   const ex = await db
-    .select({ id: workout_exercises.id })
+    .select({ id: workout_exercises.id, workoutId: workout_exercises.workout_id })
     .from(workout_exercises)
     .where(
       and(
@@ -102,6 +103,16 @@ export async function addSet(input: unknown) {
     weight,
     per_side,
   });
+
+  const [workoutRow] = await db
+    .select({ logical_day: workouts.logical_day, label: workouts.label })
+    .from(workouts)
+    .where(and(eq(workouts.id, ex[0].workoutId), eq(workouts.user_id, user.id)))
+    .limit(1);
+  if (workoutRow?.label) {
+    await applyProgression(user.id, workoutRow.logical_day, workoutRow.label);
+  }
+
   revalidatePath("/workout");
 }
 

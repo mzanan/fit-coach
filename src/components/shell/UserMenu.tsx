@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Settings, UtensilsCrossed } from "lucide-react";
+import { Dumbbell, LogOut, Settings, UtensilsCrossed } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -109,6 +109,12 @@ export function UserMenu({
                 <Link href="/catalog" className={ITEM}>
                   <UtensilsCrossed className="size-[18px]" strokeWidth={1.5} />
                   Catalog
+                </Link>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item asChild>
+                <Link href="/routine" className={ITEM}>
+                  <Dumbbell className="size-[18px]" strokeWidth={1.5} />
+                  Routine
                 </Link>
               </DropdownMenu.Item>
               <DropdownMenu.Item asChild>

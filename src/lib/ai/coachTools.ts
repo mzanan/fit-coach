@@ -49,6 +49,7 @@ import type {
 } from "@/lib/data/coachPendingWrite";
 import { dayConfig, shiftDay } from "@/lib/dates";
 import { getDayData } from "@/lib/data/today";
+import { applyProgression, getTodaysRoutine } from "@/lib/data/routine";
 import {
   getExerciseSessions,
   getRecentWorkouts,
@@ -596,6 +597,12 @@ export function buildCoachTools(
         },
       ),
     }),
+    get_todays_routine: tool({
+      description:
+        "Today's prescribed routine from the user's saved split: exercises, target sets x reps, prescribed weight and whether it was raised after 2 clean sessions. Read-only.",
+      inputSchema: z.object({}),
+      execute: safe("get_todays_routine", () => getTodaysRoutine(userId, today)),
+    }),
     get_progress_overview: tool({
       description:
         "Get the user's full progress arc since they started using the app: every InBody scan on record, not just the latest, the day they first logged a meal or workout, how many distinct days they have logged meals since, and their average fatigue/energy score over the last two weeks. Use this for a weekly or overall progress summary, comparing against where the user started, never for a single day's question.",
@@ -811,6 +818,7 @@ export function buildCoachTools(
             input as WorkoutSessionInput,
           );
           await insertWorkoutSession(userId, today, resolved);
+          await applyProgression(userId, today, resolved.label);
           revalidatePath("/workout");
           return {
             logged: true,
