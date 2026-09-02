@@ -38,7 +38,7 @@ export default async function TodayPage({
   ]);
 
   const weeklyStepsAvg = weeklyStepsAverage(weekDays);
-  const deviations = dayDeviations(dayData.summary);
+  const deviations = dayDeviations(dayData.summary, dayData.meals.length);
 
   return (
     <Page>

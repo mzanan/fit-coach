@@ -44,7 +44,7 @@ describe("dayDeviations", () => {
     const summary = {
       lines: [line("protein", "ok"), line("fat", "ok"), line("carbs", "ok"), line("calories", "ok")],
     };
-    expect(dayDeviations(summary)).toEqual([]);
+    expect(dayDeviations(summary, 3)).toEqual([]);
   });
 
   it("returns only the lines outside their band", () => {
@@ -52,13 +52,20 @@ describe("dayDeviations", () => {
     const ok = line("fat", "ok");
     const over = line("calories", "over");
     const summary = { lines: [low, ok, over] };
-    expect(dayDeviations(summary)).toEqual([low, over]);
+    expect(dayDeviations(summary, 3)).toEqual([low, over]);
   });
 
   it("includes under and high states as deviations", () => {
     const under = line("carbs", "under");
     const high = line("fat", "high");
     const summary = { lines: [under, high] };
-    expect(dayDeviations(summary)).toEqual([under, high]);
+    expect(dayDeviations(summary, 3)).toEqual([under, high]);
+  });
+
+  it("returns an empty array when no meals are logged yet, even if lines look off-band", () => {
+    const low = line("protein", "low");
+    const over = line("calories", "over");
+    const summary = { lines: [low, over] };
+    expect(dayDeviations(summary, 0)).toEqual([]);
   });
 });

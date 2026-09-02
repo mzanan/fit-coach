@@ -9,6 +9,10 @@ export function weeklyStepsAverage(days: Day[]): number | null {
   return round(total / logged.length);
 }
 
-export function dayDeviations(summary: { lines: MacroLine[] }): MacroLine[] {
+export function dayDeviations(
+  summary: { lines: MacroLine[] },
+  mealsLogged: number,
+): MacroLine[] {
+  if (mealsLogged === 0) return [];
   return summary.lines.filter((line) => line.state !== "ok");
 }

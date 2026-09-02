@@ -576,7 +576,7 @@ export function buildCoachTools(
       inputSchema: z.object({}),
       execute: safe("get_day_status", async () => {
         const day = await getDayData(userId, profile, today);
-        const deviations = dayDeviations(day.summary);
+        const deviations = dayDeviations(day.summary, day.meals.length);
         const weeklyStepsAvg = await weeklyStepsAvgThrough(userId, today);
         return {
           closed: day.dayRow?.closed_at != null,
@@ -962,7 +962,7 @@ export function buildCoachTools(
                 carbs_target: day.isGymDay ? profile.carbs_gym : profile.carbs_rest,
                 kcal_target: day.summary.kcalTarget,
               },
-              deviations: dayDeviations(day.summary).map((line) => ({
+              deviations: dayDeviations(day.summary, day.meals.length).map((line) => ({
                 key: line.key,
                 state: line.state,
                 current: line.current,
