@@ -51,16 +51,13 @@ export function mealFitBands(profile: Profile, isGymDay: boolean): MealFitBands 
 }
 
 export function fits(item: Macros, remaining: Remaining, bands: MealFitBands): boolean {
-  const fatAfter = bands.fat_max - remaining.fat_g + item.fat_g;
-  if (fatAfter < bands.fat_floor) return false;
-  if (fatAfter > bands.fat_max * (1 + MACRO_TOLERANCE_PCT)) return false;
+  const fatTolerance = bands.fat_max * MACRO_TOLERANCE_PCT;
+  if (item.fat_g > remaining.fat_g + fatTolerance) return false;
 
-  const carbsAfter = bands.carbs_target - remaining.carbs_g + item.carbs_g;
   const carbsTolerance = bands.carbs_target * MACRO_TOLERANCE_PCT;
-  if (Math.abs(carbsAfter - bands.carbs_target) > carbsTolerance) return false;
+  if (item.carbs_g > remaining.carbs_g + carbsTolerance) return false;
 
-  const kcalAfter = bands.kcal_target - remaining.kcal + kcalOf(item);
-  if (Math.abs(kcalAfter - bands.kcal_target) > KCAL_TOLERANCE) return false;
+  if (kcalOf(item) > remaining.kcal + KCAL_TOLERANCE) return false;
 
   return true;
 }

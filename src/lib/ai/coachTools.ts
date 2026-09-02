@@ -557,6 +557,7 @@ export function buildCoachTools(
           company?: CompanyOptionKey;
           delivery_only?: boolean;
         }) => {
+          await ensureDay(userId, profile, today);
           const day = await getDayData(userId, profile, today);
           const targets = mealFitTargets(profile, day.isGymDay);
           const bands = mealFitBands(profile, day.isGymDay);
