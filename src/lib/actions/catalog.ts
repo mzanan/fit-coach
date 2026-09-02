@@ -6,7 +6,12 @@ import { z } from "zod";
 
 import { db, schema } from "@/lib/db";
 import { requireUser } from "@/lib/session";
+import { serializeClosedWeekdays } from "@/lib/mealFit";
 import {
+  autoCategory,
+  autoDayType,
+  closedWeekdays,
+  companyOption,
   componentGroup,
   fatQuality,
   macroFields,
@@ -22,13 +27,35 @@ function revalidateCatalog() {
   revalidatePath("/");
 }
 
-const createSchema = z.object({
+const catalogFields = {
   name: z.string().min(1),
   place: z.string().optional(),
   notes: z.string().optional(),
   fat_quality: fatQuality.optional(),
+  delivery: z.boolean().default(false),
+  dinner_only: z.boolean().default(false),
+  company: companyOption.optional(),
+  closed_weekdays: closedWeekdays.optional(),
+  auto_day_type: autoDayType.optional(),
+  auto_category: autoCategory.optional(),
   ...optionalMacroFields,
-});
+};
+
+function requireCategoryWithAutoType(data: {
+  auto_day_type?: string | null;
+  auto_category?: string | null;
+}) {
+  return !data.auto_day_type || Boolean(data.auto_category);
+}
+
+const AUTO_CATEGORY_ISSUE = {
+  message: "auto_category is required when auto_day_type is set",
+  path: ["auto_category"],
+};
+
+const createSchema = z
+  .object(catalogFields)
+  .refine(requireCategoryWithAutoType, AUTO_CATEGORY_ISSUE);
 
 export async function createCatalogItem(input: unknown) {
   const user = await requireUser();
@@ -46,13 +73,21 @@ export async function createCatalogItem(input: unknown) {
     carbs_g: data.carbs_g ?? null,
     fat_quality: data.fat_quality ?? null,
     is_composable: false,
+    delivery: data.delivery,
+    dinner_only: data.dinner_only,
+    company: data.company ?? null,
+    closed_weekdays: serializeClosedWeekdays(data.closed_weekdays),
+    auto_day_type: data.auto_day_type ?? null,
+    auto_category: data.auto_category ?? null,
     created_at: now,
     updated_at: now,
   });
   revalidateCatalog();
 }
 
-const updateSchema = createSchema.extend({ id: z.string().min(1) });
+const updateSchema = z
+  .object({ ...catalogFields, id: z.string().min(1) })
+  .refine(requireCategoryWithAutoType, AUTO_CATEGORY_ISSUE);
 
 export async function updateCatalogItem(input: unknown) {
   const user = await requireUser();
@@ -68,6 +103,12 @@ export async function updateCatalogItem(input: unknown) {
       fat_g: data.fat_g ?? null,
       carbs_g: data.carbs_g ?? null,
       fat_quality: data.fat_quality ?? null,
+      delivery: data.delivery,
+      dinner_only: data.dinner_only,
+      company: data.company ?? null,
+      closed_weekdays: serializeClosedWeekdays(data.closed_weekdays),
+      auto_day_type: data.auto_day_type ?? null,
+      auto_category: data.auto_category ?? null,
       updated_at: new Date(),
     })
     .where(
