@@ -19,6 +19,7 @@ export function TargetsForm({ profile }: { profile: Profile }) {
     carbs_gym: String(profile.carbs_gym),
     carbs_rest: String(profile.carbs_rest),
     calories_target: String(profile.calories_target),
+    calories_rest: String(profile.calories_rest),
   });
   const set = (k: keyof typeof v) => (val: string) =>
     setV((prev) => ({ ...prev, [k]: val }));
@@ -35,6 +36,7 @@ export function TargetsForm({ profile }: { profile: Profile }) {
           carbs_gym: Number(v.carbs_gym),
           carbs_rest: Number(v.carbs_rest),
           calories_target: Number(v.calories_target),
+          calories_rest: Number(v.calories_rest),
         }),
       { success: "Targets saved" },
     );
@@ -43,12 +45,23 @@ export function TargetsForm({ profile }: { profile: Profile }) {
   return (
     <Surface className="p-card">
       <form onSubmit={submit} className="space-y-card">
-        <NumberField
-          id="calories_target"
-          label="Calories"
-          value={v.calories_target}
-          onChange={set("calories_target")}
-        />
+        <div>
+          <p className="eyebrow mb-1.5">Calories</p>
+          <div className="grid grid-cols-2 gap-2">
+            <NumberField
+              id="calories_target"
+              label="Gym day"
+              value={v.calories_target}
+              onChange={set("calories_target")}
+            />
+            <NumberField
+              id="calories_rest"
+              label="Rest day"
+              value={v.calories_rest}
+              onChange={set("calories_rest")}
+            />
+          </div>
+        </div>
         <NumberField
           id="protein_target"
           label="Protein (g)"

@@ -36,13 +36,17 @@ export function shiftDay(day: string, deltaDays: number): string {
   return format(addDays(parseISO(day), deltaDays), "yyyy-MM-dd");
 }
 
+export function weekdayOf(day: string): number {
+  return parseISO(day).getDay();
+}
+
 export function isGymWeekday(day: string): boolean {
-  const weekday = parseISO(day).getDay();
+  const weekday = weekdayOf(day);
   return weekday === 1 || weekday === 2 || weekday === 4 || weekday === 5;
 }
 
 export function daysSinceMonday(day: string): number {
-  const weekday = parseISO(day).getDay();
+  const weekday = weekdayOf(day);
   return (weekday + 6) % 7;
 }
 

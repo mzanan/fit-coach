@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { carbTarget, kcalOf, macroSummary, sumMacros } from "@/lib/macros";
+import { caloriesTarget, carbTarget, kcalOf, macroSummary, sumMacros } from "@/lib/macros";
 import type { Profile } from "@/lib/db/schema";
 
 describe("kcalOf", () => {
@@ -36,6 +36,18 @@ describe("carbTarget", () => {
   });
 });
 
+describe("caloriesTarget", () => {
+  const profile = { calories_target: 2150, calories_rest: 1975 } as Profile;
+
+  it("returns calories_target on a gym day", () => {
+    expect(caloriesTarget(profile, true)).toBe(2150);
+  });
+
+  it("returns calories_rest on a rest day", () => {
+    expect(caloriesTarget(profile, false)).toBe(1975);
+  });
+});
+
 describe("macroSummary", () => {
   const profile = {
     protein_target: 150,
@@ -45,7 +57,17 @@ describe("macroSummary", () => {
     carbs_gym: 200,
     carbs_rest: 120,
     calories_target: 2000,
+    calories_rest: 1600,
   } as Profile;
+
+  it("uses calories_rest as the kcal target on a rest day", () => {
+    const { kcalTarget } = macroSummary(
+      { protein_g: 150, fat_g: 65, carbs_g: 100 },
+      profile,
+      false,
+    );
+    expect(kcalTarget).toBe(1600);
+  });
 
   it("flags low protein with warn", () => {
     const { lines } = macroSummary({ protein_g: 100, fat_g: 65, carbs_g: 150 }, profile, true);

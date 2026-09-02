@@ -41,6 +41,28 @@ export const DEFAULT_SPLIT = [
   "Lower B",
 ] as const;
 
+export const DAY_TYPES = [
+  { key: "gym", label: "Gym" },
+  { key: "rest", label: "Rest" },
+] as const;
+
+export type DayTypeKey = (typeof DAY_TYPES)[number]["key"];
+
+export const COMPANY_OPTIONS = [
+  { key: "solo", label: "Solo" },
+  { key: "partner", label: "Partner" },
+] as const;
+
+export type CompanyOptionKey = (typeof COMPANY_OPTIONS)[number]["key"];
+
+export const AUTO_DAY_TYPES = [
+  { key: "gym", label: "Gym" },
+  { key: "rest", label: "Rest" },
+  { key: "any", label: "Any" },
+] as const;
+
+export type AutoDayTypeKey = (typeof AUTO_DAY_TYPES)[number]["key"];
+
 export const TIMEZONE_DEFAULT = "Asia/Ho_Chi_Minh";
 export const DAY_CUTOFF_DEFAULT = 4;
 
