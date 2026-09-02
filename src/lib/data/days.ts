@@ -82,6 +82,23 @@ export async function closeDay(
     .where(and(eq(days.user_id, userId), eq(days.logical_day, day)));
 }
 
+export async function closeOrUpdateDay(
+  userId: string,
+  profile: Profile,
+  day: string,
+  input: CloseDayInput,
+): Promise<Day> {
+  const existing = await ensureDay(userId, profile, day);
+  if (existing.closed_at) {
+    await updateDay(userId, day, input);
+  } else {
+    await closeDay(userId, day, input);
+  }
+  const row = await getDay(userId, day);
+  if (!row) throw new Error("Failed to close day");
+  return row;
+}
+
 export async function getWeekDays(
   userId: string,
   fromDay: string,

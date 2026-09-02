@@ -14,6 +14,7 @@ import {
   measurementUnit,
 } from "@/lib/constants";
 import type {
+  CloseDayPreview,
   LogFatiguePreview,
   LogMeasurementPreview,
   LogMealPreview,
@@ -23,6 +24,7 @@ import type {
 } from "@/lib/data/coachPendingWrite";
 import {
   confirmLabelFor,
+  isCloseDayPreview,
   isFatiguePreview,
   isMealPreview,
   isMeasurementPreview,
@@ -144,6 +146,22 @@ function FatigueItem({ preview }: { preview: LogFatiguePreview }) {
   );
 }
 
+function CloseDayItem({ preview }: { preview: CloseDayPreview }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-body font-medium">Close day: {preview.steps} steps</p>
+      {preview.notes ? (
+        <p className="text-meta text-muted-foreground">{preview.notes}</p>
+      ) : null}
+      {preview.previousSteps != null ? (
+        <p className="text-meta text-muted-foreground">
+          Was {preview.previousSteps} steps
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function MeasurementItem({ preview }: { preview: LogMeasurementPreview }) {
   const label = measurementTypeLabel(preview.type);
   const unit = measurementUnit(preview.type);
@@ -177,6 +195,7 @@ export function ApprovalCard({
   const fatiguePreviews = previews.filter(isFatiguePreview);
   const workoutPreviews = previews.filter(isWorkoutPreview);
   const measurementPreviews = previews.filter(isMeasurementPreview);
+  const closeDayPreviews = previews.filter(isCloseDayPreview);
   const firstMeal = mealPreviews[0];
 
   const options = firstMeal ? optionsOf(firstMeal) : [];
@@ -227,6 +246,12 @@ export function ApprovalCard({
       },
       confirm: { singular: "Log it", plural: "Log them" },
     },
+    {
+      id: "close_day",
+      count: closeDayPreviews.length,
+      question: { singular: "Close the day?", plural: "Close these days?" },
+      confirm: { singular: "Close it", plural: "Close them" },
+    },
   ];
 
   const prompt = promptFor(kinds, ambiguous);
@@ -258,6 +283,11 @@ export function ApprovalCard({
                 key={`${preview.toolCallId}-${index}`}
                 preview={preview}
               />
+            );
+          }
+          if (isCloseDayPreview(preview)) {
+            return (
+              <CloseDayItem key={`${preview.toolCallId}-${index}`} preview={preview} />
             );
           }
           const isFirstMeal = preview === firstMeal;

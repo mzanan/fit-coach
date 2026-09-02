@@ -1,4 +1,5 @@
 import {
+  CLOSE_DAY_TOOL,
   FATIGUE_TOOL,
   MEASUREMENT_TOOL,
   RULE_TOOL,
@@ -6,6 +7,7 @@ import {
   WRITE_TOOL,
 } from "@/lib/constants";
 import type {
+  CloseDayPreview,
   LogFatiguePreview,
   LogMeasurementPreview,
   LogMealPreview,
@@ -25,7 +27,7 @@ export interface DisplayOption {
 }
 
 export interface PreviewKind {
-  id: "meal" | "rule" | "fatigue" | "workout" | "measurement";
+  id: "meal" | "rule" | "fatigue" | "workout" | "measurement" | "close_day";
   count: number;
   question: { singular: string; plural: string };
   confirm: { singular: string; plural: string };
@@ -55,6 +57,12 @@ export function isMeasurementPreview(
   preview: PendingPreview,
 ): preview is LogMeasurementPreview {
   return preview.toolName === MEASUREMENT_TOOL;
+}
+
+export function isCloseDayPreview(
+  preview: PendingPreview,
+): preview is CloseDayPreview {
+  return preview.toolName === CLOSE_DAY_TOOL;
 }
 
 export function weightOf(name: string): number {

@@ -251,12 +251,14 @@ export const RULE_TOOL = "update_rule";
 export const FATIGUE_TOOL = "log_fatigue";
 export const WORKOUT_TOOL = "log_workout_session";
 export const MEASUREMENT_TOOL = "log_measurement";
+export const CLOSE_DAY_TOOL = "close_day";
 export const WRITE_TOOLS = [
   WRITE_TOOL,
   RULE_TOOL,
   FATIGUE_TOOL,
   WORKOUT_TOOL,
   MEASUREMENT_TOOL,
+  CLOSE_DAY_TOOL,
 ];
 
 export const FATIGUE_TIMES_OF_DAY = [
