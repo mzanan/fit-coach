@@ -8,6 +8,8 @@ import { db, schema } from "@/lib/db";
 import { resolveExerciseCatalog } from "@/lib/data/exerciseCatalog";
 import { applyProgression } from "@/lib/data/routine";
 import { getOrCreateWorkout } from "@/lib/data/workouts";
+import { dayConfig } from "@/lib/dates";
+import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
 import { dayString } from "@/lib/validation";
 import { newId } from "@/lib/utils";
@@ -110,7 +112,13 @@ export async function addSet(input: unknown) {
     .where(and(eq(workouts.id, ex[0].workoutId), eq(workouts.user_id, user.id)))
     .limit(1);
   if (workoutRow?.label) {
-    await applyProgression(user.id, workoutRow.logical_day, workoutRow.label);
+    const profile = await ensureProfile(user.id);
+    await applyProgression(
+      user.id,
+      workoutRow.logical_day,
+      workoutRow.label,
+      dayConfig(profile),
+    );
   }
 
   revalidatePath("/workout");

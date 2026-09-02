@@ -24,12 +24,13 @@ export function useRoutineExercises(label: string, exercises: RoutineExercise[])
   const sorted = [...exercises].sort((a, b) => a.sort - b.sort);
 
   function save(values: RoutineExerciseSaveValues) {
+    const existing = values.id ? exercises.find((e) => e.id === values.id) : undefined;
     run(
       () =>
         saveRoutineExerciseAction({
           ...values,
           label,
-          sort: values.id ? undefined : sorted.length,
+          sort: values.id ? existing?.sort : sorted.length,
         }),
       { success: "Exercise saved" },
     );

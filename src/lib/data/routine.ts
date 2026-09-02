@@ -7,6 +7,7 @@ import type { RoutineExercise, RoutineSlot } from "@/lib/db/schema";
 import { getExerciseSessions, getWorkoutForDay } from "@/lib/data/workouts";
 import { normalizeSearch } from "@/lib/search";
 import { nextWeight, todaysLabel } from "@/lib/routine";
+import { logicalDayOf, type DayConfig } from "@/lib/dates";
 import { newId } from "@/lib/utils";
 import { formatSetLine, PROGRESSION_SESSIONS_REQUIRED } from "@/lib/workoutHistory";
 
@@ -26,18 +27,47 @@ export interface SaveSlotInput {
 }
 
 export async function saveSlot(userId: string, input: SaveSlotInput): Promise<void> {
-  await db
-    .insert(routine_slots)
-    .values({
-      id: newId(),
-      user_id: userId,
-      weekday: input.weekday,
-      label: input.label,
-    })
-    .onConflictDoUpdate({
-      target: [routine_slots.user_id, routine_slots.weekday],
-      set: { label: input.label },
-    });
+  await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({ label: routine_slots.label })
+      .from(routine_slots)
+      .where(
+        and(eq(routine_slots.user_id, userId), eq(routine_slots.weekday, input.weekday)),
+      )
+      .limit(1);
+
+    await tx
+      .insert(routine_slots)
+      .values({
+        id: newId(),
+        user_id: userId,
+        weekday: input.weekday,
+        label: input.label,
+      })
+      .onConflictDoUpdate({
+        target: [routine_slots.user_id, routine_slots.weekday],
+        set: { label: input.label },
+      });
+
+    if (!existing || existing.label === input.label) return;
+
+    const [stillUsed] = await tx
+      .select({ weekday: routine_slots.weekday })
+      .from(routine_slots)
+      .where(and(eq(routine_slots.user_id, userId), eq(routine_slots.label, existing.label)))
+      .limit(1);
+    if (stillUsed) return;
+
+    await tx
+      .update(routine_exercises)
+      .set({ label: input.label, updated_at: new Date() })
+      .where(
+        and(
+          eq(routine_exercises.user_id, userId),
+          eq(routine_exercises.label, existing.label),
+        ),
+      );
+  });
 }
 
 export async function deleteSlot(userId: string, weekday: number): Promise<void> {
@@ -227,6 +257,7 @@ export async function applyProgression(
   userId: string,
   day: string,
   label: string,
+  cfg: DayConfig,
 ): Promise<void> {
   const [exercises, workout] = await Promise.all([
     listRoutineExercises(userId, label),
@@ -243,6 +274,8 @@ export async function applyProgression(
   }
 
   for (const exercise of exercises) {
+    if (logicalDayOf(exercise.updated_at, cfg) === day) continue;
+
     const loggedSets = loggedByName.get(normalizeSearch(exercise.name));
     if (!loggedSets || loggedSets.length === 0) continue;
 

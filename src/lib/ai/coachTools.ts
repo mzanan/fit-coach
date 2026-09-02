@@ -818,7 +818,7 @@ export function buildCoachTools(
             input as WorkoutSessionInput,
           );
           await insertWorkoutSession(userId, today, resolved);
-          await applyProgression(userId, today, resolved.label);
+          await applyProgression(userId, today, resolved.label, dayConfig(profile));
           revalidatePath("/workout");
           return {
             logged: true,
