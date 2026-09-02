@@ -59,6 +59,7 @@ import {
 } from "@/lib/data/workouts";
 import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
+import { caloriesTarget } from "@/lib/macros";
 import { round } from "@/lib/utils";
 import { measurementValue } from "@/lib/validation";
 import {
@@ -491,7 +492,7 @@ export function buildCoachTools(
             fat_max_g: profile.fat_max,
             fat_floor_g: profile.fat_floor,
             carbs_g: day.isGymDay ? profile.carbs_gym : profile.carbs_rest,
-            calories: profile.calories_target,
+            calories: caloriesTarget(profile, day.isGymDay),
           },
           totals: {
             protein_g: round(day.totals.protein_g),

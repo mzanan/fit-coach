@@ -104,7 +104,12 @@ export async function saveRoutineExercise(
     const [row] = await db
       .select()
       .from(routine_exercises)
-      .where(eq(routine_exercises.id, input.id))
+      .where(
+        and(
+          eq(routine_exercises.id, input.id),
+          eq(routine_exercises.user_id, userId),
+        ),
+      )
       .limit(1);
     if (!row) throw new Error("Routine exercise not found after update");
     return row;
