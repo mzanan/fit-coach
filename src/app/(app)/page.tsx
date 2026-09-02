@@ -1,12 +1,15 @@
 import { AddMeal } from "@/components/today/AddMeal";
+import { CloseDay } from "@/components/today/CloseDay";
 import { DayNav } from "@/components/today/DayNav";
 import { MacroOverview } from "@/components/today/MacroOverview";
 import { MealList } from "@/components/today/MealList";
 import { Page } from "@/components/ui/Page";
 import { getCatalog } from "@/lib/data/catalog";
+import { getWeekDays } from "@/lib/data/days";
 import { getDayData } from "@/lib/data/today";
 import { getRecentMeals } from "@/lib/data/recentMeals";
-import { dayConfig, todayLogicalDay } from "@/lib/dates";
+import { dayDeviations, weeklyStepsAverage } from "@/lib/dayClose";
+import { dayConfig, daysSinceMonday, shiftDay, todayLogicalDay } from "@/lib/dates";
 import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
 
@@ -25,11 +28,17 @@ export default async function TodayPage({
   const sp = await searchParams;
   const day = sp.day && DAY_RE.test(sp.day) ? sp.day : today;
 
-  const [dayData, catalog, recents] = await Promise.all([
+  const monday = shiftDay(day, -daysSinceMonday(day));
+
+  const [dayData, catalog, recents, weekDays] = await Promise.all([
     getDayData(user.id, profile, day),
     getCatalog(user.id),
     getRecentMeals(user.id),
+    getWeekDays(user.id, monday, day),
   ]);
+
+  const weeklyStepsAvg = weeklyStepsAverage(weekDays);
+  const deviations = dayDeviations(dayData.summary);
 
   return (
     <Page>
@@ -53,6 +62,12 @@ export default async function TodayPage({
           </div>
         </div>
         <MealList meals={dayData.meals} />
+        <CloseDay
+          day={day}
+          dayRow={dayData.dayRow}
+          weeklyStepsAvg={weeklyStepsAvg}
+          deviations={deviations}
+        />
         <AddMeal
           catalog={catalog}
           recents={recents}
