@@ -3,10 +3,12 @@ import "server-only";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { categoryLabel, fatigueTimeLabel, measurementUnit } from "@/lib/constants";
-import { dayConfig, shiftDay, todayLogicalDay, type DayConfig } from "@/lib/dates";
+import { dayConfig, daysSinceMonday, shiftDay, todayLogicalDay, type DayConfig } from "@/lib/dates";
 import { getLatestMeasurement } from "@/lib/data/bodyMeasurements";
 import { recentScans } from "@/lib/data/bodyScans";
+import { getWeekDays } from "@/lib/data/days";
 import { getDayFatigue } from "@/lib/data/fatigueLogs";
+import { weeklyStepsAverage } from "@/lib/dayClose";
 import { getDayData } from "@/lib/data/today";
 import { getUpcomingReminders } from "@/lib/reminders";
 import { getWhoopSnapshot } from "@/lib/data/whoop";
@@ -66,6 +68,10 @@ export async function buildContext(
 
   const weekLine = `Last 7 days: ${loggedDays} days logged, protein target hit on ${proteinHit}.`;
 
+  const dayStatusLines = dayData.dayRow
+    ? [await buildDayStatusLine(userId, today, dayData.dayRow)]
+    : [];
+
   const fatigueLines = await buildFatigueLines(userId, today);
   const whoopLines = await buildWhoopLines(userId);
   const scanLines = await buildScanLines(userId);
@@ -83,6 +89,7 @@ export async function buildContext(
       "Meals logged today:",
       ...mealLines,
       weekLine,
+      ...dayStatusLines,
       ...fatigueLines,
       ...whoopLines,
       ...scanLines,
@@ -107,6 +114,19 @@ export async function buildReminderLines(
     const lastText = reminder.last_day ? `, last ${reminder.last_day}` : "";
     return `Reminder (${statusText}): ${reminder.label}${lastText}.`;
   });
+}
+
+export async function buildDayStatusLine(
+  userId: string,
+  today: string,
+  dayRow: { closed_at: Date | null; steps: number | null },
+): Promise<string> {
+  const monday = shiftDay(today, -daysSinceMonday(today));
+  const weekDays = await getWeekDays(userId, monday, today);
+  const avg = weeklyStepsAverage(weekDays);
+  const status = dayRow.closed_at ? "closed" : "open";
+  const steps = dayRow.steps ?? "not logged";
+  return `Day status: ${status}, steps ${steps}, weekly steps avg ${avg ?? "n/a"}.`;
 }
 
 export async function buildMeasurementLines(userId: string): Promise<string[]> {

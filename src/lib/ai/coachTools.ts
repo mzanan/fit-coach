@@ -18,6 +18,8 @@ import { previewFailure } from "@/lib/ai/coachReplyText";
 import { getLatestMeasurement, saveMeasurement } from "@/lib/data/bodyMeasurements";
 import { recentScans } from "@/lib/data/bodyScans";
 import { getActiveRule, saveRule } from "@/lib/data/coachRules";
+import { closeOrUpdateDay, getDay, getWeekDays } from "@/lib/data/days";
+import { dayDeviations, weeklyStepsAverage } from "@/lib/dayClose";
 import { CADENCE_DEFS, TREATMENT_END_SUFFIX } from "@/lib/reminders";
 import {
   getDayFatigue,
@@ -27,6 +29,7 @@ import {
 import { normalizeSubject } from "@/lib/ai/facts";
 import type { ApprovalRequest } from "@/lib/ai/provider";
 import {
+  CLOSE_DAY_TOOL,
   COMPANY_OPTIONS,
   FATIGUE_SCORE_MAX,
   FATIGUE_SCORE_MIN,
@@ -42,6 +45,7 @@ import {
   type MealCategoryKey,
 } from "@/lib/constants";
 import type {
+  CloseDayPreview,
   LogFatiguePreview,
   LogMeasurementPreview,
   LogMealPreview,
@@ -49,7 +53,7 @@ import type {
   PendingPreview,
   UpdateRulePreview,
 } from "@/lib/data/coachPendingWrite";
-import { dayConfig, shiftDay, weekdayOf } from "@/lib/dates";
+import { dayConfig, daysSinceMonday, shiftDay, weekdayOf } from "@/lib/dates";
 import { getCatalog } from "@/lib/data/catalog";
 import { ensureDay } from "@/lib/data/days";
 import { getDayData } from "@/lib/data/today";
@@ -412,6 +416,40 @@ export async function previewLogMeasurement(
   };
 }
 
+const closeDayInput = z.object({
+  steps: z.number().int().min(0).max(100000),
+  notes: z.string().trim().max(500).nullable().default(null),
+});
+
+export async function previewCloseDay(
+  userId: string,
+  today: string,
+  input: unknown,
+): Promise<
+  | { ok: true; preview: Omit<CloseDayPreview, "toolCallId"> }
+  | { ok: false; reason: ResolveFailure; error: string }
+> {
+  const parsed = closeDayInput.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      reason: "not_found",
+      error: "The coach asked to close the day but did not describe it properly.",
+    };
+  }
+  const existing = await getDay(userId, today);
+  return {
+    ok: true,
+    preview: {
+      toolName: CLOSE_DAY_TOOL,
+      day: today,
+      steps: parsed.data.steps,
+      notes: parsed.data.notes,
+      previousSteps: existing?.steps ?? null,
+    },
+  };
+}
+
 export async function previewApproval(
   userId: string,
   today: string,
@@ -472,6 +510,19 @@ export async function previewApproval(
       preview: { ...result.preview, toolCallId: approval.toolCallId },
     };
   }
+  if (approval.toolName === CLOSE_DAY_TOOL) {
+    const result = await previewCloseDay(userId, today, approval.input);
+    if (!result.ok) {
+      return {
+        ok: false,
+        text: "The coach tried to close the day but the request came back malformed. Ask again.",
+      };
+    }
+    return {
+      ok: true,
+      preview: { ...result.preview, toolCallId: approval.toolCallId },
+    };
+  }
   const result = await previewLogMeal(userId, today, approval.input);
   if (!result.ok) {
     return { ok: false, text: previewFailure(result.reason, result.error) };
@@ -486,6 +537,15 @@ export interface LogMealOverride {
   toolCallId: string;
   itemId: string;
   itemName: string;
+}
+
+async function weeklyStepsAvgThrough(
+  userId: string,
+  today: string,
+): Promise<number | null> {
+  const monday = shiftDay(today, -daysSinceMonday(today));
+  const weekDays = await getWeekDays(userId, monday, today);
+  return weeklyStepsAverage(weekDays);
 }
 
 export function buildCoachTools(
@@ -536,6 +596,28 @@ export function buildCoachTools(
             carbs_g: meal.carbs_g,
             fat_quality: meal.fat_quality,
           })),
+        };
+      }),
+    }),
+    get_day_status: tool({
+      description:
+        "Get today's close-day status: whether the day has been closed, steps logged, notes, which macros are outside their target band, and the rolling average of logged steps since Monday this week. Read-only, no confirmation needed.",
+      inputSchema: z.object({}),
+      execute: safe("get_day_status", async () => {
+        const day = await getDayData(userId, profile, today);
+        const deviations = dayDeviations(day.summary, day.meals.length);
+        const weeklyStepsAvg = await weeklyStepsAvgThrough(userId, today);
+        return {
+          closed: day.dayRow?.closed_at != null,
+          steps: day.dayRow?.steps ?? null,
+          notes: day.dayRow?.notes ?? null,
+          deviations: deviations.map((line) => ({
+            key: line.key,
+            state: line.state,
+            current: line.current,
+            target: line.target,
+          })),
+          weekly_steps_average: weeklyStepsAvg,
         };
       }),
     }),
@@ -940,6 +1022,48 @@ export function buildCoachTools(
           return {
             logged: true,
             measurement: { type: input.type, value },
+          };
+        },
+      ),
+    }),
+    close_day: tool({
+      description:
+        "Close today's day: record final steps and optional notes. Only call this when the user reports their step count for the day or explicitly asks to close it. The tool result includes today's macro summary against target, which macros are outside their band, and the weekly steps average, so use it to answer follow-up questions instead of calling get_day_status right after. The user confirms before anything is written.",
+      inputSchema: closeDayInput,
+      execute: safe(
+        "close_day",
+        async (input: { steps: number; notes: string | null }) => {
+          await closeOrUpdateDay(userId, profile, today, {
+            steps: input.steps,
+            notes: input.notes,
+          });
+          const day = await getDayData(userId, profile, today);
+          const weeklyStepsAvg = await weeklyStepsAvgThrough(userId, today);
+          revalidatePath("/");
+          return {
+            logged: true,
+            day: {
+              steps: input.steps,
+              notes: input.notes,
+              summary: {
+                protein_g: round(day.totals.protein_g),
+                fat_g: round(day.totals.fat_g),
+                carbs_g: round(day.totals.carbs_g),
+                kcal: round(day.summary.kcal),
+                protein_target: profile.protein_target,
+                fat_target_min: profile.fat_min,
+                fat_target_max: profile.fat_max,
+                carbs_target: day.isGymDay ? profile.carbs_gym : profile.carbs_rest,
+                kcal_target: day.summary.kcalTarget,
+              },
+              deviations: dayDeviations(day.summary, day.meals.length).map((line) => ({
+                key: line.key,
+                state: line.state,
+                current: line.current,
+                target: line.target,
+              })),
+              weekly_steps_average: weeklyStepsAvg,
+            },
           };
         },
       ),

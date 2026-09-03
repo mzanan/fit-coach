@@ -6,6 +6,7 @@ import type { ModelMessage } from "ai";
 import { db, schema } from "@/lib/db";
 import type { SizeVariant } from "@/lib/catalogMeal";
 import type {
+  CLOSE_DAY_TOOL,
   FATIGUE_TOOL,
   MEASUREMENT_TOOL,
   RULE_TOOL,
@@ -70,12 +71,22 @@ export interface LogMeasurementPreview {
   toolCallId: string;
 }
 
+export interface CloseDayPreview {
+  toolName: typeof CLOSE_DAY_TOOL;
+  day: string;
+  steps: number;
+  notes: string | null;
+  previousSteps: number | null;
+  toolCallId: string;
+}
+
 export type PendingPreview =
   | LogMealPreview
   | UpdateRulePreview
   | LogFatiguePreview
   | LogWorkoutSessionPreview
-  | LogMeasurementPreview;
+  | LogMeasurementPreview
+  | CloseDayPreview;
 
 export interface PendingWrite {
   approvalId: string;
