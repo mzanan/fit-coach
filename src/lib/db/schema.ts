@@ -99,6 +99,7 @@ export const profiles = sqliteTable("profiles", {
   carbs_gym: real("carbs_gym").notNull().default(215),
   carbs_rest: real("carbs_rest").notNull().default(135),
   calories_target: real("calories_target").notNull().default(2150),
+  calories_rest: real("calories_rest").notNull().default(1975),
   seeded_at: integer("seeded_at", { mode: "timestamp_ms" }),
   ai_provider: text("ai_provider"),
   coach_rules: text("coach_rules"),
@@ -127,10 +128,52 @@ export const catalog_items = sqliteTable(
       .notNull()
       .default(false),
     archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+    delivery: integer("delivery", { mode: "boolean" }).notNull().default(false),
+    dinner_only: integer("dinner_only", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    company: text("company"),
+    closed_weekdays: text("closed_weekdays"),
+    auto_day_type: text("auto_day_type"),
+    auto_category: text("auto_category"),
     created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
   (t) => [index("catalog_items_user_idx").on(t.user_id)],
+);
+
+export const days = sqliteTable(
+  "days",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    logical_day: text("logical_day").notNull(),
+    day_type: text("day_type").notNull(),
+    steps: integer("steps"),
+    notes: text("notes"),
+    closed_at: integer("closed_at", { mode: "timestamp_ms" }),
+    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("days_user_day_idx").on(t.user_id, t.logical_day),
+  ],
+);
+
+export const routine_slots = sqliteTable(
+  "routine_slots",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    weekday: integer("weekday").notNull(),
+    label: text("label").notNull(),
+  },
+  (t) => [
+    uniqueIndex("routine_slots_user_weekday_idx").on(t.user_id, t.weekday),
+  ],
 );
 
 export const catalog_components = sqliteTable(
@@ -366,6 +409,32 @@ export const exercise_catalog = sqliteTable("exercise_catalog", {
   gif_path: text("gif_path").notNull(),
 });
 
+export const routine_exercises = sqliteTable(
+  "routine_exercises",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    name: text("name").notNull(),
+    exercise_catalog_id: text("exercise_catalog_id").references(
+      () => exercise_catalog.id,
+      { onDelete: "set null" },
+    ),
+    sort: integer("sort").notNull().default(0),
+    target_sets: integer("target_sets").notNull().default(3),
+    target_reps: integer("target_reps").notNull().default(8),
+    current_weight: real("current_weight"),
+    per_side: integer("per_side", { mode: "boolean" }).notNull().default(false),
+    increment_kg: real("increment_kg").notNull().default(2.5),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("routine_exercises_user_label_idx").on(t.user_id, t.label)],
+);
+
 export const workout_exercises = sqliteTable(
   "workout_exercises",
   {
@@ -586,3 +655,6 @@ export type WhoopRecovery = typeof whoop_recovery.$inferSelect;
 export type WhoopSleep = typeof whoop_sleep.$inferSelect;
 export type WhoopWorkout = typeof whoop_workouts.$inferSelect;
 export type PushSubscription = typeof push_subscriptions.$inferSelect;
+export type Day = typeof days.$inferSelect;
+export type RoutineSlot = typeof routine_slots.$inferSelect;
+export type RoutineExercise = typeof routine_exercises.$inferSelect;

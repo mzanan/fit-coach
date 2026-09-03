@@ -22,6 +22,7 @@ const targetsSchema = z.object({
   carbs_gym: z.number().min(0).max(1000),
   carbs_rest: z.number().min(0).max(1000),
   calories_target: z.number().min(0).max(10000),
+  calories_rest: z.number().min(0).max(10000),
 });
 
 export async function updateTargets(input: unknown) {

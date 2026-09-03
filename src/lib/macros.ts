@@ -32,6 +32,10 @@ export function carbTarget(profile: Profile, isGymDay: boolean): number {
   return isGymDay ? profile.carbs_gym : profile.carbs_rest;
 }
 
+export function caloriesTarget(profile: Profile, isGymDay: boolean): number {
+  return isGymDay ? profile.calories_target : profile.calories_rest;
+}
+
 export type MacroState = "low" | "under" | "ok" | "high" | "over";
 
 export interface MacroLine {
@@ -57,6 +61,7 @@ export function macroSummary(
 ): { lines: MacroLine[]; kcal: number; kcalTarget: number } {
   const kcal = kcalOf(totals);
   const carbs = carbTarget(profile, isGymDay);
+  const kcalTarget = caloriesTarget(profile, isGymDay);
 
   const proteinState: MacroState =
     totals.protein_g < profile.protein_target * 0.9 ? "low" : "ok";
@@ -68,9 +73,9 @@ export function macroSummary(
   else fatState = "high";
 
   const calsState: MacroState =
-    kcal > profile.calories_target * 1.1
+    kcal > kcalTarget * 1.1
       ? "over"
-      : kcal < profile.calories_target * 0.8
+      : kcal < kcalTarget * 0.8
         ? "under"
         : "ok";
 
@@ -78,10 +83,10 @@ export function macroSummary(
     line("protein", totals.protein_g, profile.protein_target, proteinState),
     line("fat", totals.fat_g, profile.fat_max, fatState),
     line("carbs", totals.carbs_g, carbs, calsState === "over" ? "over" : "ok"),
-    line("calories", kcal, profile.calories_target, calsState),
+    line("calories", kcal, kcalTarget, calsState),
   ];
 
-  return { lines, kcal, kcalTarget: profile.calories_target };
+  return { lines, kcal, kcalTarget };
 }
 
 function line(
