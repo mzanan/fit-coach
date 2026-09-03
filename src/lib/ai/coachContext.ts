@@ -15,7 +15,7 @@ import { getWhoopSnapshot } from "@/lib/data/whoop";
 import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
 import { getWhoopConnection } from "@/lib/integrations/whoop";
-import { kcalOf } from "@/lib/macros";
+import { caloriesTarget, kcalOf } from "@/lib/macros";
 import { round } from "@/lib/utils";
 
 const { meals } = schema;
@@ -54,7 +54,7 @@ export async function buildContext(
   ).length;
 
   const carbsTarget = dayData.isGymDay ? profile.carbs_gym : profile.carbs_rest;
-  const targetsLine = `Targets: protein ${profile.protein_target}g, fat ${profile.fat_min}-${profile.fat_max}g (floor ${profile.fat_floor}g), carbs ${carbsTarget}g (${dayData.isGymDay ? "gym" : "rest"} day), calories ${profile.calories_target}.`;
+  const targetsLine = `Targets: protein ${profile.protein_target}g, fat ${profile.fat_min}-${profile.fat_max}g (floor ${profile.fat_floor}g), carbs ${carbsTarget}g (${dayData.isGymDay ? "gym" : "rest"} day), calories ${caloriesTarget(profile, dayData.isGymDay)}.`;
 
   const t = dayData.totals;
   const totalsLine = `Today (${today}, ${dayData.isGymDay ? "gym" : "rest"} day) totals: protein ${round(t.protein_g)}g, fat ${round(t.fat_g)}g, carbs ${round(t.carbs_g)}g, calories ${round(dayData.summary.kcal)}.`;

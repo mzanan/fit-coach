@@ -30,6 +30,7 @@ import { normalizeSubject } from "@/lib/ai/facts";
 import type { ApprovalRequest } from "@/lib/ai/provider";
 import {
   CLOSE_DAY_TOOL,
+  COMPANY_OPTIONS,
   FATIGUE_SCORE_MAX,
   FATIGUE_SCORE_MIN,
   FATIGUE_TIMES_OF_DAY,
@@ -40,6 +41,7 @@ import {
   RULE_TOOL,
   WORKOUT_TOOL,
   WRITE_TOOL,
+  type CompanyOptionKey,
   type MealCategoryKey,
 } from "@/lib/constants";
 import type {
@@ -51,8 +53,19 @@ import type {
   PendingPreview,
   UpdateRulePreview,
 } from "@/lib/data/coachPendingWrite";
-import { dayConfig, daysSinceMonday, shiftDay } from "@/lib/dates";
+import { dayConfig, daysSinceMonday, shiftDay, weekdayOf } from "@/lib/dates";
+import { getCatalog } from "@/lib/data/catalog";
+import { ensureDay } from "@/lib/data/days";
 import { getDayData } from "@/lib/data/today";
+import { applyProgression, getTodaysRoutine } from "@/lib/data/routine";
+import { caloriesTarget, hasMacros, kcalOf, type Macros } from "@/lib/macros";
+import {
+  fits,
+  filterRotation,
+  mealFitBands,
+  mealFitTargets,
+  remainingOf,
+} from "@/lib/mealFit";
 import {
   getExerciseSessions,
   getRecentWorkouts,
@@ -62,7 +75,7 @@ import {
   type WorkoutSessionInput,
 } from "@/lib/data/workouts";
 import { db, schema } from "@/lib/db";
-import type { Profile } from "@/lib/db/schema";
+import type { CatalogItem, Profile } from "@/lib/db/schema";
 import { round } from "@/lib/utils";
 import { measurementValue } from "@/lib/validation";
 import {
@@ -77,6 +90,13 @@ const CATEGORY_KEYS = MEAL_CATEGORIES.map((c) => c.key) as [
   MealCategoryKey,
   ...MealCategoryKey[],
 ];
+
+const COMPANY_KEYS = COMPANY_OPTIONS.map((c) => c.key) as [
+  CompanyOptionKey,
+  ...CompanyOptionKey[],
+];
+
+const SUGGEST_MEALS_LIMIT = 12;
 
 interface LogMealInput {
   item_id: string;
@@ -538,10 +558,13 @@ export function buildCoachTools(
   const readTools: ToolSet = {
     get_today: tool({
       description:
-        "Get today's logged meals, running macro totals and the user's daily targets, plus whether today is a gym day.",
+        "Get today's logged meals, running macro totals, what macros remain for the day, and the user's daily targets, plus whether today is a gym day.",
       inputSchema: z.object({}),
       execute: safe("get_today", async () => {
+        await ensureDay(userId, profile, today);
         const day = await getDayData(userId, profile, today);
+        const targets = mealFitTargets(profile, day.isGymDay);
+        const remaining = remainingOf(day.totals, targets);
         return {
           day: day.day,
           isGymDay: day.isGymDay,
@@ -551,13 +574,19 @@ export function buildCoachTools(
             fat_max_g: profile.fat_max,
             fat_floor_g: profile.fat_floor,
             carbs_g: day.isGymDay ? profile.carbs_gym : profile.carbs_rest,
-            calories: profile.calories_target,
+            calories: caloriesTarget(profile, day.isGymDay),
           },
           totals: {
             protein_g: round(day.totals.protein_g),
             fat_g: round(day.totals.fat_g),
             carbs_g: round(day.totals.carbs_g),
             kcal: round(day.summary.kcal),
+          },
+          remaining: {
+            protein_g: round(remaining.protein_g),
+            fat_g: round(remaining.fat_g),
+            carbs_g: round(remaining.carbs_g),
+            kcal: round(remaining.kcal),
           },
           meals: day.meals.map((meal) => ({
             category: meal.category,
@@ -591,6 +620,64 @@ export function buildCoachTools(
           weekly_steps_average: weeklyStepsAvg,
         };
       }),
+    }),
+    suggest_meals: tool({
+      description:
+        "Suggest catalog items that fit today's remaining macros for a given meal category, filtered by the user's rotation rules (closed weekdays, dinner-only items, who they are eating with, delivery-only). Read-only, no confirmation needed. Returns at most 12 items sorted by protein descending, each with its macros and what would remain after eating it.",
+      inputSchema: z.object({
+        category: z.enum(CATEGORY_KEYS),
+        company: z.enum(COMPANY_KEYS).optional().describe("solo or partner, omit if unknown"),
+        delivery_only: z.boolean().optional(),
+      }),
+      execute: safe(
+        "suggest_meals",
+        async ({
+          category,
+          company,
+          delivery_only,
+        }: {
+          category: MealCategoryKey;
+          company?: CompanyOptionKey;
+          delivery_only?: boolean;
+        }) => {
+          await ensureDay(userId, profile, today);
+          const day = await getDayData(userId, profile, today);
+          const targets = mealFitTargets(profile, day.isGymDay);
+          const bands = mealFitBands(profile, day.isGymDay);
+          const remaining = remainingOf(day.totals, targets);
+          const catalog = await getCatalog(userId);
+          const weekday = weekdayOf(today);
+
+          const candidates = filterRotation(catalog, {
+            weekday,
+            category,
+            company,
+            deliveryOnly: delivery_only,
+          }).filter((item): item is CatalogItem & Macros => hasMacros(item));
+
+          const items = candidates
+            .filter((item) => fits(item, remaining, bands))
+            .map((item) => ({
+              id: item.id,
+              name: item.name,
+              place: item.place,
+              protein_g: item.protein_g,
+              fat_g: item.fat_g,
+              carbs_g: item.carbs_g,
+              kcal: round(kcalOf(item)),
+              remaining_after: {
+                protein_g: round(remaining.protein_g - item.protein_g),
+                fat_g: round(remaining.fat_g - item.fat_g),
+                carbs_g: round(remaining.carbs_g - item.carbs_g),
+                kcal: round(remaining.kcal - kcalOf(item)),
+              },
+            }))
+            .sort((a, b) => b.protein_g - a.protein_g)
+            .slice(0, SUGGEST_MEALS_LIMIT);
+
+          return { category, items };
+        },
+      ),
     }),
     search_catalog: tool({
       description:
@@ -677,6 +764,12 @@ export function buildCoachTools(
           };
         },
       ),
+    }),
+    get_todays_routine: tool({
+      description:
+        "Today's prescribed routine from the user's saved split: exercises, target sets x reps, prescribed weight and whether it was raised after 2 clean sessions. Read-only.",
+      inputSchema: z.object({}),
+      execute: safe("get_todays_routine", () => getTodaysRoutine(userId, today)),
     }),
     get_progress_overview: tool({
       description:
@@ -893,6 +986,7 @@ export function buildCoachTools(
             input as WorkoutSessionInput,
           );
           await insertWorkoutSession(userId, today, resolved);
+          await applyProgression(userId, today, resolved.label, dayConfig(profile));
           revalidatePath("/workout");
           return {
             logged: true,

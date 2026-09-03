@@ -1,6 +1,7 @@
 import { DeleteWorkoutButton } from "@/components/workout/DeleteWorkoutButton";
 import { WorkoutScreen } from "@/components/workout/WorkoutScreen";
 import { Page } from "@/components/ui/Page";
+import { getTodaysRoutine, type TodaysRoutine } from "@/lib/data/routine";
 import { getWorkoutForDay, getWorkoutHistory } from "@/lib/data/workouts";
 import { DEFAULT_SPLIT } from "@/lib/constants";
 import { dayConfig, formatDayLabel, todayLogicalDay } from "@/lib/dates";
@@ -19,6 +20,10 @@ export default async function WorkoutPage() {
       () => ({ ok: false as const, value: null }),
     ),
   ]);
+
+  const routine: TodaysRoutine | null = workout
+    ? null
+    : await getTodaysRoutine(user.id, day);
   const historyAvailable = historyResult.ok;
   const history = historyResult.value ?? {
     lastByName: {},
@@ -57,6 +62,7 @@ export default async function WorkoutPage() {
           history={history}
           historyAvailable={historyAvailable}
           suggestedSplit={suggestedSplit}
+          routine={routine}
         />
       </div>
     </Page>

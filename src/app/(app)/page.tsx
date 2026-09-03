@@ -4,6 +4,7 @@ import { DayNav } from "@/components/today/DayNav";
 import { MacroOverview } from "@/components/today/MacroOverview";
 import { MealList } from "@/components/today/MealList";
 import { Page } from "@/components/ui/Page";
+import { ensureDay } from "@/lib/data/days";
 import { getCatalog } from "@/lib/data/catalog";
 import { getWeekDays } from "@/lib/data/days";
 import { getDayData } from "@/lib/data/today";
@@ -27,6 +28,8 @@ export default async function TodayPage({
 
   const sp = await searchParams;
   const day = sp.day && DAY_RE.test(sp.day) ? sp.day : today;
+
+  await ensureDay(user.id, profile, today);
 
   const monday = shiftDay(day, -daysSinceMonday(day));
 

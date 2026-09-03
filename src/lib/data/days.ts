@@ -2,6 +2,7 @@ import "server-only";
 
 import { and, eq, gte, lte } from "drizzle-orm";
 
+import { insertAutoMeals } from "@/lib/data/autoMeals";
 import { db, schema } from "@/lib/db";
 import type { Day, Profile } from "@/lib/db/schema";
 import { resolveDayType } from "@/lib/dayType";
@@ -42,7 +43,7 @@ export async function ensureDay(
 
   const dayType = resolveDayType({ dayRow: null, slots, day });
 
-  await executor
+  const inserted = await executor
     .insert(days)
     .values({
       id: newId(),
@@ -51,10 +52,16 @@ export async function ensureDay(
       day_type: dayType,
       created_at: new Date(),
     })
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning({ id: days.id });
 
   const row = await getDay(userId, day, executor);
   if (!row) throw new Error("Failed to create day row");
+
+  if (inserted.length > 0) {
+    await insertAutoMeals(userId, day, dayType);
+  }
+
   return row;
 }
 
@@ -99,8 +106,10 @@ export async function closeOrUpdateDay(
   day: string,
   input: CloseDayInput,
 ): Promise<Day> {
+  await ensureDay(userId, profile, day);
   return db.transaction(async (tx) => {
-    const existing = await ensureDay(userId, profile, day, tx);
+    const existing = await getDay(userId, day, tx);
+    if (!existing) throw new Error("Failed to close day");
     if (existing.closed_at) {
       await updateDay(userId, day, input, tx);
     } else {

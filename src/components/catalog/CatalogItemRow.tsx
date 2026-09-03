@@ -14,6 +14,7 @@ import { Pill } from "@/components/ui/Pill";
 import { archiveCatalogItem, updateCatalogItem } from "@/lib/actions/catalog";
 import type { CatalogItemFull } from "@/lib/data/catalog";
 import { useAction } from "@/hooks/useAction";
+import { parseClosedWeekdays } from "@/lib/mealFit";
 
 export function CatalogItemRow({
   item,
@@ -121,6 +122,12 @@ export function CatalogItemRow({
             protein_g: item.protein_g,
             fat_g: item.fat_g,
             carbs_g: item.carbs_g,
+            delivery: item.delivery,
+            dinner_only: item.dinner_only,
+            company: item.company ?? "",
+            closed_weekdays: parseClosedWeekdays(item.closed_weekdays),
+            auto_day_type: item.auto_day_type ?? "",
+            auto_category: item.auto_category ?? "",
           }}
           onSubmit={(v) =>
             run(
@@ -134,6 +141,12 @@ export function CatalogItemRow({
                   protein_g: item.is_composable ? null : v.protein_g,
                   fat_g: item.is_composable ? null : v.fat_g,
                   carbs_g: item.is_composable ? null : v.carbs_g,
+                  delivery: v.delivery,
+                  dinner_only: v.dinner_only,
+                  company: v.company || null,
+                  closed_weekdays: v.closed_weekdays,
+                  auto_day_type: v.auto_day_type || null,
+                  auto_category: v.auto_category || null,
                 }),
               { success: "Item updated", onDone: () => setEditing(false) },
             )
