@@ -53,7 +53,7 @@ import { dayConfig, shiftDay, weekdayOf } from "@/lib/dates";
 import { getCatalog } from "@/lib/data/catalog";
 import { ensureDay } from "@/lib/data/days";
 import { getDayData } from "@/lib/data/today";
-import { hasMacros, kcalOf, type Macros } from "@/lib/macros";
+import { caloriesTarget, hasMacros, kcalOf, type Macros } from "@/lib/macros";
 import {
   fits,
   filterRotation,
@@ -513,7 +513,7 @@ export function buildCoachTools(
             fat_max_g: profile.fat_max,
             fat_floor_g: profile.fat_floor,
             carbs_g: day.isGymDay ? profile.carbs_gym : profile.carbs_rest,
-            calories: profile.calories_target,
+            calories: caloriesTarget(profile, day.isGymDay),
           },
           totals: {
             protein_g: round(day.totals.protein_g),
