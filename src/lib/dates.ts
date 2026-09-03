@@ -51,11 +51,10 @@ export function daysSinceMonday(day: string): number {
 }
 
 export const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
-const WEEKDAY = WEEKDAY_LABELS;
 
 export function shortDay(iso: string): string {
   const d = new Date(`${iso}T12:00:00Z`);
-  return WEEKDAY[d.getUTCDay()] ?? "";
+  return WEEKDAY_LABELS[d.getUTCDay()] ?? "";
 }
 
 export function formatDayLabel(day: string, todayDay: string): string {

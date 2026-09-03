@@ -51,6 +51,12 @@ export function AddCatalogItem({
                   protein_g: v.protein_g,
                   fat_g: v.fat_g,
                   carbs_g: v.carbs_g,
+                  delivery: v.delivery,
+                  dinner_only: v.dinner_only,
+                  company: v.company || null,
+                  closed_weekdays: v.closed_weekdays,
+                  auto_day_type: v.auto_day_type || null,
+                  auto_category: v.auto_category || null,
                 }),
               {
                 success: hasMacros(v)

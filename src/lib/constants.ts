@@ -55,6 +55,11 @@ export const COMPANY_OPTIONS = [
 
 export type CompanyOptionKey = (typeof COMPANY_OPTIONS)[number]["key"];
 
+export const COMPANY_SEGMENT_OPTIONS = [
+  { value: "", label: "Any" },
+  ...COMPANY_OPTIONS.map((c) => ({ value: c.key, label: c.label })),
+] as const;
+
 export const AUTO_DAY_TYPES = [
   { key: "gym", label: "Gym" },
   { key: "rest", label: "Rest" },
@@ -62,6 +67,14 @@ export const AUTO_DAY_TYPES = [
 ] as const;
 
 export type AutoDayTypeKey = (typeof AUTO_DAY_TYPES)[number]["key"];
+
+export const AUTO_DAY_TYPE_OPTIONS = [
+  { value: "", label: "Off" },
+  ...AUTO_DAY_TYPES.map((d) => ({ value: d.key, label: d.label })),
+] as const;
+
+export const MACRO_TOLERANCE_PCT = 0.1;
+export const KCAL_TOLERANCE = 150;
 
 export const TIMEZONE_DEFAULT = "Asia/Ho_Chi_Minh";
 export const DAY_CUTOFF_DEFAULT = 4;
