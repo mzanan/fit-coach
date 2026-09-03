@@ -2,6 +2,7 @@ import "server-only";
 
 import { and, eq, gte, lte } from "drizzle-orm";
 
+import { insertAutoMeals } from "@/lib/data/autoMeals";
 import { db, schema } from "@/lib/db";
 import type { Day, Profile } from "@/lib/db/schema";
 import { resolveDayType } from "@/lib/dayType";
@@ -33,7 +34,7 @@ export async function ensureDay(
 
   const dayType = resolveDayType({ dayRow: null, slots, day });
 
-  await db
+  const inserted = await db
     .insert(days)
     .values({
       id: newId(),
@@ -42,10 +43,16 @@ export async function ensureDay(
       day_type: dayType,
       created_at: new Date(),
     })
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning({ id: days.id });
 
   const row = await getDay(userId, day);
   if (!row) throw new Error("Failed to create day row");
+
+  if (inserted.length > 0) {
+    await insertAutoMeals(userId, day, dayType);
+  }
+
   return row;
 }
 
