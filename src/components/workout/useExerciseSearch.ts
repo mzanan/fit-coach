@@ -12,8 +12,8 @@ export interface ExerciseFilters extends Record<string, string | null> {
   equipment: string | null;
 }
 
-export function useExerciseSearch(enabled: boolean) {
-  const [query, setQuery] = useState("");
+export function useExerciseSearch(enabled: boolean, initialQuery = "") {
+  const [query, setQuery] = useState(initialQuery);
   const [filters, setFilters] = useState<ExerciseFilters>({ target: null, equipment: null });
   const [items, setItems] = useState<ExerciseCatalogOption[]>([]);
   const [hasMore, setHasMore] = useState(false);
