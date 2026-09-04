@@ -10,6 +10,7 @@ import type {
   FATIGUE_TOOL,
   MEASUREMENT_TOOL,
   RULE_TOOL,
+  SET_TARGETS_TOOL,
   WORKOUT_TOOL,
   WRITE_TOOL,
 } from "@/lib/constants";
@@ -80,13 +81,27 @@ export interface CloseDayPreview {
   toolCallId: string;
 }
 
+export interface SetTargetsPreview {
+  toolName: typeof SET_TARGETS_TOOL;
+  protein_target: number;
+  fat_floor: number;
+  fat_min: number;
+  fat_max: number;
+  carbs_gym: number;
+  carbs_rest: number;
+  calories_target: number;
+  calories_rest: number;
+  toolCallId: string;
+}
+
 export type PendingPreview =
   | LogMealPreview
   | UpdateRulePreview
   | LogFatiguePreview
   | LogWorkoutSessionPreview
   | LogMeasurementPreview
-  | CloseDayPreview;
+  | CloseDayPreview
+  | SetTargetsPreview;
 
 export interface PendingWrite {
   approvalId: string;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { caloriesTarget, carbTarget, kcalOf, macroSummary, sumMacros } from "@/lib/macros";
-import type { Profile } from "@/lib/db/schema";
+import type { Targets } from "@/lib/targets";
 
 describe("kcalOf", () => {
   it("computes protein and carbs at 4 kcal/g and fat at 9 kcal/g", () => {
@@ -25,31 +25,31 @@ describe("sumMacros", () => {
 });
 
 describe("carbTarget", () => {
-  const profile = { carbs_gym: 200, carbs_rest: 120 } as Profile;
+  const targets = { carbs_gym: 200, carbs_rest: 120 } as Targets;
 
   it("returns carbs_gym on a gym day", () => {
-    expect(carbTarget(profile, true)).toBe(200);
+    expect(carbTarget(targets, true)).toBe(200);
   });
 
   it("returns carbs_rest on a rest day", () => {
-    expect(carbTarget(profile, false)).toBe(120);
+    expect(carbTarget(targets, false)).toBe(120);
   });
 });
 
 describe("caloriesTarget", () => {
-  const profile = { calories_target: 2150, calories_rest: 1975 } as Profile;
+  const targets = { calories_target: 2150, calories_rest: 1975 } as Targets;
 
   it("returns calories_target on a gym day", () => {
-    expect(caloriesTarget(profile, true)).toBe(2150);
+    expect(caloriesTarget(targets, true)).toBe(2150);
   });
 
   it("returns calories_rest on a rest day", () => {
-    expect(caloriesTarget(profile, false)).toBe(1975);
+    expect(caloriesTarget(targets, false)).toBe(1975);
   });
 });
 
 describe("macroSummary", () => {
-  const profile = {
+  const targets: Targets = {
     protein_target: 150,
     fat_min: 50,
     fat_max: 80,
@@ -58,33 +58,33 @@ describe("macroSummary", () => {
     carbs_rest: 120,
     calories_target: 2000,
     calories_rest: 1600,
-  } as Profile;
+  };
 
   it("uses calories_rest as the kcal target on a rest day", () => {
     const { kcalTarget } = macroSummary(
       { protein_g: 150, fat_g: 65, carbs_g: 100 },
-      profile,
+      targets,
       false,
     );
     expect(kcalTarget).toBe(1600);
   });
 
   it("flags low protein with warn", () => {
-    const { lines } = macroSummary({ protein_g: 100, fat_g: 65, carbs_g: 150 }, profile, true);
+    const { lines } = macroSummary({ protein_g: 100, fat_g: 65, carbs_g: 150 }, targets, true);
     const protein = lines.find((l) => l.key === "protein")!;
     expect(protein.state).toBe("low");
     expect(protein.warn).toBe(true);
   });
 
   it("flags fat below the floor with warn", () => {
-    const { lines } = macroSummary({ protein_g: 150, fat_g: 30, carbs_g: 150 }, profile, true);
+    const { lines } = macroSummary({ protein_g: 150, fat_g: 30, carbs_g: 150 }, targets, true);
     const fat = lines.find((l) => l.key === "fat")!;
     expect(fat.state).toBe("low");
     expect(fat.warn).toBe(true);
   });
 
   it("reports ok when everything is in range", () => {
-    const { lines } = macroSummary({ protein_g: 150, fat_g: 65, carbs_g: 150 }, profile, true);
+    const { lines } = macroSummary({ protein_g: 150, fat_g: 65, carbs_g: 150 }, targets, true);
     const protein = lines.find((l) => l.key === "protein")!;
     const fat = lines.find((l) => l.key === "fat")!;
     const calories = lines.find((l) => l.key === "calories")!;
@@ -97,9 +97,9 @@ describe("macroSummary", () => {
   });
 
   it("flags calories over target with warn", () => {
-    const { lines, kcal } = macroSummary({ protein_g: 150, fat_g: 65, carbs_g: 300 }, profile, true);
+    const { lines, kcal } = macroSummary({ protein_g: 150, fat_g: 65, carbs_g: 300 }, targets, true);
     const calories = lines.find((l) => l.key === "calories")!;
-    expect(kcal).toBeGreaterThan(profile.calories_target * 1.1);
+    expect(kcal).toBeGreaterThan(targets.calories_target * 1.1);
     expect(calories.state).toBe("over");
     expect(calories.warn).toBe(true);
   });

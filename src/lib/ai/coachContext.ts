@@ -16,6 +16,7 @@ import { db, schema } from "@/lib/db";
 import type { Profile } from "@/lib/db/schema";
 import { getWhoopConnection } from "@/lib/integrations/whoop";
 import { caloriesTarget, kcalOf } from "@/lib/macros";
+import { targetsOf } from "@/lib/targets";
 import { round } from "@/lib/utils";
 
 const { meals } = schema;
@@ -44,20 +45,26 @@ export async function buildContext(
     .from(meals)
     .where(and(eq(meals.user_id, userId), inArray(meals.logical_day, days)));
 
+  const targets = targetsOf(profile);
+
   const byDay = new Map<string, number>();
   for (const r of recent) {
     byDay.set(r.logical_day, (byDay.get(r.logical_day) ?? 0) + r.protein_g);
   }
   const loggedDays = byDay.size;
-  const proteinHit = [...byDay.values()].filter(
-    (p) => p >= profile.protein_target * 0.9,
-  ).length;
+  const proteinHit = targets
+    ? [...byDay.values()].filter((p) => p >= targets.protein_target * 0.9).length
+    : null;
 
-  const carbsTarget = dayData.isGymDay ? profile.carbs_gym : profile.carbs_rest;
-  const targetsLine = `Targets: protein ${profile.protein_target}g, fat ${profile.fat_min}-${profile.fat_max}g (floor ${profile.fat_floor}g), carbs ${carbsTarget}g (${dayData.isGymDay ? "gym" : "rest"} day), calories ${caloriesTarget(profile, dayData.isGymDay)}.`;
+  const targetsLine = targets
+    ? (() => {
+        const carbsTarget = dayData.isGymDay ? targets.carbs_gym : targets.carbs_rest;
+        return `Targets: protein ${targets.protein_target}g, fat ${targets.fat_min}-${targets.fat_max}g (floor ${targets.fat_floor}g), carbs ${carbsTarget}g (${dayData.isGymDay ? "gym" : "rest"} day), calories ${caloriesTarget(targets, dayData.isGymDay)}.`;
+      })()
+    : "Targets: NOT SET. The user has not defined daily targets yet. Do not assume any numbers; help them set targets with set_targets (protein, fat floor/min/max, carbs gym/rest, calories gym/rest) before giving any adherence verdict.";
 
   const t = dayData.totals;
-  const totalsLine = `Today (${today}, ${dayData.isGymDay ? "gym" : "rest"} day) totals: protein ${round(t.protein_g)}g, fat ${round(t.fat_g)}g, carbs ${round(t.carbs_g)}g, calories ${round(dayData.summary.kcal)}.`;
+  const totalsLine = `Today (${today}, ${dayData.isGymDay ? "gym" : "rest"} day) totals: protein ${round(t.protein_g)}g, fat ${round(t.fat_g)}g, carbs ${round(t.carbs_g)}g, calories ${round(kcalOf(t))}.`;
 
   const mealLines = dayData.meals.length
     ? dayData.meals.map(
@@ -66,7 +73,10 @@ export async function buildContext(
       )
     : ["- No meals logged yet today."];
 
-  const weekLine = `Last 7 days: ${loggedDays} days logged, protein target hit on ${proteinHit}.`;
+  const weekLine =
+    proteinHit != null
+      ? `Last 7 days: ${loggedDays} days logged, protein target hit on ${proteinHit}.`
+      : `Last 7 days: ${loggedDays} days logged.`;
 
   const dayStatusLines = dayData.dayRow
     ? [await buildDayStatusLine(userId, today, dayData.dayRow)]
