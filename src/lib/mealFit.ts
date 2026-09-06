@@ -1,6 +1,7 @@
 import { KCAL_TOLERANCE, MACRO_TOLERANCE_PCT, type MealCategoryKey } from "@/lib/constants";
-import type { CatalogItem, Profile } from "@/lib/db/schema";
+import type { CatalogItem } from "@/lib/db/schema";
 import { caloriesTarget, carbTarget, kcalOf, type Macros } from "@/lib/macros";
+import type { Targets } from "@/lib/targets";
 
 export interface MealFitTargets {
   protein_g: number;
@@ -25,12 +26,12 @@ export function remainingOf(totals: Macros, targets: MealFitTargets): Remaining 
   };
 }
 
-export function mealFitTargets(profile: Profile, isGymDay: boolean): MealFitTargets {
+export function mealFitTargets(targets: Targets, isGymDay: boolean): MealFitTargets {
   return {
-    protein_g: profile.protein_target,
-    fat_g: profile.fat_max,
-    carbs_g: carbTarget(profile, isGymDay),
-    kcal: caloriesTarget(profile, isGymDay),
+    protein_g: targets.protein_target,
+    fat_g: targets.fat_max,
+    carbs_g: carbTarget(targets, isGymDay),
+    kcal: caloriesTarget(targets, isGymDay),
   };
 }
 
@@ -41,12 +42,12 @@ export interface MealFitBands {
   kcal_target: number;
 }
 
-export function mealFitBands(profile: Profile, isGymDay: boolean): MealFitBands {
+export function mealFitBands(targets: Targets, isGymDay: boolean): MealFitBands {
   return {
-    fat_floor: profile.fat_floor,
-    fat_max: profile.fat_max,
-    carbs_target: carbTarget(profile, isGymDay),
-    kcal_target: caloriesTarget(profile, isGymDay),
+    fat_floor: targets.fat_floor,
+    fat_max: targets.fat_max,
+    carbs_target: carbTarget(targets, isGymDay),
+    kcal_target: caloriesTarget(targets, isGymDay),
   };
 }
 

@@ -3,6 +3,7 @@ import {
   FATIGUE_TOOL,
   MEASUREMENT_TOOL,
   RULE_TOOL,
+  SET_TARGETS_TOOL,
   WORKOUT_TOOL,
   WRITE_TOOL,
 } from "@/lib/constants";
@@ -13,6 +14,7 @@ import type {
   LogMealPreview,
   LogWorkoutSessionPreview,
   PendingPreview,
+  SetTargetsPreview,
   UpdateRulePreview,
 } from "@/lib/data/coachPendingWrite";
 import { kcalOf } from "@/lib/macros";
@@ -27,7 +29,14 @@ export interface DisplayOption {
 }
 
 export interface PreviewKind {
-  id: "meal" | "rule" | "fatigue" | "workout" | "measurement" | "close_day";
+  id:
+    | "meal"
+    | "rule"
+    | "fatigue"
+    | "workout"
+    | "measurement"
+    | "close_day"
+    | "targets";
   count: number;
   question: { singular: string; plural: string };
   confirm: { singular: string; plural: string };
@@ -63,6 +72,12 @@ export function isCloseDayPreview(
   preview: PendingPreview,
 ): preview is CloseDayPreview {
   return preview.toolName === CLOSE_DAY_TOOL;
+}
+
+export function isTargetsPreview(
+  preview: PendingPreview,
+): preview is SetTargetsPreview {
+  return preview.toolName === SET_TARGETS_TOOL;
 }
 
 export function weightOf(name: string): number {

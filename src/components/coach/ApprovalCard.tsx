@@ -20,6 +20,7 @@ import type {
   LogMealPreview,
   LogWorkoutSessionPreview,
   PendingPreview,
+  SetTargetsPreview,
   UpdateRulePreview,
 } from "@/lib/data/coachPendingWrite";
 import {
@@ -29,6 +30,7 @@ import {
   isMealPreview,
   isMeasurementPreview,
   isRulePreview,
+  isTargetsPreview,
   isWorkoutPreview,
   optionsOf,
   promptFor,
@@ -162,6 +164,24 @@ function CloseDayItem({ preview }: { preview: CloseDayPreview }) {
   );
 }
 
+function TargetsItem({ preview }: { preview: SetTargetsPreview }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-body font-medium">Daily targets</p>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-meta text-muted-foreground">
+        <p>Protein: {preview.protein_target}g</p>
+        <p>
+          Fat: {preview.fat_min}-{preview.fat_max}g (floor {preview.fat_floor}g)
+        </p>
+        <p>Carbs gym: {preview.carbs_gym}g</p>
+        <p>Carbs rest: {preview.carbs_rest}g</p>
+        <p>Calories gym: {preview.calories_target}</p>
+        <p>Calories rest: {preview.calories_rest}</p>
+      </div>
+    </div>
+  );
+}
+
 function MeasurementItem({ preview }: { preview: LogMeasurementPreview }) {
   const label = measurementTypeLabel(preview.type);
   const unit = measurementUnit(preview.type);
@@ -196,6 +216,7 @@ export function ApprovalCard({
   const workoutPreviews = previews.filter(isWorkoutPreview);
   const measurementPreviews = previews.filter(isMeasurementPreview);
   const closeDayPreviews = previews.filter(isCloseDayPreview);
+  const targetsPreviews = previews.filter(isTargetsPreview);
   const firstMeal = mealPreviews[0];
 
   const options = firstMeal ? optionsOf(firstMeal) : [];
@@ -252,6 +273,12 @@ export function ApprovalCard({
       question: { singular: "Close the day?", plural: "Close these days?" },
       confirm: { singular: "Close it", plural: "Close them" },
     },
+    {
+      id: "targets",
+      count: targetsPreviews.length,
+      question: { singular: "Set these targets?", plural: "Set these targets?" },
+      confirm: { singular: "Set them", plural: "Set them" },
+    },
   ];
 
   const prompt = promptFor(kinds, ambiguous);
@@ -288,6 +315,11 @@ export function ApprovalCard({
           if (isCloseDayPreview(preview)) {
             return (
               <CloseDayItem key={`${preview.toolCallId}-${index}`} preview={preview} />
+            );
+          }
+          if (isTargetsPreview(preview)) {
+            return (
+              <TargetsItem key={`${preview.toolCallId}-${index}`} preview={preview} />
             );
           }
           const isFirstMeal = preview === firstMeal;

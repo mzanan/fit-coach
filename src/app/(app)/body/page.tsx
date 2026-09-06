@@ -17,6 +17,7 @@ import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import { ensureProfile } from "@/lib/profile";
 import { getUpcomingReminders } from "@/lib/reminders";
 import { requireUser } from "@/lib/session";
+import { targetsOf } from "@/lib/targets";
 
 const MEASUREMENTS_HISTORY_LIMIT = 20;
 
@@ -140,7 +141,7 @@ export default async function BodyPage() {
 
         <div className="grid gap-3 md:grid-cols-2">
           <CompositionCard scan={latest} />
-          <InbodyGuidance scan={latest} profile={profile} />
+          <InbodyGuidance scan={latest} targets={targetsOf(profile)} />
         </div>
 
         {adherence ? (

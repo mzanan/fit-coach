@@ -19,6 +19,7 @@ import { getLatestScanTakenAt } from "@/lib/data/bodyScans";
 import { getWhoopConnection, hasWhoopEnv } from "@/lib/integrations/whoop";
 import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
+import { targetsOf } from "@/lib/targets";
 
 function timezoneCity(timezone: string): string {
   const last = timezone.split("/").pop() ?? timezone;
@@ -35,6 +36,7 @@ export default async function SettingsPage() {
   ]);
 
   const whoopConfigured = hasWhoopEnv();
+  const targets = targetsOf(profile);
 
   return (
     <Page title="Settings" description={user.email}>
@@ -47,7 +49,7 @@ export default async function SettingsPage() {
             href="/settings/targets"
             icon={Target}
             label="Macro targets"
-            value={`${Math.round(profile.calories_target)} kcal`}
+            value={targets ? `${Math.round(targets.calories_target)} kcal` : "Not set"}
           />
           <ListRow
             href="/settings/profile"

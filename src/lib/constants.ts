@@ -76,6 +76,17 @@ export const AUTO_DAY_TYPE_OPTIONS = [
 export const MACRO_TOLERANCE_PCT = 0.1;
 export const KCAL_TOLERANCE = 150;
 
+export const TARGET_BOUNDS = {
+  protein_target: { min: 1, max: 500 },
+  fat_min: { min: 1, max: 300 },
+  fat_max: { min: 1, max: 300 },
+  fat_floor: { min: 1, max: 300 },
+  carbs_gym: { min: 1, max: 1000 },
+  carbs_rest: { min: 1, max: 1000 },
+  calories_target: { min: 1, max: 10000 },
+  calories_rest: { min: 1, max: 10000 },
+} as const;
+
 export const TIMEZONE_DEFAULT = "Asia/Ho_Chi_Minh";
 export const DAY_CUTOFF_DEFAULT = 4;
 
@@ -265,6 +276,7 @@ export const FATIGUE_TOOL = "log_fatigue";
 export const WORKOUT_TOOL = "log_workout_session";
 export const MEASUREMENT_TOOL = "log_measurement";
 export const CLOSE_DAY_TOOL = "close_day";
+export const SET_TARGETS_TOOL = "set_targets";
 export const WRITE_TOOLS = [
   WRITE_TOOL,
   RULE_TOOL,
@@ -272,6 +284,7 @@ export const WRITE_TOOLS = [
   WORKOUT_TOOL,
   MEASUREMENT_TOOL,
   CLOSE_DAY_TOOL,
+  SET_TARGETS_TOOL,
 ];
 
 export const FATIGUE_TIMES_OF_DAY = [
