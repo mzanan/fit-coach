@@ -5,37 +5,23 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db, schema } from "@/lib/db";
-import {
-  COACH_RULES_MAX,
-  isChatLanguage,
-  SUMMARY_RULES_MAX,
-} from "@/lib/constants";
+import { COACH_RULES_MAX, isChatLanguage, SUMMARY_RULES_MAX } from "@/lib/constants";
+import { saveTargets } from "@/lib/data/targets";
 import { requireUser } from "@/lib/session";
+import { targetsSchema } from "@/lib/targets";
 
 const { profiles } = schema;
-
-const targetsSchema = z.object({
-  protein_target: z.number().min(0).max(500),
-  fat_min: z.number().min(0).max(300),
-  fat_max: z.number().min(0).max(300),
-  fat_floor: z.number().min(0).max(300),
-  carbs_gym: z.number().min(0).max(1000),
-  carbs_rest: z.number().min(0).max(1000),
-  calories_target: z.number().min(0).max(10000),
-  calories_rest: z.number().min(0).max(10000),
-});
 
 export async function updateTargets(input: unknown) {
   const user = await requireUser();
   const data = targetsSchema.parse(input);
 
-  await db
-    .update(profiles)
-    .set({ ...data, updated_at: new Date() })
-    .where(eq(profiles.user_id, user.id));
+  await saveTargets(user.id, data);
   revalidatePath("/");
   revalidatePath("/settings");
   revalidatePath("/settings/targets");
+  revalidatePath("/coach");
+  revalidatePath("/body");
 }
 
 const coachRulesSchema = z.object({

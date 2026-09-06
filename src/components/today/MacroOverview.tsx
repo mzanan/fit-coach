@@ -1,8 +1,8 @@
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Surface } from "@/components/ui/Surface";
-import type { Profile } from "@/lib/db/schema";
 import { topNote } from "@/lib/macroNotes";
 import type { MacroLine } from "@/lib/macros";
+import type { Targets } from "@/lib/targets";
 
 const META: Record<string, { label: string; bar: string }> = {
   protein: { label: "Protein", bar: "bg-macro-protein" },
@@ -12,10 +12,10 @@ const META: Record<string, { label: string; bar: string }> = {
 
 export function MacroOverview({
   summary,
-  profile,
+  targets,
 }: {
   summary: { lines: MacroLine[]; kcal: number; kcalTarget: number };
-  profile: Profile;
+  targets: Targets;
 }) {
   const calories = summary.lines.find((l) => l.key === "calories")!;
   const bars = ["protein", "carbs", "fat"]
@@ -55,7 +55,7 @@ export function MacroOverview({
           const meta = META[line.key];
           const target =
             line.key === "fat"
-              ? `${profile.fat_min}-${profile.fat_max}`
+              ? `${targets.fat_min}-${targets.fat_max}`
               : `${line.target}`;
           return (
             <div key={line.key}>

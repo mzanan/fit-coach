@@ -1,4 +1,4 @@
-import type { Profile } from "@/lib/db/schema";
+import type { Targets } from "@/lib/targets";
 import { round } from "@/lib/utils";
 
 export interface Macros {
@@ -28,12 +28,12 @@ export function sumMacros(items: Macros[]): Macros {
   );
 }
 
-export function carbTarget(profile: Profile, isGymDay: boolean): number {
-  return isGymDay ? profile.carbs_gym : profile.carbs_rest;
+export function carbTarget(targets: Targets, isGymDay: boolean): number {
+  return isGymDay ? targets.carbs_gym : targets.carbs_rest;
 }
 
-export function caloriesTarget(profile: Profile, isGymDay: boolean): number {
-  return isGymDay ? profile.calories_target : profile.calories_rest;
+export function caloriesTarget(targets: Targets, isGymDay: boolean): number {
+  return isGymDay ? targets.calories_target : targets.calories_rest;
 }
 
 export type MacroState = "low" | "under" | "ok" | "high" | "over";
@@ -56,20 +56,20 @@ export interface MacroLine {
 //   warning (caller decides tone using `warn`).
 export function macroSummary(
   totals: Macros,
-  profile: Profile,
+  targets: Targets,
   isGymDay: boolean,
 ): { lines: MacroLine[]; kcal: number; kcalTarget: number } {
   const kcal = kcalOf(totals);
-  const carbs = carbTarget(profile, isGymDay);
-  const kcalTarget = caloriesTarget(profile, isGymDay);
+  const carbs = carbTarget(targets, isGymDay);
+  const kcalTarget = caloriesTarget(targets, isGymDay);
 
   const proteinState: MacroState =
-    totals.protein_g < profile.protein_target * 0.9 ? "low" : "ok";
+    totals.protein_g < targets.protein_target * 0.9 ? "low" : "ok";
 
   let fatState: MacroState;
-  if (totals.fat_g < profile.fat_floor) fatState = "low";
-  else if (totals.fat_g < profile.fat_min) fatState = "under";
-  else if (totals.fat_g <= profile.fat_max) fatState = "ok";
+  if (totals.fat_g < targets.fat_floor) fatState = "low";
+  else if (totals.fat_g < targets.fat_min) fatState = "under";
+  else if (totals.fat_g <= targets.fat_max) fatState = "ok";
   else fatState = "high";
 
   const calsState: MacroState =
@@ -80,8 +80,8 @@ export function macroSummary(
         : "ok";
 
   const lines: MacroLine[] = [
-    line("protein", totals.protein_g, profile.protein_target, proteinState),
-    line("fat", totals.fat_g, profile.fat_max, fatState),
+    line("protein", totals.protein_g, targets.protein_target, proteinState),
+    line("fat", totals.fat_g, targets.fat_max, fatState),
     line("carbs", totals.carbs_g, carbs, calsState === "over" ? "over" : "ok"),
     line("calories", kcal, kcalTarget, calsState),
   ];

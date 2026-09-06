@@ -7,6 +7,7 @@ import type { BodyScan, Profile } from "@/lib/db/schema";
 import { dayConfig, logicalDayOf, shiftDay, todayLogicalDay } from "@/lib/dates";
 
 import { kcalOf } from "@/lib/macros";
+import { targetsOf } from "@/lib/targets";
 
 const { body_scans, meals, workouts } = schema;
 
@@ -21,11 +22,11 @@ export interface ScanDelta {
 export interface PeriodAdherence {
   days: number;
   daysLogged: number;
-  proteinHitDays: number;
+  proteinHitDays: number | null;
   avgProtein: number | null;
   avgKcal: number | null;
-  kcalTarget: number;
-  proteinTarget: number;
+  kcalTarget: number | null;
+  proteinTarget: number | null;
   workouts: number;
 }
 
@@ -82,10 +83,11 @@ async function periodAdherence(
     byDay.set(row.logical_day, current);
   }
 
+  const targets = targetsOf(profile);
   const logged = [...byDay.values()];
-  const proteinHitDays = logged.filter(
-    (d) => d.protein >= profile.protein_target * 0.9,
-  ).length;
+  const proteinHitDays = targets
+    ? logged.filter((d) => d.protein >= targets.protein_target * 0.9).length
+    : null;
   const avg = (pick: (d: { protein: number; kcal: number }) => number) =>
     logged.length
       ? Math.round(logged.reduce((total, d) => total + pick(d), 0) / logged.length)
@@ -103,8 +105,8 @@ async function periodAdherence(
       proteinHitDays,
       avgProtein: avg((d) => d.protein),
       avgKcal: avg((d) => d.kcal),
-      kcalTarget: profile.calories_target,
-      proteinTarget: profile.protein_target,
+      kcalTarget: targets ? targets.calories_target : null,
+      proteinTarget: targets ? targets.protein_target : null,
       workouts: new Set(workoutRows.map((w) => w.logical_day)).size,
     },
     daily,

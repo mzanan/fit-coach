@@ -14,6 +14,7 @@ export function IntakeSinceScan({
   title: string;
 }) {
   const logged = daily.filter((d) => d.kcal != null);
+  const hasKcalTarget = adherence.kcalTarget != null;
 
   return (
     <Surface className="p-5">
@@ -30,12 +31,16 @@ export function IntakeSinceScan({
         <Stat
           label="Avg calories"
           value={adherence.avgKcal}
-          hint={`Target ${Math.round(adherence.kcalTarget)}`}
+          hint={hasKcalTarget ? `Target ${Math.round(adherence.kcalTarget!)}` : undefined}
         />
         <Stat
           label="Protein hit"
-          value={`${adherence.proteinHitDays}/${adherence.daysLogged}`}
-          hint="days at 90%+"
+          value={
+            adherence.proteinHitDays != null
+              ? `${adherence.proteinHitDays}/${adherence.daysLogged}`
+              : "No targets"
+          }
+          hint={adherence.proteinHitDays != null ? "days at 90%+" : undefined}
         />
         <Stat label="Gym sessions" value={adherence.workouts} />
       </div>
@@ -51,10 +56,14 @@ export function IntakeSinceScan({
               label: shortDay(d.day),
               value: d.kcal,
             }))}
-            refValue={adherence.kcalTarget}
+            refValue={adherence.kcalTarget ?? undefined}
             refLabel="Target"
             unit="kcal"
-            ariaLabel={`Daily calories for the last ${daily.length} days against a target of ${Math.round(adherence.kcalTarget)} kcal`}
+            ariaLabel={
+              hasKcalTarget
+                ? `Daily calories for the last ${daily.length} days against a target of ${Math.round(adherence.kcalTarget!)} kcal`
+                : `Daily calories for the last ${daily.length} days`
+            }
           />
         )}
       </div>

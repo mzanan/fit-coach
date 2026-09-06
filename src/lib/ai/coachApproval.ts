@@ -39,6 +39,7 @@ import {
   type LogMealPreview,
   type LogWorkoutSessionPreview,
   type PendingPreview,
+  type SetTargetsPreview,
 } from "@/lib/data/coachPendingWrite";
 import { getDayData } from "@/lib/data/today";
 import { dayConfig, todayLogicalDay } from "@/lib/dates";
@@ -53,6 +54,7 @@ import {
   MEASUREMENT_TOOL,
   measurementTypeLabel,
   measurementUnit,
+  SET_TARGETS_TOOL,
   WORKOUT_TOOL,
   WRITE_TOOL,
   WRITE_TOOLS,
@@ -72,7 +74,7 @@ export async function daySummaryAfterWrite(
   userId: string,
   profile: Profile,
   day: string,
-): Promise<DaySummary> {
+): Promise<DaySummary | null> {
   const dayData = await getDayData(userId, profile, day);
   return dayData.summary;
 }
@@ -290,7 +292,7 @@ export async function resolvePendingWrite(
           ...chained,
           logged: confirmationLines(logged),
           daySummary: wroteMeal
-            ? await daySummaryAfterWrite(userId, profile, day)
+            ? (await daySummaryAfterWrite(userId, profile, day)) ?? undefined
             : undefined,
         };
       }
@@ -312,7 +314,7 @@ export async function resolvePendingWrite(
 
     const answer = text || confirmationLines(logged);
     const daySummary = wroteMeal
-      ? await daySummaryAfterWrite(userId, profile, day)
+      ? (await daySummaryAfterWrite(userId, profile, day)) ?? undefined
       : undefined;
     await finishExchange(exchange, answer, {
       generated: Boolean(text),
@@ -430,6 +432,10 @@ function closeDayLoggedLine(preview: CloseDayPreview): string {
   return `Closed the day: ${preview.steps} steps${notes}.`;
 }
 
+function targetsLoggedLine(preview: SetTargetsPreview): string {
+  return `Targets set: protein ${preview.protein_target}g, fat ${preview.fat_min}-${preview.fat_max}g (floor ${preview.fat_floor}), carbs ${preview.carbs_gym}/${preview.carbs_rest} g, calories ${preview.calories_target}/${preview.calories_rest}.`;
+}
+
 function confirmationLines(previews: PendingPreview[]): string {
   return previews
     .map((preview) => {
@@ -439,6 +445,7 @@ function confirmationLines(previews: PendingPreview[]): string {
       if (preview.toolName === MEASUREMENT_TOOL)
         return measurementLoggedLine(preview);
       if (preview.toolName === CLOSE_DAY_TOOL) return closeDayLoggedLine(preview);
+      if (preview.toolName === SET_TARGETS_TOOL) return targetsLoggedLine(preview);
       return `Rule "${preview.key}" set to: ${preview.newValue}.`;
     })
     .join("\n");

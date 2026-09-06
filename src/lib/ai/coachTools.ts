@@ -39,6 +39,7 @@ import {
   MEASUREMENT_TOOL,
   MEASUREMENT_TYPES,
   RULE_TOOL,
+  SET_TARGETS_TOOL,
   WORKOUT_TOOL,
   WRITE_TOOL,
   type CompanyOptionKey,
@@ -51,8 +52,10 @@ import type {
   LogMealPreview,
   LogWorkoutSessionPreview,
   PendingPreview,
+  SetTargetsPreview,
   UpdateRulePreview,
 } from "@/lib/data/coachPendingWrite";
+import { saveTargets } from "@/lib/data/targets";
 import { dayConfig, daysSinceMonday, shiftDay, weekdayOf } from "@/lib/dates";
 import { getCatalog } from "@/lib/data/catalog";
 import { ensureDay } from "@/lib/data/days";
@@ -66,6 +69,8 @@ import {
   mealFitTargets,
   remainingOf,
 } from "@/lib/mealFit";
+import { targetsSchema } from "@/lib/targets";
+import type { Targets } from "@/lib/targets";
 import {
   getExerciseSessions,
   getRecentWorkouts,
@@ -450,6 +455,31 @@ export async function previewCloseDay(
   };
 }
 
+const setTargetsInput = targetsSchema;
+
+export async function previewSetTargets(
+  input: unknown,
+): Promise<
+  | { ok: true; preview: Omit<SetTargetsPreview, "toolCallId"> }
+  | { ok: false; reason: ResolveFailure; error: string }
+> {
+  const parsed = setTargetsInput.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      reason: "not_found",
+      error: "The coach asked to set targets but did not describe them properly.",
+    };
+  }
+  return {
+    ok: true,
+    preview: {
+      toolName: SET_TARGETS_TOOL,
+      ...parsed.data,
+    },
+  };
+}
+
 export async function previewApproval(
   userId: string,
   today: string,
@@ -523,6 +553,19 @@ export async function previewApproval(
       preview: { ...result.preview, toolCallId: approval.toolCallId },
     };
   }
+  if (approval.toolName === SET_TARGETS_TOOL) {
+    const result = await previewSetTargets(approval.input);
+    if (!result.ok) {
+      return {
+        ok: false,
+        text: "The coach tried to set targets but the request came back malformed. Ask again.",
+      };
+    }
+    return {
+      ok: true,
+      preview: { ...result.preview, toolCallId: approval.toolCallId },
+    };
+  }
   const result = await previewLogMeal(userId, today, approval.input);
   if (!result.ok) {
     return { ok: false, text: previewFailure(result.reason, result.error) };
@@ -563,31 +606,38 @@ export function buildCoachTools(
       execute: safe("get_today", async () => {
         await ensureDay(userId, profile, today);
         const day = await getDayData(userId, profile, today);
-        const targets = mealFitTargets(profile, day.isGymDay);
-        const remaining = remainingOf(day.totals, targets);
+        const targets = day.targets;
+        const remaining = targets
+          ? remainingOf(day.totals, mealFitTargets(targets, day.isGymDay))
+          : null;
         return {
           day: day.day,
           isGymDay: day.isGymDay,
-          targets: {
-            protein_g: profile.protein_target,
-            fat_min_g: profile.fat_min,
-            fat_max_g: profile.fat_max,
-            fat_floor_g: profile.fat_floor,
-            carbs_g: day.isGymDay ? profile.carbs_gym : profile.carbs_rest,
-            calories: caloriesTarget(profile, day.isGymDay),
-          },
+          targets_set: targets !== null,
+          targets: targets
+            ? {
+                protein_g: targets.protein_target,
+                fat_min_g: targets.fat_min,
+                fat_max_g: targets.fat_max,
+                fat_floor_g: targets.fat_floor,
+                carbs_g: day.isGymDay ? targets.carbs_gym : targets.carbs_rest,
+                calories: caloriesTarget(targets, day.isGymDay),
+              }
+            : null,
           totals: {
             protein_g: round(day.totals.protein_g),
             fat_g: round(day.totals.fat_g),
             carbs_g: round(day.totals.carbs_g),
-            kcal: round(day.summary.kcal),
+            kcal: round(kcalOf(day.totals)),
           },
-          remaining: {
-            protein_g: round(remaining.protein_g),
-            fat_g: round(remaining.fat_g),
-            carbs_g: round(remaining.carbs_g),
-            kcal: round(remaining.kcal),
-          },
+          remaining: remaining
+            ? {
+                protein_g: round(remaining.protein_g),
+                fat_g: round(remaining.fat_g),
+                carbs_g: round(remaining.carbs_g),
+                kcal: round(remaining.kcal),
+              }
+            : null,
           meals: day.meals.map((meal) => ({
             category: meal.category,
             name: meal.name,
@@ -605,12 +655,15 @@ export function buildCoachTools(
       inputSchema: z.object({}),
       execute: safe("get_day_status", async () => {
         const day = await getDayData(userId, profile, today);
-        const deviations = dayDeviations(day.summary, day.meals.length);
+        const deviations = day.summary
+          ? dayDeviations(day.summary, day.meals.length)
+          : [];
         const weeklyStepsAvg = await weeklyStepsAvgThrough(userId, today);
         return {
           closed: day.dayRow?.closed_at != null,
           steps: day.dayRow?.steps ?? null,
           notes: day.dayRow?.notes ?? null,
+          targets_set: day.targets !== null,
           deviations: deviations.map((line) => ({
             key: line.key,
             state: line.state,
@@ -642,8 +695,11 @@ export function buildCoachTools(
         }) => {
           await ensureDay(userId, profile, today);
           const day = await getDayData(userId, profile, today);
-          const targets = mealFitTargets(profile, day.isGymDay);
-          const bands = mealFitBands(profile, day.isGymDay);
+          if (!day.targets) {
+            return { items: [], reason: "no_targets" };
+          }
+          const targets = mealFitTargets(day.targets, day.isGymDay);
+          const bands = mealFitBands(day.targets, day.isGymDay);
           const remaining = remainingOf(day.totals, targets);
           const catalog = await getCatalog(userId);
           const weekday = weekdayOf(today);
@@ -1040,31 +1096,55 @@ export function buildCoachTools(
           const day = await getDayData(userId, profile, today);
           const weeklyStepsAvg = await weeklyStepsAvgThrough(userId, today);
           revalidatePath("/");
+          const targets = day.targets;
           return {
             logged: true,
+            targets_set: targets !== null,
             day: {
               steps: input.steps,
               notes: input.notes,
-              summary: {
-                protein_g: round(day.totals.protein_g),
-                fat_g: round(day.totals.fat_g),
-                carbs_g: round(day.totals.carbs_g),
-                kcal: round(day.summary.kcal),
-                protein_target: profile.protein_target,
-                fat_target_min: profile.fat_min,
-                fat_target_max: profile.fat_max,
-                carbs_target: day.isGymDay ? profile.carbs_gym : profile.carbs_rest,
-                kcal_target: day.summary.kcalTarget,
-              },
-              deviations: dayDeviations(day.summary, day.meals.length).map((line) => ({
-                key: line.key,
-                state: line.state,
-                current: line.current,
-                target: line.target,
-              })),
+              summary:
+                day.summary && targets
+                  ? {
+                      protein_g: round(day.totals.protein_g),
+                      fat_g: round(day.totals.fat_g),
+                      carbs_g: round(day.totals.carbs_g),
+                      kcal: round(day.summary.kcal),
+                      protein_target: targets.protein_target,
+                      fat_target_min: targets.fat_min,
+                      fat_target_max: targets.fat_max,
+                      carbs_target: day.isGymDay ? targets.carbs_gym : targets.carbs_rest,
+                      kcal_target: day.summary.kcalTarget,
+                    }
+                  : null,
+              deviations: day.summary
+                ? dayDeviations(day.summary, day.meals.length).map((line) => ({
+                    key: line.key,
+                    state: line.state,
+                    current: line.current,
+                    target: line.target,
+                  }))
+                : [],
               weekly_steps_average: weeklyStepsAvg,
             },
           };
+        },
+      ),
+    }),
+    set_targets: tool({
+      description:
+        "Set the user's daily macro targets: protein (g), fat floor/min/max (g), carbs on gym and rest days (g), calories on gym and rest days. Call this when the user states their targets or agrees to the numbers you proposed after discussing their goal, body scan and activity. Always pass all 8 values. The user confirms before anything is written. Never call it to adjust targets on your own initiative.",
+      inputSchema: setTargetsInput,
+      execute: safe(
+        "set_targets",
+        async (input: Targets) => {
+          await saveTargets(userId, input);
+          revalidatePath("/");
+          revalidatePath("/settings");
+          revalidatePath("/settings/targets");
+          revalidatePath("/coach");
+          revalidatePath("/body");
+          return { logged: true, targets: input };
         },
       ),
     }),

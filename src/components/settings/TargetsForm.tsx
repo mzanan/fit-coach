@@ -7,19 +7,22 @@ import { NumberField } from "@/components/ui/NumberField";
 import { Surface } from "@/components/ui/Surface";
 import { updateTargets } from "@/lib/actions/profile";
 import type { Profile } from "@/lib/db/schema";
+import { targetsOf } from "@/lib/targets";
 import { useAction } from "@/hooks/useAction";
 
 export function TargetsForm({ profile }: { profile: Profile }) {
   const { pending, run } = useAction();
+  const targets = targetsOf(profile);
+  const hadTargets = targets !== null;
   const [v, setV] = useState({
-    protein_target: String(profile.protein_target),
-    fat_min: String(profile.fat_min),
-    fat_max: String(profile.fat_max),
-    fat_floor: String(profile.fat_floor),
-    carbs_gym: String(profile.carbs_gym),
-    carbs_rest: String(profile.carbs_rest),
-    calories_target: String(profile.calories_target),
-    calories_rest: String(profile.calories_rest),
+    protein_target: targets ? String(targets.protein_target) : "",
+    fat_min: targets ? String(targets.fat_min) : "",
+    fat_max: targets ? String(targets.fat_max) : "",
+    fat_floor: targets ? String(targets.fat_floor) : "",
+    carbs_gym: targets ? String(targets.carbs_gym) : "",
+    carbs_rest: targets ? String(targets.carbs_rest) : "",
+    calories_target: targets ? String(targets.calories_target) : "",
+    calories_rest: targets ? String(targets.calories_rest) : "",
   });
   const set = (k: keyof typeof v) => (val: string) =>
     setV((prev) => ({ ...prev, [k]: val }));
@@ -112,7 +115,7 @@ export function TargetsForm({ profile }: { profile: Profile }) {
           </p>
         </div>
         <Button type="submit" size="lg" className="w-full" disabled={pending}>
-          {pending ? "Saving..." : "Save targets"}
+          {pending ? "Saving..." : hadTargets ? "Save targets" : "Set targets"}
         </Button>
       </form>
     </Surface>
