@@ -11,15 +11,17 @@ Next 16 (App Router) + React 19 + Tailwind v4 + shadcn/radix. Turso via Drizzle.
 ## Commands
 
 - `npm run dev` (port 3040), `npm run build`, `npm run lint`, `npm run format`
-- `npm run db:generate` / `db:migrate` / `db:studio`
+- `npm run test` (vitest), `npm run db:generate` / `db:migrate` / `db:studio`, `npm run db:seed-exercises` (imports the exercise catalog via `scripts/importExerciseCatalog.ts`)
 
 ## Structure
 
-- `src/app/(app)/` app routes (today, catalog, coach, workout, settings); `src/app/login/`; `src/app/api/{auth,coach,cron}/`
+- `src/app/(app)/` app routes (today, catalog, coach, workout, settings); `src/app/login/`; `src/app/api/{auth,coach,cron,import,push,whoop}/`
 - `src/components/<feature>/` feature UI + colocated hooks; `src/components/ui/` primitives
-- `src/lib/` actions, ai, data, db (schema + drizzle), auth/session, macros/dates helpers. `ai/aiCredentials.ts`, `ai/capabilities.ts` (model catalogs) and `data/catalog.ts` call `unstable_cache`, so `lib/` is coupled to the Next.js runtime and not portable as-is.
+- `src/lib/` actions, ai, data, db (schema + drizzle), auth/session, macros/dates helpers, `integrations/` (Whoop client + credential crypto, runtime never exercised). `src/hooks/` cross-feature hooks, `src/types/` ambient declarations. `ai/aiCredentials.ts`, `ai/capabilities.ts` (model catalogs) and `data/catalog.ts` call `unstable_cache`, so `lib/` is coupled to the Next.js runtime and not portable as-is.
 - `src/lib/ai/` model calls (`provider`), per-user credentials (`aiCredentials`), capability gating + model catalogs (`capabilities`, merging the old registry/groqCaps/googleCaps), coach turn orchestration (`coach`, prompt text in `coachPrompt`, context/snapshot building in `coachContext`, the write-approval flow in `coachApproval`), tools (`coachTools` + catalog search/ranking in `coachCatalogSearch`, `writeGate` for the per-model write allowlist), spend/abuse constants (`limits`: turn cap, tool-step cap, continuation-retry cap), memory (`memory` summary, `facts` + `embeddings`), background maintenance (`maintenance`: daily stale-fact expiry + memory consolidation via `/api/cron/maintenance`), ingestion (`vision`, `inbody`, `mdExtract`, `mdImport`)
 
 ## Conventions
 
-Personal engineering standards apply (reuse/SRP/DRY/tokens/server-first, zero code comments, branch per change): see `personal/CLAUDE.md` and `personal-brain/02-Areas/Engineering-standards.md`. Secrets in `.env.local` (template: `.env.example`); never commit values.
+Personal engineering standards apply (reuse/SRP/DRY/tokens/server-first, zero code comments, branch per change): see `personal/CLAUDE.md` and `personal-brain/02-Areas/Engineering-standards.md`. Secrets in `.env.local` (template: `.env.example`), backed up in Infisical folder `/fit-coach` (envs `dev`/`prod`, `.infisical.json` committed); never commit values.
+
+Prod migrations: source the prod Turso credentials explicitly from Infisical (env `prod`); never let drizzle fall back to `.env.local` (that is dev). Echo the resolved target DB host/URL before running the migration and confirm it is prod. If prod credentials are missing, abort instead of continuing on the fallback.
