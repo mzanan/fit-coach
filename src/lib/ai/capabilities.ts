@@ -3,6 +3,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 
 import type { AiProvider } from "@/lib/ai/options";
+import { isWriteBlocked } from "@/lib/ai/writeGate";
 import { FETCH_TIMEOUT_MS } from "@/lib/constants";
 
 const OPENROUTER_API = "https://openrouter.ai/api/v1";
@@ -294,4 +295,16 @@ export async function canTools(
   model: string,
 ): Promise<boolean> {
   return (await toolsRouting(provider, model)) !== null;
+}
+
+export async function canWriteMeals(
+  provider: AiProvider,
+  model: string,
+): Promise<boolean> {
+  if (isWriteBlocked(model)) return false;
+  try {
+    return await canTools(provider, model);
+  } catch {
+    return true;
+  }
 }

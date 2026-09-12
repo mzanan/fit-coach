@@ -21,7 +21,7 @@ import {
   type ApprovalRequest,
   type CoachEvent,
 } from "@/lib/ai/provider";
-import { canWriteMeals } from "@/lib/ai/writeGate";
+import { canWriteMeals } from "@/lib/ai/capabilities";
 import { logAiEvent, logExchange } from "@/lib/data/aiEvents";
 import {
   beginExchange,
@@ -146,7 +146,7 @@ export async function resolvePendingWrite(
       };
     }
 
-    const allowWrite = canWriteMeals(ref.model);
+    const allowWrite = await canWriteMeals(ref.provider, ref.model);
     if (!allowWrite) {
       console.error(
         `coach: pending write approved but the now-active model cannot write, user=${userId} model=${ref.provider}/${ref.model}`,
