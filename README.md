@@ -48,7 +48,7 @@ Model capability is not uniform and no layer normalizes it, so the app keeps its
 
 ### The coach is an agent, not a prompt
 
-The coach runs on the SDK's native tool loop with read tools (`get_today`, `search_catalog`, `get_workouts`, `get_body_scans`, `get_progress_overview`, `check_progression_eligible`) plus writes. The model decides which to call; the app does not pre-assemble context.
+The coach runs on the SDK's native tool loop with read tools (`get_current_time`, `get_today`, `search_catalog`, `get_workouts`, `get_body_scans`, `get_progress_overview`, `check_progression_eligible`) plus writes. The model decides which to call; the app does not pre-assemble context.
 
 `log_meal`, `update_rule` (standing rules like medication timing or a dietary constraint), `log_fatigue` (a 1-5 energy check-in per morning/post-lunch slot) and `log_workout_session` (logs exercises and sets against the catalog) are the writes, all gated by the SDK's `toolApproval`. They are also only registered for models whose provider catalogue declares tool support (`canWriteMeals`, which reads the same `canTools` capability check the rest of the app uses, minus a `WRITE_BLOCKED_MODELS` escape hatch for models that declare tools and fail in practice); any other active model never sees any of them, and the system prompt tells it to send the user to manual logging instead. When the capability lookup itself cannot be reached, the gate fails open rather than silently disabling the feature, because the approval card still stands between the model and the database. The flow matters:
 
