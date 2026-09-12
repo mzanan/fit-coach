@@ -4,7 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { parseISO } from "date-fns";
 
-import { mdExtraction } from "@/lib/ai/mdImport";
+import { mdExtraction } from "@/lib/ai/mdExtraction";
 import { db, schema } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { newId } from "@/lib/utils";
