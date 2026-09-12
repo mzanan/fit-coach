@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { db, schema } from "@/lib/db";
 import { COACH_RULES_MAX, isChatLanguage, SUMMARY_RULES_MAX } from "@/lib/constants";
+import { isValidTimezone } from "@/lib/dates";
 import { saveTargets } from "@/lib/data/targets";
 import { requireUser } from "@/lib/session";
 import { targetsSchema } from "@/lib/targets";
@@ -100,7 +101,10 @@ const settingsSchema = z.object({
   sex: z.enum(["male", "female"]),
   birth_year: z.number().int().min(1900).max(2100).nullable(),
   height_cm: z.number().min(0).max(300).nullable(),
-  timezone: z.string().min(1),
+  timezone: z
+    .string()
+    .min(1)
+    .refine(isValidTimezone, "Use a valid timezone name, like Asia/Ho_Chi_Minh."),
   day_cutoff_hour: z.number().int().min(0).max(12),
 });
 

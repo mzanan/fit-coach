@@ -1,5 +1,5 @@
 import { addDays, format, parseISO, subHours } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
+import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 
 import {
   DAY_CUTOFF_DEFAULT,
@@ -12,12 +12,22 @@ export interface DayConfig {
   cutoffHour: number;
 }
 
+export function isValidTimezone(zone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function dayConfig(profile?: {
   timezone?: string | null;
   day_cutoff_hour?: number | null;
 }): DayConfig {
+  const saved = profile?.timezone;
   return {
-    timezone: profile?.timezone ?? TIMEZONE_DEFAULT,
+    timezone: saved && isValidTimezone(saved) ? saved : TIMEZONE_DEFAULT,
     cutoffHour: profile?.day_cutoff_hour ?? DAY_CUTOFF_DEFAULT,
   };
 }
@@ -79,4 +89,27 @@ export function inferMealCategory(
   if (minutes < 16 * 60) return "lunch";
   if (minutes < 18 * 60) return "snack";
   return "dinner";
+}
+
+export interface CurrentTime {
+  timezone: string;
+  date: string;
+  time: string;
+  weekday: string;
+  logical_day: string;
+}
+
+export function currentTimeFor(
+  profile: { timezone?: string | null; day_cutoff_hour?: number | null },
+  logicalDay: string,
+  now: Date = new Date(),
+): CurrentTime {
+  const { timezone } = dayConfig(profile);
+  return {
+    timezone,
+    date: formatInTimeZone(now, timezone, "yyyy-MM-dd"),
+    time: formatInTimeZone(now, timezone, "HH:mm"),
+    weekday: formatInTimeZone(now, timezone, "EEEE"),
+    logical_day: logicalDay,
+  };
 }
