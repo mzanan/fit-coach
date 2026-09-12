@@ -8,7 +8,7 @@ import type {
   PreviewCatalogItem,
   PreviewDay,
 } from "@/components/import/useMdImport";
-import type { ImportedMeal } from "@/lib/ai/mdImport";
+import type { ImportedMeal } from "@/lib/ai/mdExtraction";
 import { formatDayLabel } from "@/lib/dates";
 
 export function ImportReview({

@@ -20,8 +20,9 @@ export function ImportProgress({
       </p>
       <p className="mt-1 text-meta text-muted-foreground">
         Each part is one call to your model, and a free tier can rate limit
-        them, so a long log takes minutes. Leaving this page cancels the run,
-        and nothing is saved until you confirm the review.
+        them, so a long log takes minutes. The run keeps going on the server if
+        you leave, and this page picks it up again when you come back. Nothing
+        is saved until you confirm the review.
       </p>
       <Button variant="outline" className="mt-card" onClick={onCancel}>
         Cancel

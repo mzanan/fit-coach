@@ -1,50 +1,37 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { toast } from "sonner";
 
 import { commitMdImport } from "@/lib/actions/mdImport";
-import { readNdjson } from "@/lib/ndjson";
-import type { MdExtraction } from "@/lib/ai/mdImport";
-import type {
-  ImportedCatalogItem,
-  ImportedMeal,
-  ImportedWorkout,
-} from "@/lib/ai/mdImport";
+import {
+  cancelImportRun,
+  forgetImportRun,
+  resumableImportRun,
+  startImportRun,
+  streamImportRun,
+} from "@/lib/importStream";
+import type { ImportedMeal, MdExtraction } from "@/lib/ai/mdExtraction";
+import {
+  toPreviewCatalogItems,
+  toPreviewDays,
+  type PreviewCatalogItem,
+  type PreviewDay,
+} from "@/lib/importPreview";
 
-export interface PreviewMeal extends ImportedMeal {
-  key: string;
-  include: boolean;
-}
-
-export interface PreviewWorkout {
-  workout: ImportedWorkout;
-  include: boolean;
-}
-
-export interface PreviewDay {
-  day: string;
-  meals: PreviewMeal[];
-  workout: PreviewWorkout | null;
-}
-
-export interface PreviewCatalogItem extends ImportedCatalogItem {
-  key: string;
-  include: boolean;
-}
-
-type ExtractEvent =
-  | {
-      type: "progress";
-      file: string;
-      fileIndex: number;
-      files: number;
-      chunk: number;
-      chunks: number;
-    }
-  | { type: "done"; extraction: MdExtraction }
-  | { type: "error"; message: string };
+export type {
+  PreviewCatalogItem,
+  PreviewDay,
+  PreviewMeal,
+  PreviewWorkout,
+} from "@/lib/importPreview";
 
 export interface Attachment {
   id: string;
@@ -62,10 +49,87 @@ export function useMdImport() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [progress, setProgress] = useState<string | null>(null);
   const [controller, setController] = useState<AbortController | null>(null);
+  const [runId, setRunId] = useState<string | null>(null);
+  const activeRun = useRef<string | null>(null);
 
   useEffect(() => {
     return () => controller?.abort();
   }, [controller]);
+
+  const consumeRun = useCallback(async (id: string, signal: AbortSignal) => {
+    activeRun.current = id;
+    let result: MdExtraction | null = null;
+    let failure: string | null = null;
+
+    for await (const event of streamImportRun(id, signal, () =>
+      setProgress("Reconnecting"),
+    )) {
+      if (activeRun.current !== id) return;
+      if (event.type === "progress") {
+        setProgress(
+          `${event.file} (${event.fileIndex} of ${event.files}), part ${event.chunk} of ${event.chunks}`,
+        );
+      } else if (event.type === "done") {
+        result = event.extraction;
+      } else {
+        failure = event.message;
+        break;
+      }
+    }
+
+    if (activeRun.current !== id) return;
+    activeRun.current = null;
+
+    if (failure) {
+      setRunId(null);
+      await forgetImportRun(id).catch((error) =>
+        console.error("md import: forget failed", error),
+      );
+      throw new Error(failure);
+    }
+    if (!result) throw new Error("Extraction returned nothing");
+
+    setDays(toPreviewDays(result));
+    setCatalogItems(toPreviewCatalogItems(result));
+    setWarnings(result.warnings);
+    setRunId(null);
+    await forgetImportRun(id).catch((error) =>
+      console.error("md import: forget failed", error),
+    );
+  }, []);
+
+  useEffect(() => {
+    let dropped = false;
+    const abort = new AbortController();
+
+    async function rejoin() {
+      const found = await resumableImportRun().catch(() => null);
+      if (!found || dropped || activeRun.current) return;
+      setRunId(found);
+      setController(abort);
+      setProgress("Picking up the import you left running");
+      try {
+        await consumeRun(found, abort.signal);
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          toast.error(
+            error instanceof Error ? error.message : "Extraction failed",
+          );
+        }
+      } finally {
+        if (!dropped) {
+          setProgress(null);
+          setController(null);
+        }
+      }
+    }
+
+    void rejoin();
+    return () => {
+      dropped = true;
+      abort.abort();
+    };
+  }, [consumeRun]);
 
   function extract() {
     startTransition(async () => {
@@ -73,57 +137,19 @@ export function useMdImport() {
       const abort = new AbortController();
       setController(abort);
       try {
-        const res = await fetch("/api/import/extract", {
-          method: "POST",
-          signal: abort.signal,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sources: [
-              ...attachments.map((file) => ({
-                name: file.name,
-                text: file.text,
-              })),
-              ...(mdText.trim()
-                ? [{ name: "Pasted text", text: mdText }]
-                : []),
-            ],
-          }),
-        });
-        if (!res.ok || !res.body) throw new Error("Extraction failed");
-
-        let result: MdExtraction | null = null;
-        for await (const event of readNdjson<ExtractEvent>(res.body)) {
-          if (event.type === "progress") {
-            setProgress(
-              `${event.file} (${event.fileIndex} of ${event.files}), part ${event.chunk} of ${event.chunks}`,
-            );
-          } else if (event.type === "done") {
-            result = event.extraction;
-          } else {
-            throw new Error(event.message);
-          }
+        const started = await startImportRun([
+          ...attachments.map((file) => ({
+            name: file.name,
+            text: file.text,
+          })),
+          ...(mdText.trim() ? [{ name: "Pasted text", text: mdText }] : []),
+        ]);
+        setRunId(started);
+        if (abort.signal.aborted) {
+          dropRun(started);
+          return;
         }
-        if (!result) throw new Error("Extraction returned nothing");
-
-        setDays(
-          result.days.map((d, di) => ({
-            day: d.day,
-            meals: d.meals.map((m, mi) => ({
-              ...m,
-              key: `${di}-${mi}`,
-              include: true,
-            })),
-            workout: d.workout ? { workout: d.workout, include: true } : null,
-          })),
-        );
-        setCatalogItems(
-          result.catalog_items.map((c, i) => ({
-            ...c,
-            key: `c-${i}`,
-            include: true,
-          })),
-        );
-        setWarnings(result.warnings);
+        await consumeRun(started, abort.signal);
       } catch (e) {
         if ((e as Error).name !== "AbortError") {
           toast.error(e instanceof Error ? e.message : "Extraction failed");
@@ -161,8 +187,19 @@ export function useMdImport() {
     setAttachments((current) => current.filter((file) => file.id !== id));
   }
 
+  function dropRun(id: string) {
+    if (activeRun.current === id) activeRun.current = null;
+    setRunId(null);
+    void cancelImportRun(id)
+      .then(() => forgetImportRun(id))
+      .catch((error) =>
+        console.error("md import: cancel failed, run kept", error),
+      );
+  }
+
   function cancelExtraction() {
     controller?.abort();
+    if (runId) dropRun(runId);
   }
 
   function updateMeal(day: string, key: string, values: Partial<ImportedMeal>) {
@@ -206,6 +243,7 @@ export function useMdImport() {
     setDays(null);
     setCatalogItems([]);
     setWarnings([]);
+    if (runId) dropRun(runId);
   }
 
   function commit() {
@@ -244,8 +282,7 @@ export function useMdImport() {
           warnings: [],
         };
         const result = await commitMdImport(payload);
-        const skipped =
-          result.skippedDuplicates + result.skippedCatalogItems;
+        const skipped = result.skippedDuplicates + result.skippedCatalogItems;
         toast.success(
           `Imported ${result.meals} meals, ${result.workouts} workouts, ${result.catalogItems} catalog items${
             skipped ? `. ${skipped} already there, skipped` : ""
@@ -271,6 +308,7 @@ export function useMdImport() {
 
   return {
     pending,
+    running: progress !== null,
     mdText,
     setMdText,
     attachFiles,

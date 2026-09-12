@@ -9,7 +9,7 @@ import { MacroChips } from "@/components/ui/MacroChips";
 import { Pill } from "@/components/ui/Pill";
 import { MealForm } from "@/components/today/MealForm";
 import { categoryLabel } from "@/lib/constants";
-import type { ImportedMeal } from "@/lib/ai/mdImport";
+import type { ImportedMeal } from "@/lib/ai/mdExtraction";
 import type { PreviewMeal } from "@/components/import/useMdImport";
 
 export function ImportMealRow({
