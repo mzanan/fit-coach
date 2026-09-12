@@ -635,6 +635,18 @@ export const body_measurements = sqliteTable(
   ],
 );
 
+export const import_runs = sqliteTable(
+  "import_runs",
+  {
+    run_id: text("run_id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("import_runs_user_idx").on(t.user_id)],
+);
+
 export type Profile = typeof profiles.$inferSelect;
 export type CatalogItem = typeof catalog_items.$inferSelect;
 export type CatalogComponent = typeof catalog_components.$inferSelect;
@@ -658,3 +670,4 @@ export type PushSubscription = typeof push_subscriptions.$inferSelect;
 export type Day = typeof days.$inferSelect;
 export type RoutineSlot = typeof routine_slots.$inferSelect;
 export type RoutineExercise = typeof routine_exercises.$inferSelect;
+export type ImportRun = typeof import_runs.$inferSelect;

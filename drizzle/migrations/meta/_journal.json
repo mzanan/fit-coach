@@ -253,6 +253,13 @@
       "when": 1788495312224,
       "tag": "0035_milky_vengeance",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1789210376533,
+      "tag": "0036_narrow_darkstar",
+      "breakpoints": true
     }
   ]
 }

@@ -4,65 +4,8 @@ import { z } from "zod";
 
 import type { ModelRef } from "@/lib/ai/aiCredentials";
 import { googleModel } from "@/lib/ai/capabilities";
+import { mdExtraction, type MdExtraction } from "@/lib/ai/mdExtraction";
 import { chatJson } from "@/lib/ai/provider";
-import {
-  dayString,
-  fatQuality,
-  macroFields,
-  optionalMacroFields,
-} from "@/lib/validation";
-
-const importedMeal = z.object({
-  category: z.enum(["breakfast", "post_gym", "lunch", "snack", "dinner"]),
-  name: z.string().min(1),
-  place: z.string().nullish(),
-  fat_quality: fatQuality.optional(),
-  ...macroFields,
-});
-
-const importedSet = z.object({
-  reps: z.number().int().min(0).max(200).nullish(),
-  weight: z.number().min(0).max(1000).nullish(),
-  per_side: z.boolean().optional(),
-});
-
-const importedExercise = z.object({
-  name: z.string().min(1),
-  notes: z.string().nullish(),
-  sets: z.array(importedSet).default([]),
-});
-
-const importedWorkout = z.object({
-  label: z.string().nullish(),
-  notes: z.string().nullish(),
-  exercises: z.array(importedExercise).default([]),
-});
-
-const importedDay = z.object({
-  day: dayString,
-  meals: z.array(importedMeal).default([]),
-  workout: importedWorkout.nullish(),
-});
-
-const importedCatalogItem = z.object({
-  name: z.string().min(1),
-  place: z.string().nullish(),
-  fat_quality: fatQuality.optional(),
-  notes: z.string().nullish(),
-  ...optionalMacroFields,
-});
-
-export const mdExtraction = z.object({
-  days: z.array(importedDay).default([]),
-  catalog_items: z.array(importedCatalogItem).default([]),
-  warnings: z.array(z.string()).default([]),
-});
-
-export type MdExtraction = z.infer<typeof mdExtraction>;
-export type ImportedDay = z.infer<typeof importedDay>;
-export type ImportedMeal = z.infer<typeof importedMeal>;
-export type ImportedWorkout = z.infer<typeof importedWorkout>;
-export type ImportedCatalogItem = z.infer<typeof importedCatalogItem>;
 
 const SYSTEM = `You extract structured data from a personal markdown log of nutrition and training. Return ONLY a JSON object with this exact shape:
 {
@@ -93,104 +36,44 @@ Rules:
 - catalog_items: only from sections that describe reusable meals or a food reference list (not daily logs).
 - If a section is unrelated to food or training, ignore it.`;
 
-function chunkMarkdown(text: string, maxChars = 4000): string[] {
-  maxChars = maxChars || 4000;
-  if (text.length <= maxChars) return [text];
-  const sections = text.split(/(?=^#{1,3} )/m);
-  const chunks: string[] = [];
-  let current = "";
-  for (const section of sections) {
-    if (current && current.length + section.length > maxChars) {
-      chunks.push(current);
-      current = "";
-    }
-    current += section;
-    while (current.length > maxChars) {
-      chunks.push(current.slice(0, maxChars));
-      current = current.slice(maxChars);
-    }
-  }
-  if (current.trim()) chunks.push(current);
-  return chunks;
+export function importChunkSize(ref: ModelRef): number | undefined {
+  return ref.provider === "google"
+    ? googleModel(ref.model)?.maxInputChars
+    : undefined;
 }
 
-function knownMacros(item: ImportedCatalogItem): number {
-  return [item.protein_g, item.fat_g, item.carbs_g].filter(
-    (macro) => macro !== null && macro !== undefined,
-  ).length;
-}
-
-export function mergeExtractions(parts: MdExtraction[]): MdExtraction {
-  const dayMap = new Map<string, ImportedDay>();
-  const catalog = new Map<string, ImportedCatalogItem>();
-  const warnings: string[] = [];
-
-  for (const part of parts) {
-    for (const day of part.days) {
-      const existing = dayMap.get(day.day);
-      if (!existing) {
-        dayMap.set(day.day, day);
-      } else {
-        existing.meals.push(...day.meals);
-        if (!existing.workout && day.workout) existing.workout = day.workout;
-      }
-    }
-    for (const item of part.catalog_items) {
-      const key = item.name.trim().toLowerCase();
-      const existing = catalog.get(key);
-      if (!existing) {
-        catalog.set(key, item);
-      } else if (knownMacros(item) > knownMacros(existing)) {
-        catalog.set(key, item);
-      }
-    }
-    warnings.push(...part.warnings);
-  }
-
-  const days = [...dayMap.values()].sort((a, b) => a.day.localeCompare(b.day));
-  return { days, catalog_items: [...catalog.values()], warnings };
-}
-
-export async function extractFromMarkdown(
+export async function extractChunk(
   ref: ModelRef,
-  text: string,
-  onChunk?: (done: number, total: number) => void,
+  chunkText: string,
+  index: number,
+  total: number,
   signal?: AbortSignal,
 ): Promise<MdExtraction> {
-  const google = ref.provider === "google" ? googleModel(ref.model) : null;
-  const chunks = chunkMarkdown(text, google?.maxInputChars);
-  const budget = google ? 60_000 : 6000;
-  const parts: MdExtraction[] = [];
-  for (let i = 0; i < chunks.length; i++) {
-    if (signal?.aborted) break;
-    onChunk?.(i, chunks.length);
-    console.log(
-      `md import: part ${i + 1}/${chunks.length}, ${chunks[i].length} chars, model ${ref.provider}/${ref.model}, output budget ${budget}`,
+  const budget = ref.provider === "google" && googleModel(ref.model) ? 60_000 : 6000;
+  console.log(
+    `md import: part ${index + 1}/${total}, ${chunkText.length} chars, model ${ref.provider}/${ref.model}, output budget ${budget}`,
+  );
+  try {
+    return await chatJson(
+      ref,
+      [
+        { role: "system", content: SYSTEM },
+        {
+          role: "user",
+          content: `Markdown log (part ${index + 1} of ${total}):\n\n${chunkText}`,
+        },
+      ],
+      budget,
+      signal,
+      mdExtraction,
     );
-    try {
-      const part = await chatJson(
-        ref,
-        [
-          { role: "system", content: SYSTEM },
-          {
-            role: "user",
-            content: `Markdown log (part ${i + 1} of ${chunks.length}):\n\n${chunks[i]}`,
-          },
-        ],
-        budget,
-        signal,
-        mdExtraction,
-      );
-      parts.push(part);
-    } catch (error) {
-      if (!(error instanceof z.ZodError)) throw error;
-      console.error(`md import: part ${i + 1} did not match the schema`);
-      parts.push({
-        days: [],
-        catalog_items: [],
-        warnings: [`Part ${i + 1} could not be parsed and was skipped.`],
-      });
-    }
+  } catch (error) {
+    if (!(error instanceof z.ZodError)) throw error;
+    console.error(`md import: part ${index + 1} did not match the schema`);
+    return {
+      days: [],
+      catalog_items: [],
+      warnings: [`Part ${index + 1} could not be parsed and was skipped.`],
+    };
   }
-  return mergeExtractions(parts);
 }
