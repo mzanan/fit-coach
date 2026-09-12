@@ -179,12 +179,12 @@ export function AiCard({
                 <div className="space-y-0.5">
                   {ai.visible.map((model, index) => (
                     <Fragment key={model.id}>
-                      {index === ai.testedLabelAt ? (
+                      {index === ai.writableLabelAt ? (
                         <p className="eyebrow px-3.5 pt-1 pb-1.5">
-                          Tested for meal logging
+                          Can log meals
                         </p>
                       ) : null}
-                      {index === ai.testedDividerAt ? (
+                      {index === ai.writableDividerAt ? (
                         <hr className="my-1.5 border-border" />
                       ) : null}
                       <ModelRow

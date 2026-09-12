@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import type { AiSetup } from "@/lib/ai/aiCredentials";
 import type { ModelInfo } from "@/lib/ai/capabilities";
 import { isAiProvider, isKeyedProvider, type AiProvider } from "@/lib/ai/options";
-import { canWriteMeals } from "@/lib/ai/writeGate";
+import { isWriteBlocked } from "@/lib/ai/writeGate";
 import {
   activateProviderAction,
   listProviderModelsAction,
@@ -93,7 +93,7 @@ export function useAiSettings(
     );
   }, [models, search]);
 
-  const { ordered, firstOtherIndex, testedCount } = useMemo(() => {
+  const { ordered, firstOtherIndex, writableCount } = useMemo(() => {
     function pinSelectedFirst(list: ModelInfo[]): ModelInfo[] {
       const index = selected
         ? list.findIndex((model) => model.id === selected)
@@ -104,24 +104,24 @@ export function useAiSettings(
       return [current, ...copy];
     }
 
-    const tested = pinSelectedFirst(
-      filtered.filter((model) => canWriteMeals(model.id)),
+    const writable = pinSelectedFirst(
+      filtered.filter((model) => model.tools && !isWriteBlocked(model.id)),
     );
     const other = pinSelectedFirst(
-      filtered.filter((model) => !canWriteMeals(model.id)),
+      filtered.filter((model) => !model.tools || isWriteBlocked(model.id)),
     );
     return {
-      ordered: [...tested, ...other],
-      firstOtherIndex: tested.length,
-      testedCount: tested.length,
+      ordered: [...writable, ...other],
+      firstOtherIndex: writable.length,
+      writableCount: writable.length,
     };
   }, [filtered, selected]);
 
   const visible = ordered.slice(0, VISIBLE_LIMIT);
   const hiddenCount = ordered.length - visible.length;
-  const testedLabelAt = testedCount > 0 ? 0 : null;
-  const testedDividerAt =
-    testedCount > 0 && firstOtherIndex < visible.length ? firstOtherIndex : null;
+  const writableLabelAt = writableCount > 0 ? 0 : null;
+  const writableDividerAt =
+    writableCount > 0 && firstOtherIndex < visible.length ? firstOtherIndex : null;
   const listFailed =
     isKeyedProvider(provider) &&
     Boolean(saved) &&
@@ -231,8 +231,8 @@ export function useAiSettings(
     setConfirmOpen,
     visible,
     hiddenCount,
-    testedLabelAt,
-    testedDividerAt,
+    writableLabelAt,
+    writableDividerAt,
     needsKeyToList,
     listFailed,
     loadModels,

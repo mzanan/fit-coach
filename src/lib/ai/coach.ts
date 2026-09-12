@@ -39,7 +39,7 @@ import {
 } from "@/lib/ai/limits";
 import { learnFromMessage, retrieveFacts } from "@/lib/ai/facts";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
-import { canWriteMeals } from "@/lib/ai/writeGate";
+import { canWriteMeals } from "@/lib/ai/capabilities";
 import { listActiveRules } from "@/lib/data/coachRules";
 import {
   beginExchange,
@@ -250,7 +250,7 @@ async function toolReply(
   signal?: AbortSignal,
   appGenerated = false,
 ): Promise<CoachResult> {
-  const allowWrite = canWriteMeals(ref.model);
+  const allowWrite = await canWriteMeals(ref.provider, ref.model);
   const learned = await learnFromQuestion(ref, userId, question, appGenerated, signal);
   const setup = await toolSetup(
     userId,
