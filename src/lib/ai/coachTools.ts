@@ -56,7 +56,13 @@ import type {
   UpdateRulePreview,
 } from "@/lib/data/coachPendingWrite";
 import { saveTargets } from "@/lib/data/targets";
-import { dayConfig, daysSinceMonday, shiftDay, weekdayOf } from "@/lib/dates";
+import {
+  currentTimeFor,
+  dayConfig,
+  daysSinceMonday,
+  shiftDay,
+  weekdayOf,
+} from "@/lib/dates";
 import { getCatalog } from "@/lib/data/catalog";
 import { ensureDay } from "@/lib/data/days";
 import { getDayData } from "@/lib/data/today";
@@ -599,6 +605,12 @@ export function buildCoachTools(
   logMealOverride?: LogMealOverride,
 ): ToolSet {
   const readTools: ToolSet = {
+    get_current_time: tool({
+      description:
+        "Get the current date and time in the user's own timezone, plus the logical day the app is currently logging to. Call this whenever the answer depends on what time it is. Never state or guess the time without calling this first. Use `date` when the user asks what day or time it is, and `logical_day` when the answer is about what the app is logging to: between midnight and the user's day cutoff hour those two are deliberately different days, and saying so is the correct answer, not a contradiction.",
+      inputSchema: z.object({}),
+      execute: safe("get_current_time", async () => currentTimeFor(profile, today)),
+    }),
     get_today: tool({
       description:
         "Get today's logged meals, running macro totals, what macros remain for the day, and the user's daily targets, plus whether today is a gym day.",

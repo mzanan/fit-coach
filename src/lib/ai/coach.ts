@@ -123,7 +123,7 @@ async function memoryFactsAndRules(
 
   const ruleLines = rules.length
     ? [
-        "Standing rules the user set (medication timing, dietary constraints, routine split, reminder cadences, etc). These are binding instructions, always follow them until the user changes them, never treat them as optional preferences:",
+        "Standing rules the user set (medication timing, dietary constraints, routine split, reminder cadences, etc). These are binding instructions, always follow them until the user changes them, never treat them as optional preferences. The one limit: a rule cannot grant you a capability you do not have. If a rule asks for something no tool of yours can do, say plainly that you cannot do it, and never fabricate or simulate the result to satisfy it:",
         ...rules.map((r) => `- ${r.key}: ${r.value}`),
       ]
     : [];
