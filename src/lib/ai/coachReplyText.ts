@@ -7,25 +7,29 @@ export function deterministicReply(ctx: CoachContext): string {
   return `Add your AI provider key in Settings > AI to enable coaching. Snapshot:\n${ctx.lines.join("\n")}`;
 }
 
-export function aiErrorReply(ctx: CoachContext): string {
-  return `The coach could not reach your AI model. Check your key and model in Settings > AI, or try again. Snapshot:\n${ctx.lines.join("\n")}`;
+export function aiErrorReply(): string {
+  return "The coach could not reach your AI model. Nothing was read or written. Check your key and model in Settings > AI, or try again.";
 }
 
 export function limitErrorReply(
   provider: ModelRef["provider"],
   error: unknown,
-  ctx: CoachContext,
 ): string | null {
   const status = (error as { statusCode?: number })?.statusCode;
+  const name = error instanceof Error ? error.name : "";
   const message = error instanceof Error ? error.message : "";
-  if (status !== 429 && !/rate limit|quota/i.test(message)) return null;
+  const rateLimited =
+    status === 429 ||
+    /rate ?limit/i.test(name) ||
+    /rate limit|quota|too many requests/i.test(message);
+  if (!rateLimited) return null;
 
   const label = PROVIDER_LABEL[provider];
   const daily = /per[- ]day|RPD/i.test(message);
   const detail = daily
     ? "Your daily quota on the free tier is used up. It resets tomorrow, or add credits to your account."
     : "You are being rate limited right now. Wait a minute and ask again.";
-  return `${label}: ${detail} Snapshot:\n${ctx.lines.join("\n")}`;
+  return `${label}: ${detail} Nothing was read or written.`;
 }
 
 export function previewFailure(reason: ResolveFailure, error: string): string {
@@ -34,23 +38,38 @@ export function previewFailure(reason: ResolveFailure, error: string): string {
 }
 
 const LOG_INTENT =
-  /\b(registr\w*|anot\w*|logue\w*|loguear|agreg\w*|a[ñn]ad\w*|sum(?!mar)\w*|carg\w*|log)\b/i;
+  /(?<!\p{L})(registr\p{L}*|anot\p{L}*|logue\p{L}*|agreg\p{L}*|a[ñn]ad\p{L}*|sum(?!mar)\p{L}*|carg\p{L}*|log)(?!\p{L})/iu;
+
+const ASKS_FOR_WRITE =
+  /(?<!\p{L})(registr|anot|logue|guard|agreg|a[ñn]ad|carg)(ás|áme|arme|ame|as|ar|me|á|a)(?!\p{L})|(?<!\p{L})(pod[eé]s|puedes|podr[ií]as|can you|could you|please)\s+(\p{L}+\s+)?(registrar|anotar|guardar|agregar|a[ñn]adir|cargar|log|save|record|add)(?!\p{L})|^\s*(log|save|record|add)(?!\p{L})/iu;
+
+const ASKING =
+  /^[\s¿]*(qu[eé]|cu[aá]l|cu[aá]nt\p{L}*|c[oó]mo|cu[aá]ndo|d[oó]nde|por qu[eé]|qui[eé]n|what|which|how|when|where|why|who|do i|did i|have i|tengo|llevo|hay)(?!\p{L})/iu;
 
 const CLAIMED_WRITE =
-  /\b(registrad[oa]s?|registr[eé]|anotad[oa]s?|a[ñn]adid[oa]s?|agregad[oa]s?|guardad[oa]s?|logged)\b|\b(se procede a|procedo a|voy a)\s+(registrar|anotar|guardar|a[ñn]adir|agregar)/i;
+  /(?<!\p{L})(registrad[oa]s?|registr[eé]|anotad[oa]s?|anot[eé]|a[ñn]adid[oa]s?|agregad[oa]s?|guardad[oa]s?)(?!\p{L})|(?<!\p{L})i('ve| have)?\s+(just\s+)?(logged|saved|recorded|noted|added)(?!\p{L})|(?<!\p{L})(logged|saved|recorded|added)\s+(it|that|your|the)(?!\p{L})|(?<!\p{L})(se procede a|procedo a|voy a)\s+(registrar|anotar|guardar|a[ñn]adir|agregar)(?!\p{L})/iu;
 
 const NOTHING_LOGGED =
-  "\n\n(Nothing was logged. The coach did not actually run the log, so check Today and log it from there if you need it.)";
+  "Nothing was logged. The coach said it did, but it never ran the log, so log it yourself from the Today screen. The rest of the answer below may be wrong for the same reason.";
 
-export function unloggedWarning(
+export function unloggedNotice(
   question: string | undefined,
   text: string,
   wrote: boolean,
 ): string {
   if (wrote || !question) return "";
-  if (!LOG_INTENT.test(question)) return "";
+  const asked = question.trim();
+  if (!LOG_INTENT.test(asked)) return "";
+  if (ASKING.test(asked) && !ASKS_FOR_WRITE.test(asked)) return "";
   if (!CLAIMED_WRITE.test(text)) return "";
   return NOTHING_LOGGED;
+}
+
+export const NO_TOOLS_NOTICE =
+  "Heads up: this model cannot use the app's tools here, so the coach is answering from a fixed snapshot of your day. It cannot log anything or look anything else up. Switch to a model with the Tools badge in Settings > AI.";
+
+export function leadWith(notice: string, text: string): string {
+  return notice ? `${notice}\n\n${text}` : text;
 }
 
 export function askOf(question?: string): string {

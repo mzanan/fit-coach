@@ -13,7 +13,9 @@ import {
   exchangeOf,
   learnedAddendum,
   limitErrorReply,
-  unloggedWarning,
+  leadWith,
+  NO_TOOLS_NOTICE,
+  unloggedNotice,
 } from "@/lib/ai/coachReplyText";
 import { bufferedOnEvent, watchForStop } from "@/lib/ai/coachStreamControl";
 import { offCatalogWarning } from "@/lib/ai/coachSuggestionGate";
@@ -321,19 +323,30 @@ async function toolReply(
     }
 
     if (text) {
-      const answer =
+      const notice = unloggedNotice(
+        question,
+        text,
+        writeAttempted || writeOutputs.some((output) => output.logged),
+      );
+      if (notice && !signal?.aborted) {
+        after(() =>
+          logAiEvent(userId, "write_claimed_not_run", {
+            provider: ref.provider,
+            model: ref.model,
+            detail: question?.trim().slice(0, 200),
+          }),
+        );
+      }
+      const answer = leadWith(
+        notice,
         text +
-        unloggedWarning(
-          question,
-          text,
-          writeAttempted || writeOutputs.some((output) => output.logged),
-        ) +
-        (await offCatalogWarning(
-          ref,
-          userId,
-          text,
-          toolLog.some((entry) => entry.startsWith(`${CATALOG_SEARCH_TOOL}(`)),
-        ));
+          (await offCatalogWarning(
+            ref,
+            userId,
+            text,
+            toolLog.some((entry) => entry.startsWith(`${CATALOG_SEARCH_TOOL}(`)),
+          )),
+      );
       if (!signal?.aborted) {
         deferMemory(
           ref,
@@ -360,17 +373,15 @@ async function toolReply(
       };
     }
 
-    const ctx = await buildContext(userId, profile);
     return {
       status: "answered",
-      text: writeAttempted ? WRITE_FAILED : aiErrorReply(ctx),
+      text: writeAttempted ? WRITE_FAILED : aiErrorReply(),
       generated: false,
     };
   } catch (error) {
-    const ctx = await buildContext(userId, profile);
     return {
       status: "answered",
-      text: limitErrorReply(ref.provider, error, ctx) ?? aiErrorReply(ctx),
+      text: limitErrorReply(ref.provider, error) ?? aiErrorReply(),
       generated: false,
     };
   }
@@ -434,16 +445,25 @@ async function contextReply(
         logExchange(userId, ref, exchange.assistantId, instructions, usage),
       );
     }
+    if (text && !signal?.aborted) {
+      after(() =>
+        logAiEvent(userId, "tools_unavailable", {
+          provider: ref.provider,
+          model: ref.model,
+          detail: question?.trim().slice(0, 200),
+        }),
+      );
+    }
     return {
       status: "answered",
-      text: text || aiErrorReply(ctx),
+      text: text ? leadWith(NO_TOOLS_NOTICE, text) : aiErrorReply(),
       generated: Boolean(text),
       learned,
     };
   } catch (error) {
     return {
       status: "answered",
-      text: limitErrorReply(ref.provider, error, ctx) ?? aiErrorReply(ctx),
+      text: limitErrorReply(ref.provider, error) ?? aiErrorReply(),
       generated: false,
     };
   }
@@ -501,7 +521,7 @@ export async function coachReply(
   try {
     toolPin = await toolsRouting(ref.provider, ref.model);
   } catch {
-    toolPin = null;
+    toolPin = undefined;
   }
 
   const exchange = await beginExchange(

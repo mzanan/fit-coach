@@ -13,6 +13,8 @@ const KIND_LABEL: Record<AiEvent["kind"], string> = {
   cron_maintenance: "Nightly maintenance",
   exchange: "Model call",
   fact_extraction_failed: "Fact extraction failed",
+  write_claimed_not_run: "Claimed a write it never ran",
+  tools_unavailable: "Answered without tools",
 };
 
 function labelFor(event: AiEvent): string {
@@ -30,6 +32,8 @@ const KIND_TONE: Record<AiEvent["kind"], "muted" | "brand"> = {
   cron_maintenance: "brand",
   exchange: "muted",
   fact_extraction_failed: "muted",
+  write_claimed_not_run: "muted",
+  tools_unavailable: "muted",
 };
 
 export function AiEventsList({
