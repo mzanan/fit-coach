@@ -9,6 +9,7 @@ import { useMdImport } from "@/components/import/useMdImport";
 export function MdImportFlow({ today }: { today: string }) {
   const {
     pending,
+    running,
     mdText,
     setMdText,
     attachFiles,
@@ -29,7 +30,7 @@ export function MdImportFlow({ today }: { today: string }) {
     commit,
   } = useMdImport();
 
-  if (pending && !days) {
+  if (running && !days) {
     return (
       <ImportProgress progress={progress} onCancel={cancelExtraction} />
     );
