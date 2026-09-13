@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
@@ -7,11 +8,18 @@ import type { LanguageModel } from "ai";
 import { and, eq } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
-import { groqModels, googleModels, type ProviderModelsResult } from "@/lib/ai/capabilities";
+import {
+  groqModels,
+  googleModels,
+  explabsModels,
+  EXPLABS_BASE_URL,
+  type ProviderModelsResult,
+} from "@/lib/ai/capabilities";
 import {
   isAiProvider,
   isReasoningEffort,
   type AiProvider,
+  type KeyedProvider,
   type ReasoningEffort,
 } from "@/lib/ai/options";
 
@@ -81,6 +89,13 @@ export function resolveModel(
     return createGoogleGenerativeAI({ apiKey: ref.apiKey, fetch: customFetch })(
       ref.model,
     );
+  }
+  if (ref.provider === "explabs") {
+    return createAnthropic({
+      authToken: ref.apiKey,
+      baseURL: EXPLABS_BASE_URL,
+      fetch: customFetch,
+    })(ref.model);
   }
   return createOpenRouter({ apiKey: ref.apiKey, fetch: customFetch })(
     ref.model,
@@ -198,12 +213,16 @@ export async function providerApiKey(
 const getCachedModelsForUser = unstable_cache(
   async (
     userId: string,
-    provider: "groq" | "google",
+    provider: KeyedProvider,
   ): Promise<ProviderModelsResult | null> => {
     const apiKey = await providerApiKey(userId, provider);
     if (!apiKey) return null;
     const result =
-      provider === "groq" ? await groqModels(apiKey) : await googleModels(apiKey);
+      provider === "groq"
+        ? await groqModels(apiKey)
+        : provider === "explabs"
+          ? await explabsModels(apiKey)
+          : await googleModels(apiKey);
     // A transient error must never get cached for the full TTL, or "reload
     // to retry" in the Settings UI would keep serving the same stale error.
     if (result.status !== "ok") throw new Error(`ai models: ${result.status}`);
@@ -215,7 +234,7 @@ const getCachedModelsForUser = unstable_cache(
 
 export async function cachedProviderModels(
   userId: string,
-  provider: "groq" | "google",
+  provider: KeyedProvider,
 ): Promise<ProviderModelsResult | null> {
   try {
     return await getCachedModelsForUser(userId, provider);

@@ -13,7 +13,7 @@ Built mobile-first: the core loop is logging a meal from a personal catalog in a
 | App     | Next.js 16 (App Router), React 19, Tailwind v4, Radix primitives  |
 | Data    | Turso (libSQL) + Drizzle ORM                                      |
 | Auth    | Better Auth: Google OAuth primary, email OTP secondary            |
-| AI      | Vercel AI SDK v7, per-user BYOK across Groq / OpenRouter / Google |
+| AI      | Vercel AI SDK v7, per-user BYOK across Groq / OpenRouter / Google / Experiential Labs |
 | Hosting | Vercel (`hnd1`, colocated with the Turso region)                  |
 
 ## Running locally

@@ -15,6 +15,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.53",
     "@ai-sdk/google": "^4.0.31",
     "@ai-sdk/groq": "^4.0.19",
     "@hookform/resolvers": "^5.2.2",

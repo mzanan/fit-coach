@@ -15,9 +15,15 @@ import {
   getModelInfo,
   googleModels,
   groqModels,
+  explabsModels,
   type ModelInfo,
 } from "@/lib/ai/capabilities";
-import { AI_PROVIDERS, PROVIDER_LABEL } from "@/lib/ai/options";
+import {
+  AI_PROVIDERS,
+  KEYED_PROVIDERS,
+  PROVIDER_LABEL,
+  type KeyedProvider,
+} from "@/lib/ai/options";
 import { FETCH_TIMEOUT_MS } from "@/lib/constants";
 import { requireUser } from "@/lib/session";
 
@@ -64,14 +70,19 @@ async function openrouterModelError(model: string): Promise<string | null> {
   }
 }
 
+async function keyedModels(provider: KeyedProvider, apiKey: string) {
+  if (provider === "groq") return groqModels(apiKey);
+  if (provider === "explabs") return explabsModels(apiKey);
+  return googleModels(apiKey);
+}
+
 async function keyedProviderError(
-  provider: "groq" | "google",
+  provider: KeyedProvider,
   apiKey: string,
   model: string | null,
 ): Promise<string | null> {
   const label = PROVIDER_LABEL[provider];
-  const result =
-    provider === "groq" ? await groqModels(apiKey) : await googleModels(apiKey);
+  const result = await keyedModels(provider, apiKey);
   if (result.status === "unauthorized") return `${label} rejected this API key.`;
   if (result.status === "error") {
     return `Could not reach ${label} to validate the key. Try again.`;
@@ -86,10 +97,10 @@ function revalidateAi(): void {
   revalidatePath("/coach", "layout");
 }
 
-const keyedProvider = z.enum(["groq", "google"]);
+const keyedProvider = z.enum(KEYED_PROVIDERS);
 
 export async function listProviderModelsAction(
-  provider: "groq" | "google",
+  provider: KeyedProvider,
   input: unknown,
 ): Promise<{ models?: ModelInfo[]; error?: string }> {
   await requireUser();
@@ -101,10 +112,7 @@ export async function listProviderModelsAction(
   }
 
   const label = PROVIDER_LABEL[provider];
-  const result =
-    provider === "groq"
-      ? await groqModels(parsed.data)
-      : await googleModels(parsed.data);
+  const result = await keyedModels(provider, parsed.data);
   if (result.status === "unauthorized") {
     return { error: `${label} rejected this API key.` };
   }
