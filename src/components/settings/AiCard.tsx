@@ -13,20 +13,15 @@ import { Surface } from "@/components/ui/Surface";
 import { useAiSettings } from "@/components/settings/useAiSettings";
 import type { AiSetup } from "@/lib/ai/aiCredentials";
 import type { ModelInfo } from "@/lib/ai/capabilities";
-import type { AiProvider } from "@/lib/ai/options";
+import { PROVIDER_LABEL } from "@/lib/ai/options";
 import { cn } from "@/lib/utils";
 
 const PROVIDER_OPTIONS = [
   { value: "openrouter", label: "OpenRouter" },
   { value: "groq", label: "Groq" },
   { value: "google", label: "Google" },
+  { value: "explabs", label: "Experiential Labs" },
 ] as const;
-
-const PROVIDER_LABEL: Record<AiProvider, string> = {
-  openrouter: "OpenRouter",
-  groq: "Groq",
-  google: "Google",
-};
 
 interface AiCardProps {
   setup: AiSetup;

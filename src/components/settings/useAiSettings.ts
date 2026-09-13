@@ -5,7 +5,12 @@ import { toast } from "sonner";
 
 import type { AiSetup } from "@/lib/ai/aiCredentials";
 import type { ModelInfo } from "@/lib/ai/capabilities";
-import { isAiProvider, isKeyedProvider, type AiProvider } from "@/lib/ai/options";
+import {
+  isAiProvider,
+  isKeyedProvider,
+  PROVIDER_LABEL as LABEL,
+  type AiProvider,
+} from "@/lib/ai/options";
 import { isWriteBlocked } from "@/lib/ai/writeGate";
 import {
   activateProviderAction,
@@ -17,12 +22,6 @@ import {
 } from "@/lib/actions/aiSettings";
 
 const VISIBLE_LIMIT = 30;
-
-const LABEL: Record<AiProvider, string> = {
-  openrouter: "OpenRouter",
-  groq: "Groq",
-  google: "Google",
-};
 
 export function useAiSettings(
   setup: AiSetup,

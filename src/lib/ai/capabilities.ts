@@ -10,6 +10,7 @@ const OPENROUTER_API = "https://openrouter.ai/api/v1";
 const GROQ_MODELS_URL = "https://api.groq.com/openai/v1/models";
 const GOOGLE_MODELS_URL =
   "https://generativelanguage.googleapis.com/v1beta/models";
+export const EXPLABS_BASE_URL = "https://api.experientiallabs.ai/v1";
 const CACHE_SECONDS = 3600;
 
 export interface ModelInfo {
@@ -255,6 +256,48 @@ export async function googleModels(
   }
 }
 
+// -- Experiential Labs curated capability map ----------------------------
+// The gateway serves 318 ids through an Anthropic-shaped /v1/messages and its
+// /v1/models listing carries no tool or schema flags, so capability stays
+// curated exactly like Groq and Google above. Only ids measured emitting
+// tool_use against this gateway are listed; anything else is offered but
+// marked unsupported, which keeps it out of the coach's write path.
+
+const EXPLABS_CAPABILITIES: Record<string, { tools: boolean; structured: boolean }> = {
+  "deepseek-v4-flash": { tools: true, structured: true },
+  "gpt-5.6-luna": { tools: true, structured: true },
+  "qwen3.8-27b": { tools: true, structured: true },
+};
+
+export function explabsCapability(id: string): { tools: boolean; structured: boolean } {
+  return EXPLABS_CAPABILITIES[id] ?? { tools: false, structured: false };
+}
+
+export async function explabsModels(
+  apiKey: string,
+): Promise<ProviderModelsResult> {
+  try {
+    const response = await fetch(`${EXPLABS_BASE_URL}/models`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (response.status === 401 || response.status === 403) {
+      return { status: "unauthorized" };
+    }
+    if (!response.ok) return { status: "error" };
+
+    const body = (await response.json()) as { data?: { id?: string }[] };
+    const models = (body.data ?? [])
+      .map((model) => model.id)
+      .filter((id): id is string => Boolean(id) && !NON_CHAT.test(id ?? ""))
+      .sort()
+      .map((id) => ({ id, name: id, free: id.endsWith("-free"), ...explabsCapability(id) }));
+    return { status: "ok", models };
+  } catch {
+    return { status: "error" };
+  }
+}
+
 // -- Capability routing, keyed by provider + model -----------------------
 
 export async function structuredRouting(
@@ -266,6 +309,9 @@ export async function structuredRouting(
   }
   if (provider === "groq") {
     return groqCapability(model).structured ? undefined : null;
+  }
+  if (provider === "explabs") {
+    return explabsCapability(model).structured ? undefined : null;
   }
   return structuredRouteOnly(model);
 }
@@ -279,6 +325,9 @@ export async function toolsRouting(
   }
   if (provider === "groq") {
     return groqCapability(model).tools ? undefined : null;
+  }
+  if (provider === "explabs") {
+    return explabsCapability(model).tools ? undefined : null;
   }
   return toolsRouteOnly(model);
 }

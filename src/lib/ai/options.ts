@@ -1,4 +1,4 @@
-export const AI_PROVIDERS = ["openrouter", "groq", "google"] as const;
+export const AI_PROVIDERS = ["openrouter", "groq", "google", "explabs"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
 export const REASONING_EFFORTS = ["none", "low", "medium", "high"] as const;
@@ -8,8 +8,10 @@ export function isAiProvider(value: string): value is AiProvider {
   return (AI_PROVIDERS as readonly string[]).includes(value);
 }
 
-export function isKeyedProvider(provider: AiProvider): provider is "groq" | "google" {
-  return provider === "groq" || provider === "google";
+export function isKeyedProvider(
+  provider: AiProvider,
+): provider is "groq" | "google" | "explabs" {
+  return provider === "groq" || provider === "google" || provider === "explabs";
 }
 
 export function isReasoningEffort(value: string): value is ReasoningEffort {
@@ -20,4 +22,5 @@ export const PROVIDER_LABEL: Record<AiProvider, string> = {
   openrouter: "OpenRouter",
   groq: "Groq",
   google: "Google",
+  explabs: "Experiential Labs",
 };
