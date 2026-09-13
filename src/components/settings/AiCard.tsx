@@ -10,27 +10,25 @@ import { Pill } from "@/components/ui/Pill";
 import { SearchField } from "@/components/ui/SearchField";
 import { Segmented } from "@/components/ui/Segmented";
 import { Surface } from "@/components/ui/Surface";
-import { useAiSettings } from "@/components/settings/useAiSettings";
+import {
+  useAiSettings,
+  type KeyedModelLists,
+} from "@/components/settings/useAiSettings";
 import type { AiSetup } from "@/lib/ai/aiCredentials";
 import type { ModelInfo } from "@/lib/ai/capabilities";
-import { PROVIDER_LABEL } from "@/lib/ai/options";
+import { AI_PROVIDERS, PROVIDER_LABEL } from "@/lib/ai/options";
 import { cn } from "@/lib/utils";
 
-const PROVIDER_OPTIONS = [
-  { value: "openrouter", label: "OpenRouter" },
-  { value: "groq", label: "Groq" },
-  { value: "google", label: "Google" },
-  { value: "explabs", label: "Experiential Labs" },
-] as const;
+const PROVIDER_OPTIONS = AI_PROVIDERS.map((value) => ({
+  value,
+  label: PROVIDER_LABEL[value],
+}));
 
 interface AiCardProps {
   setup: AiSetup;
   openrouterModels: ModelInfo[];
   openrouterFailed: boolean;
-  groqModels: ModelInfo[] | null;
-  groqFailed: boolean;
-  googleModels: ModelInfo[] | null;
-  googleFailed: boolean;
+  keyed: KeyedModelLists;
 }
 
 function ModelRow({
@@ -73,19 +71,9 @@ export function AiCard({
   setup,
   openrouterModels,
   openrouterFailed,
-  groqModels,
-  groqFailed,
-  googleModels,
-  googleFailed,
+  keyed,
 }: AiCardProps) {
-  const ai = useAiSettings(
-    setup,
-    openrouterModels,
-    groqModels,
-    groqFailed,
-    googleModels,
-    googleFailed,
-  );
+  const ai = useAiSettings(setup, openrouterModels, keyed);
   const limited = ai.selectedModel && !ai.selectedModel.tools;
   const listFailed =
     ai.listFailed || (ai.provider === "openrouter" && openrouterFailed);

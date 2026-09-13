@@ -8,10 +8,11 @@ export function isAiProvider(value: string): value is AiProvider {
   return (AI_PROVIDERS as readonly string[]).includes(value);
 }
 
-export function isKeyedProvider(
-  provider: AiProvider,
-): provider is "groq" | "google" | "explabs" {
-  return provider === "groq" || provider === "google" || provider === "explabs";
+export const KEYED_PROVIDERS = ["groq", "google", "explabs"] as const;
+export type KeyedProvider = (typeof KEYED_PROVIDERS)[number];
+
+export function isKeyedProvider(provider: AiProvider): provider is KeyedProvider {
+  return (KEYED_PROVIDERS as readonly string[]).includes(provider);
 }
 
 export function isReasoningEffort(value: string): value is ReasoningEffort {

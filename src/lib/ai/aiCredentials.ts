@@ -19,6 +19,7 @@ import {
   isAiProvider,
   isReasoningEffort,
   type AiProvider,
+  type KeyedProvider,
   type ReasoningEffort,
 } from "@/lib/ai/options";
 
@@ -91,9 +92,8 @@ export function resolveModel(
   }
   if (ref.provider === "explabs") {
     return createAnthropic({
-      apiKey: ref.apiKey,
+      authToken: ref.apiKey,
       baseURL: EXPLABS_BASE_URL,
-      headers: { Authorization: `Bearer ${ref.apiKey}` },
       fetch: customFetch,
     })(ref.model);
   }
@@ -213,7 +213,7 @@ export async function providerApiKey(
 const getCachedModelsForUser = unstable_cache(
   async (
     userId: string,
-    provider: "groq" | "google" | "explabs",
+    provider: KeyedProvider,
   ): Promise<ProviderModelsResult | null> => {
     const apiKey = await providerApiKey(userId, provider);
     if (!apiKey) return null;
@@ -234,7 +234,7 @@ const getCachedModelsForUser = unstable_cache(
 
 export async function cachedProviderModels(
   userId: string,
-  provider: "groq" | "google" | "explabs",
+  provider: KeyedProvider,
 ): Promise<ProviderModelsResult | null> {
   try {
     return await getCachedModelsForUser(userId, provider);

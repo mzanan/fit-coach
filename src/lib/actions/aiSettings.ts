@@ -18,7 +18,12 @@ import {
   explabsModels,
   type ModelInfo,
 } from "@/lib/ai/capabilities";
-import { AI_PROVIDERS, PROVIDER_LABEL } from "@/lib/ai/options";
+import {
+  AI_PROVIDERS,
+  KEYED_PROVIDERS,
+  PROVIDER_LABEL,
+  type KeyedProvider,
+} from "@/lib/ai/options";
 import { FETCH_TIMEOUT_MS } from "@/lib/constants";
 import { requireUser } from "@/lib/session";
 
@@ -65,17 +70,14 @@ async function openrouterModelError(model: string): Promise<string | null> {
   }
 }
 
-async function keyedModels(
-  provider: "groq" | "google" | "explabs",
-  apiKey: string,
-) {
+async function keyedModels(provider: KeyedProvider, apiKey: string) {
   if (provider === "groq") return groqModels(apiKey);
   if (provider === "explabs") return explabsModels(apiKey);
   return googleModels(apiKey);
 }
 
 async function keyedProviderError(
-  provider: "groq" | "google" | "explabs",
+  provider: KeyedProvider,
   apiKey: string,
   model: string | null,
 ): Promise<string | null> {
@@ -95,10 +97,10 @@ function revalidateAi(): void {
   revalidatePath("/coach", "layout");
 }
 
-const keyedProvider = z.enum(["groq", "google", "explabs"]);
+const keyedProvider = z.enum(KEYED_PROVIDERS);
 
 export async function listProviderModelsAction(
-  provider: "groq" | "google" | "explabs",
+  provider: KeyedProvider,
   input: unknown,
 ): Promise<{ models?: ModelInfo[]; error?: string }> {
   await requireUser();

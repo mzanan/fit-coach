@@ -3,37 +3,50 @@ import { History } from "lucide-react";
 import { AiCard } from "@/components/settings/AiCard";
 import { ListGroup, ListRow } from "@/components/ui/ListRow";
 import { Page } from "@/components/ui/Page";
-import { cachedProviderModels, getAiSetup } from "@/lib/ai/aiCredentials";
-import { listModels, type ModelInfo } from "@/lib/ai/capabilities";
+import type {
+  KeyedModelList,
+  KeyedModelLists,
+} from "@/components/settings/useAiSettings";
+import {
+  cachedProviderModels,
+  getAiSetup,
+  type AiSetup,
+} from "@/lib/ai/aiCredentials";
+import { listModels } from "@/lib/ai/capabilities";
+import { KEYED_PROVIDERS, type KeyedProvider } from "@/lib/ai/options";
 import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
 
-async function savedModels(
+async function keyedList(
   userId: string,
-  hasCredential: boolean,
-  provider: "groq" | "google",
-): Promise<ModelInfo[] | null> {
-  if (!hasCredential) return null;
+  saved: AiSetup["saved"],
+  provider: KeyedProvider,
+): Promise<KeyedModelList> {
+  const hasCredential = saved.some(
+    (credential) => credential.provider === provider,
+  );
+  if (!hasCredential) return { models: null, failed: false };
   const result = await cachedProviderModels(userId, provider);
-  return result?.status === "ok" ? result.models : null;
+  const models = result?.status === "ok" ? result.models : null;
+  return { models, failed: models === null };
 }
 
 export default async function AiSettingsPage() {
   const user = await requireUser();
   await ensureProfile(user.id);
   const setup = await getAiSetup(user.id);
-  const hasGroq = setup.saved.some(
-    (credential) => credential.provider === "groq",
-  );
-  const hasGoogle = setup.saved.some(
-    (credential) => credential.provider === "google",
-  );
 
-  const [openrouterModels, groqList, googleList] = await Promise.all([
+  const [openrouterModels, keyedLists] = await Promise.all([
     listModels().catch(() => null),
-    savedModels(user.id, hasGroq, "groq"),
-    savedModels(user.id, hasGoogle, "google"),
+    Promise.all(
+      KEYED_PROVIDERS.map((provider) =>
+        keyedList(user.id, setup.saved, provider),
+      ),
+    ),
   ]);
+  const keyed = Object.fromEntries(
+    KEYED_PROVIDERS.map((provider, index) => [provider, keyedLists[index]]),
+  ) as KeyedModelLists;
 
   return (
     <Page
@@ -46,10 +59,7 @@ export default async function AiSettingsPage() {
         setup={setup}
         openrouterModels={openrouterModels ?? []}
         openrouterFailed={openrouterModels === null}
-        groqModels={groqList}
-        groqFailed={hasGroq && groqList === null}
-        googleModels={googleList}
-        googleFailed={hasGoogle && googleList === null}
+        keyed={keyed}
       />
       <ListGroup className="mt-block">
         <ListRow href="/settings/ai/events" icon={History} label="Activity" />
