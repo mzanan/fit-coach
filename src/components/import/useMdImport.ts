@@ -50,6 +50,7 @@ export function useMdImport() {
   const [progress, setProgress] = useState<string | null>(null);
   const [controller, setController] = useState<AbortController | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const activeRun = useRef<string | null>(null);
 
   useEffect(() => {
@@ -87,7 +88,11 @@ export function useMdImport() {
       );
       throw new Error(failure);
     }
-    if (!result) throw new Error("Extraction returned nothing");
+    if (!result) {
+      throw new Error(
+        "Lost the connection to the server, but your import may still be running there. Tap Reconnect to check.",
+      );
+    }
 
     setDays(toPreviewDays(result));
     setCatalogItems(toPreviewCatalogItems(result));
@@ -98,41 +103,48 @@ export function useMdImport() {
     );
   }, []);
 
-  useEffect(() => {
-    let dropped = false;
-    const abort = new AbortController();
-
-    async function rejoin() {
+  const reconnect = useCallback(
+    async (signal: AbortSignal) => {
       const found = await resumableImportRun().catch(() => null);
-      if (!found || dropped || activeRun.current) return;
+      if (!found || signal.aborted || activeRun.current) return;
+      setError(null);
       setRunId(found);
-      setController(abort);
       setProgress("Picking up the import you left running");
       try {
-        await consumeRun(found, abort.signal);
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") {
-          toast.error(
-            error instanceof Error ? error.message : "Extraction failed",
-          );
+        await consumeRun(found, signal);
+      } catch (e) {
+        if ((e as Error).name !== "AbortError") {
+          const message = e instanceof Error ? e.message : "Extraction failed";
+          setError(message);
+          toast.error(message);
         }
       } finally {
-        if (!dropped) {
-          setProgress(null);
-          setController(null);
-        }
+        if (!signal.aborted) setProgress(null);
       }
-    }
+    },
+    [consumeRun],
+  );
 
-    void rejoin();
-    return () => {
-      dropped = true;
-      abort.abort();
-    };
-  }, [consumeRun]);
+  useEffect(() => {
+    const abort = new AbortController();
+    async function run() {
+      await reconnect(abort.signal);
+    }
+    void run();
+    return () => abort.abort();
+  }, [reconnect]);
+
+  function retryConnection() {
+    const abort = new AbortController();
+    setController(abort);
+    void reconnect(abort.signal).finally(() => {
+      if (!abort.signal.aborted) setController(null);
+    });
+  }
 
   function extract() {
     startTransition(async () => {
+      setError(null);
       setProgress("Sending your files");
       const abort = new AbortController();
       setController(abort);
@@ -152,7 +164,9 @@ export function useMdImport() {
         await consumeRun(started, abort.signal);
       } catch (e) {
         if ((e as Error).name !== "AbortError") {
-          toast.error(e instanceof Error ? e.message : "Extraction failed");
+          const message = e instanceof Error ? e.message : "Extraction failed";
+          setError(message);
+          toast.error(message);
         }
       } finally {
         setProgress(null);
@@ -243,6 +257,7 @@ export function useMdImport() {
     setDays(null);
     setCatalogItems([]);
     setWarnings([]);
+    setError(null);
     if (runId) dropRun(runId);
   }
 
@@ -314,6 +329,8 @@ export function useMdImport() {
     attachFiles,
     attachments,
     progress,
+    error,
+    retryConnection,
     cancelExtraction,
     removeAttachment,
     extract,

@@ -44,13 +44,15 @@ async function* readImportRun(
   yield* readNdjson<ExtractEvent>(res.body);
 }
 
+const MAX_RECONNECTS = 20;
+
 export async function* streamImportRun(
   runId: string,
   signal: AbortSignal,
   onReconnect?: () => void,
 ): AsyncGenerator<ExtractEvent> {
   let received = 0;
-  let reconnected = false;
+  let attempt = 0;
   for (;;) {
     try {
       for await (const event of readImportRun(runId, received, signal)) {
@@ -59,8 +61,8 @@ export async function* streamImportRun(
       }
       return;
     } catch (error) {
-      if (signal.aborted || reconnected) throw error;
-      reconnected = true;
+      if (signal.aborted || attempt >= MAX_RECONNECTS) throw error;
+      attempt += 1;
       onReconnect?.();
     }
   }
