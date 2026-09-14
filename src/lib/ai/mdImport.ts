@@ -36,10 +36,12 @@ Rules:
 - catalog_items: only from sections that describe reusable meals or a food reference list (not daily logs).
 - If a section is unrelated to food or training, ignore it.`;
 
+const DEFAULT_CHUNK_CHARS = 20_000;
+
 export function importChunkSize(ref: ModelRef): number | undefined {
   return ref.provider === "google"
     ? googleModel(ref.model)?.maxInputChars
-    : undefined;
+    : DEFAULT_CHUNK_CHARS;
 }
 
 export async function extractChunk(
@@ -49,7 +51,7 @@ export async function extractChunk(
   total: number,
   signal?: AbortSignal,
 ): Promise<MdExtraction> {
-  const budget = ref.provider === "google" && googleModel(ref.model) ? 60_000 : 6000;
+  const budget = ref.provider === "google" && googleModel(ref.model) ? 60_000 : 12_000;
   console.log(
     `md import: part ${index + 1}/${total}, ${chunkText.length} chars, model ${ref.provider}/${ref.model}, output budget ${budget}`,
   );
