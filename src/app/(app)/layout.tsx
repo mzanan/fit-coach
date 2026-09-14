@@ -20,7 +20,7 @@ export default async function AppLayout({
       >
         Skip to content
       </a>
-      <div className="flex h-dvh w-full overflow-hidden">
+      <div className="fixed inset-0 flex overflow-hidden">
         <SideNav user={user} activeModel={activeModel} />
         <div className="flex w-full min-w-0 flex-1 flex-col">
           <AppHeader className="md:hidden" activeModel={activeModel} />
