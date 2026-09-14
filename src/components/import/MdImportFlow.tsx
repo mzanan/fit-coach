@@ -1,6 +1,7 @@
 "use client";
 
 import { ImportEmpty } from "@/components/import/ImportEmpty";
+import { ImportError } from "@/components/import/ImportError";
 import { ImportForm } from "@/components/import/ImportForm";
 import { ImportProgress } from "@/components/import/ImportProgress";
 import { ImportReview } from "@/components/import/ImportReview";
@@ -15,6 +16,8 @@ export function MdImportFlow({ today }: { today: string }) {
     attachFiles,
     attachments,
     progress,
+    error,
+    retryConnection,
     cancelExtraction,
     removeAttachment,
     extract,
@@ -33,6 +36,12 @@ export function MdImportFlow({ today }: { today: string }) {
   if (running && !days) {
     return (
       <ImportProgress progress={progress} onCancel={cancelExtraction} />
+    );
+  }
+
+  if (error && !days) {
+    return (
+      <ImportError message={error} onRetry={retryConnection} onBack={reset} />
     );
   }
 
