@@ -1,6 +1,8 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { AUTH_COOKIE_PREFIX } from "@/lib/authCookies";
+
 const PUBLIC_PREFIXES = ["/login", "/auth", "/api/auth"];
 
 function isPublicPath(pathname: string) {
@@ -10,7 +12,9 @@ function isPublicPath(pathname: string) {
 }
 
 export async function proxy(request: NextRequest) {
-  const sessionCookie = getSessionCookie(request);
+  const sessionCookie = getSessionCookie(request, {
+    cookiePrefix: AUTH_COOKIE_PREFIX,
+  });
   const { pathname } = request.nextUrl;
 
   if (!sessionCookie && !isPublicPath(pathname)) {
