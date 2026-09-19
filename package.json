@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3040",
+    "dev": "WORKFLOW_LOCAL_HEADERS_TIMEOUT_MS=180000 WORKFLOW_LOCAL_BODY_TIMEOUT_MS=180000 next dev -p 3040",
     "build": "next build",
     "start": "next start -p 3040",
     "lint": "eslint",

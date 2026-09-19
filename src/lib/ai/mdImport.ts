@@ -1,13 +1,11 @@
 import "server-only";
 
-import { z } from "zod";
-
 import type { ModelRef } from "@/lib/ai/aiCredentials";
 import { googleModel } from "@/lib/ai/capabilities";
-import { mdExtraction, type MdExtraction } from "@/lib/ai/mdExtraction";
+import { modelExtraction, type MdExtraction } from "@/lib/ai/mdExtraction";
 import { chatJson } from "@/lib/ai/provider";
 
-const SYSTEM = `You extract structured data from a personal markdown log of nutrition and training. Return ONLY a JSON object with this exact shape:
+const SYSTEM = `You extract structured data from a personal markdown log that may mix nutrition, training, coaching rules, InBody scans and life context. Return ONLY a JSON object with this exact shape:
 {
   "days": [
     {
@@ -20,6 +18,15 @@ const SYSTEM = `You extract structured data from a personal markdown log of nutr
   ],
   "catalog_items": [
     { "name": string, "place": string|null, "protein_g": number|null, "fat_g": number|null, "carbs_g": number|null, "fat_quality": "clean"|"oily"|null, "notes": string|null }
+  ],
+  "facts": [
+    { "content": string, "category": "preference|constraint|correction|routine|context", "subject": string|null }
+  ],
+  "rules": [
+    { "key": string, "value": string }
+  ],
+  "body_scans": [
+    { "taken_at": "YYYY-MM-DD", "weight_kg": number|null, "skeletal_muscle_kg": number|null, "body_fat_kg": number|null, "body_fat_pct": number|null, "bmi": number|null, "visceral_fat_level": number|null, "bmr_kcal": number|null, "inbody_score": number|null, "waist_circumference_cm": number|null, "height_cm": number|null }
   ],
   "warnings": [string]
 }
@@ -34,9 +41,17 @@ Rules:
 - Weights in kg. If the text marks a weight as per side / per leg / each side, set per_side true.
 - Days must resolve to YYYY-MM-DD. If a date cannot be resolved, skip that section and add a warning.
 - catalog_items: only from sections that describe reusable meals or a food reference list (not daily logs).
-- If a section is unrelated to food or training, ignore it.`;
+- facts: durable, non-numeric statements about the person that stay true beyond one day (preferences, injuries/constraints, corrections to how the coach should behave, recurring routines, life context like job or goals). Never today's meals or a single workout's numbers. Give each fact a short snake_case "subject" naming what it is about, reusing the same subject for facts about the same thing.
+- rules: explicit operational rules the coaching process must follow (a "key" naming the rule, a "value" with its exact content). Only hard rules stated as such, not general preferences (those go in facts).
+- body_scans: only from InBody / body-composition reports with a resolvable date. Leave any field the text does not state as null, never estimate it.
+- If a section is unrelated to food, training, rules, InBody data or durable personal context, ignore it.`;
 
-const DEFAULT_CHUNK_CHARS = 20_000;
+const DEFAULT_CHUNK_CHARS = 10_000;
+const EXTRACTION_VERSION = "2026-09-16.1";
+
+export function extractionCacheKey(text: string): string {
+  return `${EXTRACTION_VERSION}\n${text}`;
+}
 
 export function importChunkSize(ref: ModelRef): number | undefined {
   return ref.provider === "google"
@@ -55,27 +70,17 @@ export async function extractChunk(
   console.log(
     `md import: part ${index + 1}/${total}, ${chunkText.length} chars, model ${ref.provider}/${ref.model}, output budget ${budget}`,
   );
-  try {
-    return await chatJson(
-      ref,
-      [
-        { role: "system", content: SYSTEM },
-        {
-          role: "user",
-          content: `Markdown log (part ${index + 1} of ${total}):\n\n${chunkText}`,
-        },
-      ],
-      budget,
-      signal,
-      mdExtraction,
-    );
-  } catch (error) {
-    if (!(error instanceof z.ZodError)) throw error;
-    console.error(`md import: part ${index + 1} did not match the schema`);
-    return {
-      days: [],
-      catalog_items: [],
-      warnings: [`Part ${index + 1} could not be parsed and was skipped.`],
-    };
-  }
+  return chatJson(
+    ref,
+    [
+      { role: "system", content: SYSTEM },
+      {
+        role: "user",
+        content: `Markdown log (part ${index + 1} of ${total}):\n\n${chunkText}`,
+      },
+    ],
+    budget,
+    signal,
+    modelExtraction,
+  );
 }

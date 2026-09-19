@@ -1,5 +1,8 @@
 import type { ImportProgress, MdExtraction } from "@/lib/ai/mdExtraction";
+import type { ImportFileStatus } from "@/lib/data/importFiles";
 import { readNdjson } from "@/lib/ndjson";
+
+export type { ImportFileStatus } from "@/lib/data/importFiles";
 
 const EXTRACT_API = "/api/import/extract";
 
@@ -89,4 +92,51 @@ export async function forgetImportRun(runId: string): Promise<void> {
   await fetch(`${EXTRACT_API}/${encodeURIComponent(runId)}`, {
     method: "DELETE",
   });
+}
+
+export type ImportRunState = "running" | "completed" | "none";
+
+export interface ImportFilesSnapshot {
+  files: ImportFileStatus[];
+  state: ImportRunState;
+}
+
+export class ImportFilesError extends Error {
+  constructor(readonly status: number) {
+    super(`Could not load the import files (HTTP ${status})`);
+  }
+}
+
+export async function fetchImportFiles(): Promise<ImportFilesSnapshot> {
+  const res = await fetch("/api/import/files", {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new ImportFilesError(res.status);
+  const body = (await res.json().catch(() => null)) as {
+    files?: ImportFileStatus[];
+    state?: ImportRunState;
+  } | null;
+  return { files: body?.files ?? [], state: body?.state ?? "running" };
+}
+
+export async function fetchSavedExtraction(): Promise<MdExtraction | null> {
+  const res = await fetch("/api/import/saved", {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error("Could not load the saved results");
+  const body = (await res.json().catch(() => null)) as {
+    extraction?: MdExtraction | null;
+  } | null;
+  return body?.extraction ?? null;
+}
+
+export const QUIET_WARNING_S = 90;
+
+export function estimateRemainingMinutes(file: ImportFileStatus): number | null {
+  if (file.status !== "processing" || file.chunkIndex === 0) return null;
+  const elapsedMs = file.updatedAt - file.startedAt;
+  const remaining = file.chunkTotal - file.chunkIndex;
+  if (remaining <= 0 || elapsedMs <= 0) return null;
+  const msPerChunk = elapsedMs / file.chunkIndex;
+  return Math.max(1, Math.ceil((msPerChunk * remaining) / 60_000));
 }

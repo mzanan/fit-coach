@@ -1,12 +1,18 @@
 import { Button } from "@/components/ui/Button";
 import { StickyActions } from "@/components/ui/StickyActions";
 import { Surface } from "@/components/ui/Surface";
+import { ImportBodyScanRow } from "@/components/import/ImportBodyScanRow";
 import { ImportCatalogRow } from "@/components/import/ImportCatalogRow";
+import { ImportFactRow } from "@/components/import/ImportFactRow";
 import { ImportMealRow } from "@/components/import/ImportMealRow";
+import { ImportRuleRow } from "@/components/import/ImportRuleRow";
 import { ImportWorkoutRow } from "@/components/import/ImportWorkoutRow";
 import type {
+  PreviewBodyScan,
   PreviewCatalogItem,
   PreviewDay,
+  PreviewFact,
+  PreviewRule,
 } from "@/components/import/useMdImport";
 import type { ImportedMeal } from "@/lib/ai/mdExtraction";
 import { formatDayLabel } from "@/lib/dates";
@@ -15,6 +21,9 @@ export function ImportReview({
   today,
   days,
   catalogItems,
+  facts,
+  rules,
+  bodyScans,
   warnings,
   included,
   pending,
@@ -22,19 +31,35 @@ export function ImportReview({
   toggleMeal,
   toggleWorkout,
   toggleCatalogItem,
+  toggleFact,
+  toggleRule,
+  toggleBodyScan,
   reset,
   commit,
 }: {
   today: string;
   days: PreviewDay[];
   catalogItems: PreviewCatalogItem[];
+  facts: PreviewFact[];
+  rules: PreviewRule[];
+  bodyScans: PreviewBodyScan[];
   warnings: string[];
-  included: { meals: number; workouts: number; catalogItems: number } | null;
+  included: {
+    meals: number;
+    workouts: number;
+    catalogItems: number;
+    facts: number;
+    rules: number;
+    bodyScans: number;
+  } | null;
   pending: boolean;
   updateMeal: (day: string, key: string, values: Partial<ImportedMeal>) => void;
   toggleMeal: (day: string, key: string, include: boolean) => void;
   toggleWorkout: (day: string, include: boolean) => void;
   toggleCatalogItem: (key: string, include: boolean) => void;
+  toggleFact: (key: string, include: boolean) => void;
+  toggleRule: (key: string, include: boolean) => void;
+  toggleBodyScan: (takenAt: string, include: boolean) => void;
   reset: () => void;
   commit: () => void;
 }) {
@@ -96,6 +121,63 @@ export function ImportReview({
             </div>
           </Surface>
         ) : null}
+
+        {bodyScans.length ? (
+          <Surface className="p-card">
+            <p className="text-title font-medium tracking-(--tracking-snug)">
+              InBody scans
+            </p>
+            <p className="mt-0.5 text-meta text-muted-foreground">
+              Dates you already have a scan for are skipped.
+            </p>
+            <div className="mt-card divide-y divide-border">
+              {bodyScans.map((s) => (
+                <ImportBodyScanRow
+                  key={s.taken_at}
+                  scan={s}
+                  onToggle={(include) => toggleBodyScan(s.taken_at, include)}
+                />
+              ))}
+            </div>
+          </Surface>
+        ) : null}
+
+        {rules.length ? (
+          <Surface className="p-card">
+            <p className="text-title font-medium tracking-(--tracking-snug)">
+              Coach rules
+            </p>
+            <div className="mt-card divide-y divide-border">
+              {rules.map((r) => (
+                <ImportRuleRow
+                  key={r.key}
+                  rule={r}
+                  onToggle={(include) => toggleRule(r.key, include)}
+                />
+              ))}
+            </div>
+          </Surface>
+        ) : null}
+
+        {facts.length ? (
+          <Surface className="p-card">
+            <p className="text-title font-medium tracking-(--tracking-snug)">
+              Coach memory
+            </p>
+            <p className="mt-0.5 text-meta text-muted-foreground">
+              Stored as long-term facts the coach uses to answer you.
+            </p>
+            <div className="mt-card divide-y divide-border">
+              {facts.map((f) => (
+                <ImportFactRow
+                  key={f.key}
+                  fact={f}
+                  onToggle={(include) => toggleFact(f.key, include)}
+                />
+              ))}
+            </div>
+          </Surface>
+        ) : null}
       </div>
 
       <StickyActions className="grid shrink-0 grid-cols-2 gap-2">
@@ -106,7 +188,12 @@ export function ImportReview({
           disabled={
             pending ||
             !included ||
-            (!included.meals && !included.workouts && !included.catalogItems)
+            (!included.meals &&
+              !included.workouts &&
+              !included.catalogItems &&
+              !included.facts &&
+              !included.rules &&
+              !included.bodyScans)
           }
           onClick={commit}
         >

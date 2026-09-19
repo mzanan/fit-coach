@@ -251,6 +251,10 @@ export type CoachFactCategory = (typeof COACH_FACT_CATEGORIES)[number]["key"];
 
 export const COACH_FACT_CATEGORY_KEYS = COACH_FACT_CATEGORIES.map((c) => c.key);
 
+export function coachFactCategoryLabel(category: string): string {
+  return COACH_FACT_CATEGORIES.find((c) => c.key === category)?.label ?? category;
+}
+
 export const COACH_RULES_MAX = 20_000;
 export const SUMMARY_RULES_MAX = 20_000;
 export const CHAT_LANGUAGE_MAX = 32;
@@ -333,3 +337,9 @@ export const FETCH_TIMEOUT_MS = 10_000;
 export const COACH_HISTORY_MESSAGE_LIMIT = 100;
 
 export const COACH_REQUEST_MAX_BYTES = 32_768;
+
+export const IMPORT_MAX_BYTES = 4_000_000;
+
+export const IMPORT_TOO_LARGE = "These files are too large to import at once (4 MB max). Import them in smaller batches.";
+
+export const IMPORT_ALREADY_RUNNING = "An import is already running. Wait for it to finish or cancel it first.";

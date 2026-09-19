@@ -74,6 +74,10 @@ export function formatDayLabel(day: string, todayDay: string): string {
   return format(parseISO(day), "EEE, MMM d");
 }
 
+export function formatDateTime(ms: number): string {
+  return format(new Date(ms), "MMM d, HH:mm");
+}
+
 export function inferMealCategory(
   now: Date,
   cfg: DayConfig,

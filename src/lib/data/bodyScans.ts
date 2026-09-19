@@ -1,13 +1,21 @@
 import "server-only";
 
 import { and, desc, eq, inArray } from "drizzle-orm";
+import { parseISO } from "date-fns";
 
 import { db, schema } from "@/lib/db";
 import type { BodyScan, Profile } from "@/lib/db/schema";
-import { dayConfig, logicalDayOf, shiftDay, todayLogicalDay } from "@/lib/dates";
+import {
+  dayConfig,
+  type DayConfig,
+  logicalDayOf,
+  shiftDay,
+  todayLogicalDay,
+} from "@/lib/dates";
 
 import { kcalOf } from "@/lib/macros";
 import { targetsOf } from "@/lib/targets";
+import { newId } from "@/lib/utils";
 
 const { body_scans, meals, workouts } = schema;
 
@@ -196,6 +204,57 @@ export async function getLatestScanTakenAt(userId: string): Promise<Date | null>
     .orderBy(desc(body_scans.taken_at), desc(body_scans.created_at), desc(body_scans.id))
     .limit(1);
   return rows[0]?.taken_at ?? null;
+}
+
+export interface ImportedScanCandidate {
+  taken_at: string;
+  weight_kg: number | null;
+  skeletal_muscle_kg: number | null;
+  body_fat_kg: number | null;
+  body_fat_pct: number | null;
+  bmi: number | null;
+  visceral_fat_level: number | null;
+  bmr_kcal: number | null;
+  inbody_score: number | null;
+  waist_circumference_cm: number | null;
+  height_cm: number | null;
+}
+
+export async function insertImportedScans(
+  userId: string,
+  cfg: DayConfig,
+  scans: ImportedScanCandidate[],
+): Promise<number> {
+  const existing = await db
+    .select({ taken_at: body_scans.taken_at })
+    .from(body_scans)
+    .where(eq(body_scans.user_id, userId));
+  const existingDays = new Set(
+    existing.map((row) => logicalDayOf(row.taken_at, cfg)),
+  );
+  const fresh = scans.filter((scan) => !existingDays.has(scan.taken_at));
+  if (!fresh.length) return 0;
+
+  const now = new Date();
+  await db.insert(body_scans).values(
+    fresh.map((scan) => ({
+      id: newId(),
+      user_id: userId,
+      taken_at: parseISO(`${scan.taken_at}T12:00:00`),
+      weight_kg: scan.weight_kg,
+      skeletal_muscle_kg: scan.skeletal_muscle_kg,
+      body_fat_kg: scan.body_fat_kg,
+      body_fat_pct: scan.body_fat_pct,
+      bmi: scan.bmi,
+      visceral_fat_level: scan.visceral_fat_level,
+      bmr_kcal: scan.bmr_kcal,
+      inbody_score: scan.inbody_score,
+      waist_circumference_cm: scan.waist_circumference_cm,
+      height_cm: scan.height_cm,
+      created_at: now,
+    })),
+  );
+  return fresh.length;
 }
 
 export async function recentScans(userId: string, limit: number): Promise<BodyScan[]> {

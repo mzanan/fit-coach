@@ -236,6 +236,17 @@ async function saveFact(
   return !merged;
 }
 
+export async function saveImportedFact(
+  userId: string,
+  content: string,
+  category: CoachFactCategory,
+  subject: string | null,
+  source: string,
+): Promise<boolean> {
+  if (!hasEmbeddings()) return false;
+  return saveFact(userId, content, category, subject, source);
+}
+
 function isAbort(err: unknown, signal?: AbortSignal): boolean {
   if (signal?.aborted) return true;
   return err instanceof Error && err.name === "AbortError";

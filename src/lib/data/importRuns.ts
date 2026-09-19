@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, gt, lt } from "drizzle-orm";
+import { and, desc, eq, gt, lt, ne } from "drizzle-orm";
 
 import { db, schema } from "@/lib/db";
 
@@ -12,12 +12,22 @@ export async function createImportRun(
   userId: string,
   runId: string,
 ): Promise<void> {
-  await db.delete(import_runs).where(eq(import_runs.user_id, userId));
   await db.insert(import_runs).values({
     run_id: runId,
     user_id: userId,
     created_at: new Date(),
   });
+}
+
+export async function otherImportRuns(
+  userId: string,
+  runId: string,
+): Promise<string[]> {
+  const rows = await db
+    .select({ runId: import_runs.run_id })
+    .from(import_runs)
+    .where(and(eq(import_runs.user_id, userId), ne(import_runs.run_id, runId)));
+  return rows.map((row) => row.runId);
 }
 
 export async function getImportRun(
@@ -34,9 +44,9 @@ export async function getImportRun(
 
 export async function latestImportRun(
   userId: string,
-): Promise<{ runId: string } | null> {
+): Promise<{ runId: string; createdAt: Date } | null> {
   const [row] = await db
-    .select({ runId: import_runs.run_id })
+    .select({ runId: import_runs.run_id, createdAt: import_runs.created_at })
     .from(import_runs)
     .where(
       and(

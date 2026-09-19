@@ -647,6 +647,48 @@ export const import_runs = sqliteTable(
   (t) => [index("import_runs_user_idx").on(t.user_id)],
 );
 
+export const import_files = sqliteTable(
+  "import_files",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    status: text("status", {
+      enum: ["processing", "done", "error"],
+    }).notNull(),
+    chunk_index: integer("chunk_index").notNull().default(0),
+    chunk_total: integer("chunk_total").notNull().default(0),
+    error: text("error"),
+    text_hash: text("text_hash"),
+    result: text("result"),
+    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    started_at: integer("started_at", { mode: "timestamp_ms" }).notNull(),
+    updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [
+    index("import_files_user_idx").on(t.user_id),
+    uniqueIndex("import_files_user_name_idx").on(t.user_id, t.name),
+  ],
+);
+
+export const import_chunks = sqliteTable(
+  "import_chunks",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    chunk_hash: text("chunk_hash").notNull(),
+    result: text("result").notNull(),
+    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("import_chunks_user_hash_idx").on(t.user_id, t.chunk_hash),
+  ],
+);
+
 export type Profile = typeof profiles.$inferSelect;
 export type CatalogItem = typeof catalog_items.$inferSelect;
 export type CatalogComponent = typeof catalog_components.$inferSelect;
@@ -671,3 +713,4 @@ export type Day = typeof days.$inferSelect;
 export type RoutineSlot = typeof routine_slots.$inferSelect;
 export type RoutineExercise = typeof routine_exercises.$inferSelect;
 export type ImportRun = typeof import_runs.$inferSelect;
+export type ImportFile = typeof import_files.$inferSelect;
