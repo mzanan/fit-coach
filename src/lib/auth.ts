@@ -5,6 +5,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins";
 
+import { AUTH_COOKIE_PREFIX } from "@/lib/authCookies";
 import { db, schema } from "@/lib/db";
 import { sendOtpEmail } from "@/lib/email";
 
@@ -23,6 +24,7 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
   advanced: {
+    cookiePrefix: AUTH_COOKIE_PREFIX,
     database: {
       generateId: () => crypto.randomUUID(),
     },
