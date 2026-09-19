@@ -25,6 +25,7 @@ import {
   coachingRules,
   diningRule,
   NO_WRITE_ADDENDUM,
+  REPLY_STYLE,
   SUGGESTION_ADDENDUM,
   summaryRules,
   TOOLS_ADDENDUM,
@@ -229,6 +230,7 @@ export async function toolSetup(
         SUGGESTION_ADDENDUM,
       ...parts,
       ...learnedAddendum(learned),
+      REPLY_STYLE,
     ].join("\n\n"),
     messages: [
       ...history.map((message) => ({
@@ -415,6 +417,7 @@ async function contextReply(
     COACH_FRAME + diningRule(profile) + coachingRules(profile),
     ...parts,
     ...learnedAddendum(learned),
+    REPLY_STYLE,
   ].join("\n\n");
 
   try {

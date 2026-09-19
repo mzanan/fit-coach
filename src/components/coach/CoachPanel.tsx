@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { Collapse } from "@/components/ui/Collapse";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Markdown } from "@/components/ui/Markdown";
 import { Pill } from "@/components/ui/Pill";
 import { Surface } from "@/components/ui/Surface";
 import { cn } from "@/lib/utils";
@@ -139,15 +140,13 @@ function Turn({
         <Pill tone="muted">Rule-based</Pill>
       ) : null}
       {bubble.reasoning ? <Thoughts text={bubble.reasoning} /> : null}
-      <p
+      <Markdown
+        text={bubble.content}
         className={cn(
-          "whitespace-pre-wrap text-body leading-relaxed",
           stopped && "italic text-muted-foreground",
           isStreaming && "animate-pulse",
         )}
-      >
-        {bubble.content}
-      </p>
+      />
       {bubble.daySummary ? <MacroTable summary={bubble.daySummary} /> : null}
       {bubble.learned?.length ? <LearnedChip facts={bubble.learned} /> : null}
       {!isStreaming ? <CopyButton text={bubble.content} /> : null}
@@ -229,11 +228,7 @@ export function CoachPanel({
             />
           ))}
           {chat.reasoning ? <Thoughts text={chat.reasoning} /> : null}
-          {chat.streaming ? (
-            <p className="whitespace-pre-wrap text-body leading-relaxed">
-              {chat.streaming}
-            </p>
-          ) : null}
+          {chat.streaming ? <Markdown text={chat.streaming} /> : null}
           {chat.status ? (
             <p className="animate-pulse text-body text-muted-foreground">
               {chat.status}...

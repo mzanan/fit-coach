@@ -195,6 +195,8 @@ export function useCoachChat(
 
       for await (const event of readNdjson<CoachStreamEvent>(res.body)) {
         if (event.type === "status") {
+          answer = "";
+          setStreaming("");
           setStatus(STATUS[event.tool] ?? STATUS.thinking);
         } else if (event.type === "started") {
           assistantId = event.assistantId;
