@@ -100,7 +100,7 @@ const LEARNED_ADDENDUM_HEAD =
   "You just recorded this about the user, from the message they sent you in this turn:";
 
 const LEARNED_ADDENDUM_TAIL =
-  "Open your reply by acknowledging it in one short clause, in the user's language, so they know it was saved. Then answer their message. Take it into account in this very answer: if it is a food preference and the food is not in their catalog, say so and offer to add it, do not just ignore it and suggest something else.";
+  "The app already shows the user that it was saved, so do not acknowledge it in your reply. Take it into account in this very answer: if it is a food preference and the food is not in their catalog, say so and offer to add it, do not just ignore it and suggest something else.";
 
 export function learnedAddendum(facts: string[]): string[] {
   return facts.length

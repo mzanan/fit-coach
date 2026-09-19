@@ -446,6 +446,7 @@ export async function chatToolsStream(
   for await (const part of result.fullStream) {
     if (part.type === "tool-call") {
       if (gated.has(part.toolName)) writeAttempted = true;
+      text = "";
       options.onEvent({ type: "status", tool: part.toolName });
     } else if (part.type === "tool-approval-request") {
       console.info(
