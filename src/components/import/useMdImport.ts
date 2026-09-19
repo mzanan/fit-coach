@@ -13,23 +13,43 @@ import { toast } from "sonner";
 import { commitMdImport } from "@/lib/actions/mdImport";
 import {
   cancelImportRun,
+  fetchImportFiles,
+  fetchSavedExtraction,
   forgetImportRun,
+  ImportFilesError,
   resumableImportRun,
   startImportRun,
   streamImportRun,
+  type ImportFileStatus,
+  type ImportFilesSnapshot,
 } from "@/lib/importStream";
-import type { ImportedMeal, MdExtraction } from "@/lib/ai/mdExtraction";
 import {
+  sourcesBytes,
+  type ImportedMeal,
+  type MdExtraction,
+} from "@/lib/ai/mdExtraction";
+import { IMPORT_MAX_BYTES, IMPORT_TOO_LARGE } from "@/lib/constants";
+import {
+  toPreviewBodyScans,
   toPreviewCatalogItems,
   toPreviewDays,
+  toPreviewFacts,
+  toPreviewRules,
+  withoutInclude,
+  type PreviewBodyScan,
   type PreviewCatalogItem,
   type PreviewDay,
+  type PreviewFact,
+  type PreviewRule,
 } from "@/lib/importPreview";
 
 export type {
+  PreviewBodyScan,
   PreviewCatalogItem,
   PreviewDay,
+  PreviewFact,
   PreviewMeal,
+  PreviewRule,
   PreviewWorkout,
 } from "@/lib/importPreview";
 
@@ -46,16 +66,81 @@ export function useMdImport() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [days, setDays] = useState<PreviewDay[] | null>(null);
   const [catalogItems, setCatalogItems] = useState<PreviewCatalogItem[]>([]);
+  const [facts, setFacts] = useState<PreviewFact[]>([]);
+  const [rules, setRules] = useState<PreviewRule[]>([]);
+  const [bodyScans, setBodyScans] = useState<PreviewBodyScan[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [progress, setProgress] = useState<string | null>(null);
   const [controller, setController] = useState<AbortController | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [files, setFiles] = useState<ImportFileStatus[]>([]);
   const activeRun = useRef<string | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
+  const sessionWarned = useRef(false);
 
   useEffect(() => {
     return () => controller?.abort();
   }, [controller]);
+
+  const running = progress !== null;
+
+  const applySnapshot = useCallback((snapshot: ImportFilesSnapshot) => {
+    setFiles(snapshot.files);
+    if (snapshot.state !== "none" || !activeRun.current) return;
+
+    const id = activeRun.current;
+    activeRun.current = null;
+    controllerRef.current?.abort();
+    const message =
+      snapshot.files.find((file) => file.status === "error")?.error ??
+      "The import stopped on the server. Start it again.";
+    setRunId(null);
+    setProgress(null);
+    setError(message);
+    toast.error(message);
+    void forgetImportRun(id).catch((failed) =>
+      console.error("md import: forget failed", failed),
+    );
+  }, []);
+
+  const applyExtraction = useCallback((result: MdExtraction) => {
+    setDays(toPreviewDays(result));
+    setCatalogItems(toPreviewCatalogItems(result));
+    setFacts(toPreviewFacts(result));
+    setRules(toPreviewRules(result));
+    setBodyScans(toPreviewBodyScans(result));
+    setWarnings(result.warnings);
+  }, []);
+
+  const handleFilesError = useCallback((failed: unknown) => {
+    if (failed instanceof ImportFilesError && failed.status === 401) {
+      if (sessionWarned.current) return;
+      sessionWarned.current = true;
+      toast.error(
+        "Your session expired, so progress can't refresh. Sign in again: the import keeps running on the server.",
+      );
+      return;
+    }
+    console.error("md import: files refresh failed", failed);
+  }, []);
+
+  const refreshFiles = useCallback(
+    () => fetchImportFiles().then(applySnapshot).catch(handleFilesError),
+    [applySnapshot, handleFilesError],
+  );
+
+  useEffect(() => {
+    void fetchImportFiles().then(applySnapshot).catch(handleFilesError);
+  }, [applySnapshot, handleFilesError]);
+
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => {
+      void fetchImportFiles().then(applySnapshot).catch(handleFilesError);
+    }, 5000);
+    return () => clearInterval(id);
+  }, [running, applySnapshot, handleFilesError]);
 
   const consumeRun = useCallback(async (id: string, signal: AbortSignal) => {
     activeRun.current = id;
@@ -70,6 +155,22 @@ export function useMdImport() {
         setProgress(
           `${event.file} (${event.fileIndex} of ${event.files}), part ${event.chunk} of ${event.chunks}`,
         );
+        if (event.chunk === 1) {
+          void refreshFiles();
+        } else {
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.name === event.file
+                ? {
+                    ...f,
+                    chunkIndex: event.chunk,
+                    chunkTotal: event.chunks,
+                    updatedAt: Date.now(),
+                  }
+                : f,
+            ),
+          );
+        }
       } else if (event.type === "done") {
         result = event.extraction;
       } else {
@@ -80,6 +181,7 @@ export function useMdImport() {
 
     if (activeRun.current !== id) return;
     activeRun.current = null;
+    void refreshFiles();
 
     if (failure) {
       setRunId(null);
@@ -94,14 +196,12 @@ export function useMdImport() {
       );
     }
 
-    setDays(toPreviewDays(result));
-    setCatalogItems(toPreviewCatalogItems(result));
-    setWarnings(result.warnings);
+    applyExtraction(result);
     setRunId(null);
     await forgetImportRun(id).catch((error) =>
       console.error("md import: forget failed", error),
     );
-  }, []);
+  }, [refreshFiles, applyExtraction]);
 
   const reconnect = useCallback(
     async (signal: AbortSignal) => {
@@ -127,6 +227,7 @@ export function useMdImport() {
 
   useEffect(() => {
     const abort = new AbortController();
+    controllerRef.current = abort;
     async function run() {
       await reconnect(abort.signal);
     }
@@ -137,6 +238,7 @@ export function useMdImport() {
   function retryConnection() {
     const abort = new AbortController();
     setController(abort);
+    controllerRef.current = abort;
     void reconnect(abort.signal).finally(() => {
       if (!abort.signal.aborted) setController(null);
     });
@@ -148,6 +250,7 @@ export function useMdImport() {
       setProgress("Sending your files");
       const abort = new AbortController();
       setController(abort);
+      controllerRef.current = abort;
       try {
         const started = await startImportRun([
           ...attachments.map((file) => ({
@@ -175,6 +278,22 @@ export function useMdImport() {
     });
   }
 
+  function openSaved() {
+    startTransition(async () => {
+      setError(null);
+      try {
+        const saved = await fetchSavedExtraction();
+        if (!saved) {
+          toast.error("There are no saved results to review yet");
+          return;
+        }
+        applyExtraction(saved);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Could not load the saved results");
+      }
+    });
+  }
+
   async function attachFiles(files: File[]) {
     const loaded = await Promise.all(
       files.map(async (file) => ({
@@ -190,6 +309,10 @@ export function useMdImport() {
     }
     if (kept.length < loaded.length) {
       toast(`${loaded.length - kept.length} empty file(s) skipped`);
+    }
+    if (sourcesBytes([...attachments, ...kept]) > IMPORT_MAX_BYTES) {
+      toast.error(IMPORT_TOO_LARGE);
+      return;
     }
     setAttachments((current) => [
       ...current,
@@ -212,7 +335,7 @@ export function useMdImport() {
   }
 
   function cancelExtraction() {
-    controller?.abort();
+    controllerRef.current?.abort();
     if (runId) dropRun(runId);
   }
 
@@ -253,9 +376,26 @@ export function useMdImport() {
     );
   }
 
+  function toggleFact(key: string, include: boolean) {
+    setFacts((prev) => prev.map((f) => (f.key === key ? { ...f, include } : f)));
+  }
+
+  function toggleRule(key: string, include: boolean) {
+    setRules((prev) => prev.map((r) => (r.key === key ? { ...r, include } : r)));
+  }
+
+  function toggleBodyScan(takenAt: string, include: boolean) {
+    setBodyScans((prev) =>
+      prev.map((s) => (s.taken_at === takenAt ? { ...s, include } : s)),
+    );
+  }
+
   function reset() {
     setDays(null);
     setCatalogItems([]);
+    setFacts([]);
+    setRules([]);
+    setBodyScans([]);
     setWarnings([]);
     setError(null);
     if (runId) dropRun(runId);
@@ -294,12 +434,25 @@ export function useMdImport() {
               fat_g: c.fat_g,
               carbs_g: c.carbs_g,
             })),
+          facts: facts
+            .filter((f) => f.include)
+            .map((f) => ({
+              content: f.content,
+              category: f.category,
+              subject: f.subject,
+            })),
+          rules: rules
+            .filter((r) => r.include)
+            .map((r) => ({ key: r.key, value: r.value })),
+          body_scans: bodyScans
+            .filter((s) => s.include)
+            .map(withoutInclude),
           warnings: [],
         };
         const result = await commitMdImport(payload);
         const skipped = result.skippedDuplicates + result.skippedCatalogItems;
         toast.success(
-          `Imported ${result.meals} meals, ${result.workouts} workouts, ${result.catalogItems} catalog items${
+          `Imported ${result.meals} meals, ${result.workouts} workouts, ${result.catalogItems} catalog items, ${result.facts} facts, ${result.rules} rules, ${result.bodyScans} body scans${
             skipped ? `. ${skipped} already there, skipped` : ""
           }`,
         );
@@ -318,16 +471,24 @@ export function useMdImport() {
         ),
         workouts: days.filter((d) => d.workout?.include).length,
         catalogItems: catalogItems.filter((c) => c.include).length,
+        facts: facts.filter((f) => f.include).length,
+        rules: rules.filter((r) => r.include).length,
+        bodyScans: bodyScans.filter((s) => s.include).length,
       }
     : null;
 
+  const savedCount = files.filter((file) => file.status === "done").length;
+
   return {
     pending,
-    running: progress !== null,
+    running,
     mdText,
     setMdText,
     attachFiles,
     attachments,
+    files,
+    savedCount,
+    openSaved,
     progress,
     error,
     retryConnection,
@@ -336,12 +497,18 @@ export function useMdImport() {
     extract,
     days,
     catalogItems,
+    facts,
+    rules,
+    bodyScans,
     warnings,
     included,
     updateMeal,
     toggleMeal,
     toggleWorkout,
     toggleCatalogItem,
+    toggleFact,
+    toggleRule,
+    toggleBodyScan,
     reset,
     commit,
   };

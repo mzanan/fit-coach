@@ -1,9 +1,10 @@
 "use client";
 
-import { Check, Loader2, Plus } from "lucide-react";
+import { Check, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { MediaPlate } from "@/components/ui/MediaPlate";
+import { Spinner } from "@/components/ui/Spinner";
 import type { ExerciseCatalogOption } from "@/lib/data/exerciseCatalog";
 import { exerciseGifUrl, formatExerciseMeta } from "@/lib/exercises";
 
@@ -65,11 +66,7 @@ export function ExerciseResultRow({
           onClick={onAdd}
           className="shrink-0"
         >
-          {adding ? (
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
-          ) : (
-            <Plus className="size-5" />
-          )}
+          {adding ? <Spinner /> : <Plus className="size-5" />}
         </Button>
       )}
     </li>

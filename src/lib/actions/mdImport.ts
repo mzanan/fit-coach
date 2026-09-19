@@ -4,8 +4,16 @@ import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { parseISO } from "date-fns";
 
+import { normalizeSubject, saveImportedFact } from "@/lib/ai/facts";
 import { mdExtraction } from "@/lib/ai/mdExtraction";
+import { hasEmbeddings } from "@/lib/ai/embeddings";
+import { saveRule } from "@/lib/data/coachRules";
+import { insertImportedScans } from "@/lib/data/bodyScans";
+import { clearImportChunks } from "@/lib/data/importChunks";
+import { clearImportFiles } from "@/lib/data/importFiles";
 import { db, schema } from "@/lib/db";
+import { dayConfig } from "@/lib/dates";
+import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
 import { newId } from "@/lib/utils";
 
@@ -20,6 +28,12 @@ const {
 export async function commitMdImport(payload: unknown) {
   const user = await requireUser();
   const data = mdExtraction.parse(payload);
+
+  if (data.facts.length && !hasEmbeddings()) {
+    throw new Error(
+      "Coach memory items can't be imported: no embedding provider is configured. Uncheck them or set one up first.",
+    );
+  }
 
   const existing = await db
     .select({ name: catalog_items.name })
@@ -162,14 +176,58 @@ export async function commitMdImport(payload: unknown) {
   if (newItems.length) {
     updateTag("catalog");
   }
+
+  let factCount = 0;
+  for (const fact of data.facts) {
+    const changed = await saveImportedFact(
+      user.id,
+      fact.content,
+      fact.category,
+      normalizeSubject(fact.subject),
+      "md_import",
+    );
+    if (changed) factCount += 1;
+  }
+
+  for (const rule of data.rules) {
+    await saveRule(user.id, rule.key.trim(), rule.value.trim());
+  }
+
+  const profile = await ensureProfile(user.id);
+  const scanCount = await insertImportedScans(
+    user.id,
+    dayConfig(profile),
+    data.body_scans.map((scan) => ({
+      taken_at: scan.taken_at,
+      weight_kg: scan.weight_kg ?? null,
+      skeletal_muscle_kg: scan.skeletal_muscle_kg ?? null,
+      body_fat_kg: scan.body_fat_kg ?? null,
+      body_fat_pct: scan.body_fat_pct ?? null,
+      bmi: scan.bmi ?? null,
+      visceral_fat_level: scan.visceral_fat_level ?? null,
+      bmr_kcal: scan.bmr_kcal ?? null,
+      inbody_score: scan.inbody_score ?? null,
+      waist_circumference_cm: scan.waist_circumference_cm ?? null,
+      height_cm: scan.height_cm ?? null,
+    })),
+  );
+
+  await clearImportFiles(user.id);
+  await clearImportChunks(user.id);
+
   revalidatePath("/");
   revalidatePath("/catalog");
   revalidatePath("/workout");
+  revalidatePath("/body");
+  revalidatePath("/settings");
 
   return {
     meals: mealCount,
     workouts: workoutCount,
     catalogItems: newItems.length,
+    facts: factCount,
+    rules: data.rules.length,
+    bodyScans: scanCount,
     skippedCatalogItems: data.catalog_items.length - newItems.length,
     skippedDuplicates: skipped,
   };

@@ -1,13 +1,15 @@
 "use client";
 
-import { FileText, FileUp, Sparkles, X } from "lucide-react";
+import { ClipboardCheck, FileText, FileUp, Sparkles, X } from "lucide-react";
 import { useRef } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Label } from "@/components/ui/Input";
 import { Surface } from "@/components/ui/Surface";
 import { Textarea } from "@/components/ui/Textarea";
+import { ImportFileList } from "@/components/import/ImportFileList";
 import type { Attachment } from "@/components/import/useMdImport";
+import type { ImportFileStatus } from "@/lib/importStream";
 
 export function ImportForm({
   mdText,
@@ -17,6 +19,9 @@ export function ImportForm({
   attachFiles,
   removeAttachment,
   extract,
+  files,
+  savedCount,
+  openSaved,
 }: {
   mdText: string;
   setMdText: (value: string) => void;
@@ -25,11 +30,14 @@ export function ImportForm({
   attachFiles: (files: File[]) => Promise<void>;
   removeAttachment: (id: string) => void;
   extract: () => void;
+  files: ImportFileStatus[];
+  savedCount: number;
+  openSaved: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="space-y-card">
+    <div className="space-y-card pb-2 md:pb-gutter">
       <Surface className="p-card">
         <Label htmlFor="md-text">Markdown log</Label>
         <Textarea
@@ -37,7 +45,7 @@ export function ImportForm({
           value={mdText}
           onChange={(e) => setMdText(e.target.value)}
           placeholder="Paste a log here, or attach .md files below. Each file is read on its own."
-          rows={12}
+          className="min-h-20 max-h-80 field-sizing-content"
         />
         <div className="mt-card grid grid-cols-2 gap-2">
           <Button
@@ -99,6 +107,22 @@ export function ImportForm({
           }}
         />
       </Surface>
+      {savedCount ? (
+        <Surface level="raised" className="p-card">
+          <p className="eyebrow">Already extracted</p>
+          <p className="mt-1 text-meta text-muted-foreground">
+            {savedCount === 1
+              ? "1 file was already read by the model."
+              : `${savedCount} files were already read by the model.`}{" "}
+            Review them without uploading again or spending another model call.
+          </p>
+          <Button className="mt-card" disabled={pending} onClick={openSaved}>
+            <ClipboardCheck className="size-4" />
+            Review saved results
+          </Button>
+        </Surface>
+      ) : null}
+      <ImportFileList files={files} />
       <p className="text-meta text-muted-foreground">
         The AI proposes days, meals, workouts and catalog items. You review
         before anything is written.

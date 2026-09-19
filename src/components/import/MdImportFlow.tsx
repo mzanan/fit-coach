@@ -16,6 +16,9 @@ export function MdImportFlow({ today }: { today: string }) {
     attachFiles,
     attachments,
     progress,
+    files,
+    savedCount,
+    openSaved,
     error,
     retryConnection,
     cancelExtraction,
@@ -23,19 +26,29 @@ export function MdImportFlow({ today }: { today: string }) {
     extract,
     days,
     catalogItems,
+    facts,
+    rules,
+    bodyScans,
     warnings,
     included,
     updateMeal,
     toggleMeal,
     toggleWorkout,
     toggleCatalogItem,
+    toggleFact,
+    toggleRule,
+    toggleBodyScan,
     reset,
     commit,
   } = useMdImport();
 
   if (running && !days) {
     return (
-      <ImportProgress progress={progress} onCancel={cancelExtraction} />
+      <ImportProgress
+        progress={progress}
+        files={files}
+        onCancel={cancelExtraction}
+      />
     );
   }
 
@@ -55,11 +68,20 @@ export function MdImportFlow({ today }: { today: string }) {
         attachFiles={attachFiles}
         removeAttachment={removeAttachment}
         extract={extract}
+        files={files}
+        savedCount={savedCount}
+        openSaved={openSaved}
       />
     );
   }
 
-  if (days.length === 0 && catalogItems.length === 0) {
+  if (
+    days.length === 0 &&
+    catalogItems.length === 0 &&
+    facts.length === 0 &&
+    rules.length === 0 &&
+    bodyScans.length === 0
+  ) {
     return <ImportEmpty warnings={warnings} onBack={reset} />;
   }
 
@@ -68,6 +90,9 @@ export function MdImportFlow({ today }: { today: string }) {
       today={today}
       days={days}
       catalogItems={catalogItems}
+      facts={facts}
+      rules={rules}
+      bodyScans={bodyScans}
       warnings={warnings}
       included={included}
       pending={pending}
@@ -75,6 +100,9 @@ export function MdImportFlow({ today }: { today: string }) {
       toggleMeal={toggleMeal}
       toggleWorkout={toggleWorkout}
       toggleCatalogItem={toggleCatalogItem}
+      toggleFact={toggleFact}
+      toggleRule={toggleRule}
+      toggleBodyScan={toggleBodyScan}
       reset={reset}
       commit={commit}
     />

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { COACH_FACT_CATEGORY_KEYS, type CoachFactCategory } from "@/lib/constants";
 import {
   dayString,
   fatQuality,
@@ -47,17 +48,105 @@ const importedCatalogItem = z.object({
   ...optionalMacroFields,
 });
 
+const importedFact = z.object({
+  content: z.string().min(1),
+  category: z.enum(
+    COACH_FACT_CATEGORY_KEYS as [CoachFactCategory, ...CoachFactCategory[]],
+  ),
+  subject: z.string().nullish(),
+});
+
+const importedRule = z.object({
+  key: z.string().min(1),
+  value: z.string().min(1),
+});
+
+const importedBodyScan = z.object({
+  taken_at: dayString,
+  weight_kg: z.number().nullish(),
+  skeletal_muscle_kg: z.number().nullish(),
+  body_fat_kg: z.number().nullish(),
+  body_fat_pct: z.number().nullish(),
+  bmi: z.number().nullish(),
+  visceral_fat_level: z.number().nullish(),
+  bmr_kcal: z.number().nullish(),
+  inbody_score: z.number().nullish(),
+  waist_circumference_cm: z.number().nullish(),
+  height_cm: z.number().nullish(),
+});
+
 export const mdExtraction = z.object({
   days: z.array(importedDay).default([]),
   catalog_items: z.array(importedCatalogItem).default([]),
+  facts: z.array(importedFact).default([]),
+  rules: z.array(importedRule).default([]),
+  body_scans: z.array(importedBodyScan).default([]),
   warnings: z.array(z.string()).default([]),
 });
 
 export type MdExtraction = z.infer<typeof mdExtraction>;
+
+const modelFact = importedFact.extend({
+  category: importedFact.shape.category.catch("context"),
+});
+
+function keepValid<T>(
+  items: unknown[],
+  schema: z.ZodType<T>,
+  label: string,
+  warnings: string[],
+): T[] {
+  const kept: T[] = [];
+  for (const item of items) {
+    const parsed = schema.safeParse(item);
+    if (parsed.success) kept.push(parsed.data);
+  }
+  const dropped = items.length - kept.length;
+  if (dropped) {
+    warnings.push(`${dropped} ${label} could not be read and were skipped.`);
+  }
+  return kept;
+}
+
+const looseList = z.array(z.unknown()).nullish();
+
+export const modelExtraction = z
+  .object({
+    days: looseList,
+    catalog_items: looseList,
+    facts: looseList,
+    rules: looseList,
+    body_scans: looseList,
+    warnings: z.array(z.string()).nullish(),
+  })
+  .transform((raw): MdExtraction => {
+    const warnings = [...(raw.warnings ?? [])];
+    return {
+      days: keepValid(raw.days ?? [], importedDay, "day(s)", warnings),
+      catalog_items: keepValid(
+        raw.catalog_items ?? [],
+        importedCatalogItem,
+        "catalog item(s)",
+        warnings,
+      ),
+      facts: keepValid(raw.facts ?? [], modelFact, "fact(s)", warnings),
+      rules: keepValid(raw.rules ?? [], importedRule, "rule(s)", warnings),
+      body_scans: keepValid(
+        raw.body_scans ?? [],
+        importedBodyScan,
+        "body scan(s)",
+        warnings,
+      ),
+      warnings,
+    };
+  });
 export type ImportedDay = z.infer<typeof importedDay>;
 export type ImportedMeal = z.infer<typeof importedMeal>;
 export type ImportedWorkout = z.infer<typeof importedWorkout>;
 export type ImportedCatalogItem = z.infer<typeof importedCatalogItem>;
+export type ImportedFact = z.infer<typeof importedFact>;
+export type ImportedRule = z.infer<typeof importedRule>;
+export type ImportedBodyScan = z.infer<typeof importedBodyScan>;
 
 export function chunkMarkdown(text: string, maxChars = 4000): string[] {
   maxChars = maxChars || 4000;
@@ -86,9 +175,18 @@ function knownMacros(item: ImportedCatalogItem): number {
   ).length;
 }
 
+function knownScanFields(scan: ImportedBodyScan): number {
+  return Object.entries(scan).filter(
+    ([key, value]) => key !== "taken_at" && value !== null && value !== undefined,
+  ).length;
+}
+
 export function mergeExtractions(parts: MdExtraction[]): MdExtraction {
   const dayMap = new Map<string, ImportedDay>();
   const catalog = new Map<string, ImportedCatalogItem>();
+  const rules = new Map<string, ImportedRule>();
+  const scans = new Map<string, ImportedBodyScan>();
+  const facts = new Map<string, ImportedFact>();
   const warnings: string[] = [];
 
   for (const part of parts) {
@@ -110,11 +208,36 @@ export function mergeExtractions(parts: MdExtraction[]): MdExtraction {
         catalog.set(key, item);
       }
     }
+    for (const rule of part.rules) {
+      rules.set(rule.key.trim().toLowerCase(), rule);
+    }
+    for (const scan of part.body_scans) {
+      const existing = scans.get(scan.taken_at);
+      if (!existing || knownScanFields(scan) > knownScanFields(existing)) {
+        scans.set(scan.taken_at, scan);
+      }
+    }
+    for (const fact of part.facts) {
+      const key = fact.subject
+        ? `s:${fact.subject.trim().toLowerCase()}`
+        : `c:${fact.category}:${fact.content.trim().toLowerCase()}`;
+      facts.set(key, fact);
+    }
     warnings.push(...part.warnings);
   }
 
   const days = [...dayMap.values()].sort((a, b) => a.day.localeCompare(b.day));
-  return { days, catalog_items: [...catalog.values()], warnings };
+  const body_scans = [...scans.values()].sort((a, b) =>
+    a.taken_at.localeCompare(b.taken_at),
+  );
+  return {
+    days,
+    catalog_items: [...catalog.values()],
+    facts: [...facts.values()],
+    rules: [...rules.values()],
+    body_scans,
+    warnings,
+  };
 }
 
 export interface ImportSource {
@@ -128,6 +251,14 @@ export interface ImportProgress {
   files: number;
   chunk: number;
   chunks: number;
+}
+
+export function sourcesBytes(sources: { text: string }[]): number {
+  const encoder = new TextEncoder();
+  return sources.reduce(
+    (total, source) => total + encoder.encode(source.text).length,
+    0,
+  );
 }
 
 export function usableSources(sources: unknown): ImportSource[] {
