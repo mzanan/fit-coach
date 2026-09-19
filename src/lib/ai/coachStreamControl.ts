@@ -34,6 +34,7 @@ export function bufferedOnEvent(
   let inFlight: Promise<void> = Promise.resolve();
   return {
     onEvent(event) {
+      if (event.type === "status") text = "";
       if (event.type === "delta") {
         text += event.text;
         const now = Date.now();
