@@ -13,7 +13,7 @@ import {
   type CoachResult,
   type DaySummary,
 } from "@/lib/ai/coach";
-import { exchangeOf } from "@/lib/ai/coachReplyText";
+import { exchangeOf, leadWith } from "@/lib/ai/coachReplyText";
 import { buildCoachTools, previewApproval } from "@/lib/ai/coachTools";
 import {
   approvalResponseMessage,
@@ -312,7 +312,7 @@ export async function resolvePendingWrite(
       };
     }
 
-    const answer = text || confirmationLines(logged);
+    const answer = leadWith(confirmationLines(logged), text);
     const daySummary = wroteMeal
       ? (await daySummaryAfterWrite(userId, profile, day)) ?? undefined
       : undefined;
