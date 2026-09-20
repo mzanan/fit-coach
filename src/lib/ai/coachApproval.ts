@@ -6,13 +6,14 @@ import { after } from "next/server";
 import { userModelRef } from "@/lib/ai/aiCredentials";
 import { toolsRouting } from "@/lib/ai/capabilities";
 import {
+  daySummaryAfterWrite,
   deferMemory,
   toolSetup,
   turnLimitReached,
   TURN_LIMIT_TEXT,
   type CoachResult,
-  type DaySummary,
 } from "@/lib/ai/coach";
+import { writeReceipts } from "@/lib/ai/coachReceipts";
 import { exchangeOf, leadWith } from "@/lib/ai/coachReplyText";
 import { buildCoachTools, previewApproval } from "@/lib/ai/coachTools";
 import {
@@ -41,16 +42,17 @@ import {
   type PendingPreview,
   type SetTargetsPreview,
 } from "@/lib/data/coachPendingWrite";
-import { getDayData } from "@/lib/data/today";
 import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import type { Profile } from "@/lib/db/schema";
 import {
+  CARD_WRITE_TOOLS,
   categoryLabel,
   CLOSE_DAY_TOOL,
   FATIGUE_TOOL,
   fatigueExtrasLabel,
   fatigueTimeLabel,
   INTERRUPTED_ANSWER,
+  MEAL_WRITE_TOOLS,
   MEASUREMENT_TOOL,
   measurementTypeLabel,
   measurementUnit,
@@ -69,15 +71,6 @@ const RESUME_FAILED =
 
 const NOT_WRITTEN =
   "Nothing was written. Whatever you confirmed may have changed since you were asked. Ask again.";
-
-export async function daySummaryAfterWrite(
-  userId: string,
-  profile: Profile,
-  day: string,
-): Promise<DaySummary | null> {
-  const dayData = await getDayData(userId, profile, day);
-  return dayData.summary;
-}
 
 export async function resolvePendingWrite(
   userId: string,
@@ -229,7 +222,8 @@ export async function resolvePendingWrite(
               }
             : undefined,
         ),
-        approvalFor: WRITE_TOOLS,
+        approvalFor: CARD_WRITE_TOOLS,
+        writeTools: WRITE_TOOLS,
         onEvent: onEvent ?? (() => {}),
         signal,
       });
@@ -268,7 +262,18 @@ export async function resolvePendingWrite(
           kcal: round(kcalOf(scaled)),
         };
       });
-    const wroteMeal = logged.some((preview) => preview.toolName === WRITE_TOOL);
+    const previewCallIds = new Set(
+      pending.previews.map((preview) => preview.toolCallId),
+    );
+    const extraWrites = writeOutputs.filter(
+      (output) => output.logged && !previewCallIds.has(output.toolCallId),
+    );
+    const wroteMeal =
+      logged.some((preview) => preview.toolName === WRITE_TOOL) ||
+      extraWrites.some((output) => MEAL_WRITE_TOOLS.has(output.toolName));
+    const receiptText = [confirmationLines(logged), writeReceipts(extraWrites)]
+      .filter(Boolean)
+      .join("\n");
 
     if (approvals.length) {
       const chained = await chainApproval(
@@ -290,7 +295,7 @@ export async function resolvePendingWrite(
           return chained;
         return {
           ...chained,
-          logged: confirmationLines(logged),
+          logged: receiptText || undefined,
           daySummary: wroteMeal
             ? (await daySummaryAfterWrite(userId, profile, day)) ?? undefined
             : undefined,
@@ -312,7 +317,7 @@ export async function resolvePendingWrite(
       };
     }
 
-    const answer = leadWith(confirmationLines(logged), text);
+    const answer = leadWith(receiptText, text);
     const daySummary = wroteMeal
       ? (await daySummaryAfterWrite(userId, profile, day)) ?? undefined
       : undefined;

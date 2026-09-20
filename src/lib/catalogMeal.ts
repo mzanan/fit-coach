@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 
 import { db, schema } from "@/lib/db";
 import { hasMacros, kcalOf } from "@/lib/macros";
-import { matchesTerm, normalizeSearch } from "@/lib/search";
+import { matchesAllTerms, normalizeSearch } from "@/lib/search";
 import { newId, round } from "@/lib/utils";
 
 const { meals, catalog_items } = schema;
@@ -15,7 +15,7 @@ function sameItemName(given: string, stored: string): boolean {
   const strip = (value: string) => normalizeSearch(value).replace(/\s+/g, "");
   return (
     strip(given) === strip(stored) ||
-    matchesTerm(stored, given) ||
+    matchesAllTerms(stored, given) ||
     strip(stored).includes(strip(given))
   );
 }
@@ -37,7 +37,7 @@ function confidentNameMatch(given: string, stored: string): boolean {
   if (strip(given) === strip(stored)) return true;
   const words = given.trim().split(/\s+/).filter(Boolean);
   if (words.length < 2) return false;
-  return matchesTerm(stored, given);
+  return matchesAllTerms(stored, given);
 }
 
 async function findUniqueByName(
@@ -214,6 +214,37 @@ export async function sizeVariantsOf(
     });
   }
   return variants;
+}
+
+export interface EstimatedMeal {
+  name: string;
+  protein_g: number;
+  fat_g: number;
+  carbs_g: number;
+}
+
+export async function insertEstimatedMeal(
+  userId: string,
+  meal: EstimatedMeal,
+  category: string,
+  day: string,
+): Promise<string> {
+  const id = newId();
+  await db.insert(meals).values({
+    id,
+    user_id: userId,
+    logical_day: day,
+    category,
+    name: meal.name,
+    place: null,
+    protein_g: round(meal.protein_g),
+    fat_g: round(meal.fat_g),
+    carbs_g: round(meal.carbs_g),
+    fat_quality: null,
+    catalog_item_id: null,
+    created_at: new Date(),
+  });
+  return id;
 }
 
 export async function insertResolvedMeal(

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
 import {
+  insertEstimatedMeal,
   insertResolvedMeal,
   resolveCatalogMeal,
   sizeVariantsOf,
@@ -918,7 +919,7 @@ export function buildCoachTools(
     ...readTools,
     log_meal: tool({
       description:
-        "Log a meal the user has eaten, using an item from their catalog. Only call this when the user asks for it. Pass the `id` and the exact `name` of a catalog item a previous search returned: the app resolves the macros itself from that item, so never pass macro numbers. Use `portions` when they ate more or less than one serving. The user confirms before anything is written.",
+        "Log a meal the user has eaten, using an item from their catalog. Only call this when the user asks for it. Pass the `id` and the exact `name` of a catalog item a previous search returned: the app resolves the macros itself from that item, so never pass macro numbers. Use `portions` when they ate more or less than one serving. This writes immediately, with no confirmation step: call it only when the user actually asked for the meal to be logged, and if several catalog items differ only in size pick the one matching what they said.",
       inputSchema: z.object({
         item_id: z.string().min(1).describe("id of the catalog item, from search_catalog"),
         item_name: z.string().min(1).describe("exact name of that same catalog item"),
@@ -966,9 +967,46 @@ export function buildCoachTools(
         },
       ),
     }),
+    log_estimated_meal: tool({
+      description:
+        "Log a meal the user ate that is NOT in their catalog, with macros you estimate from what they said (a standard portion of that food). Use this whenever the user asks to log something and search_catalog returned no matching item: never ask whether to log it or whether to add it to the catalog, estimate and call this. Pass the food name as the user said it and integer grams of protein, fat and carbs for the portion eaten. The app marks the entry as an estimate. This writes immediately, with no confirmation step.",
+      inputSchema: z.object({
+        name: z.string().trim().min(1).max(120).describe("the food as the user named it, e.g. 'Jugo de naranja exprimido sin azúcar (vaso)'"),
+        category: z.enum(CATEGORY_KEYS),
+        protein_g: z.number().min(0).max(300),
+        fat_g: z.number().min(0).max(300),
+        carbs_g: z.number().min(0).max(600),
+      }),
+      execute: safe(
+        "log_estimated_meal",
+        async (input: {
+          name: string;
+          category: MealCategoryKey;
+          protein_g: number;
+          fat_g: number;
+          carbs_g: number;
+        }) => {
+          await insertEstimatedMeal(userId, input, input.category, today);
+          revalidatePath("/");
+          return {
+            logged: true,
+            estimated: true,
+            meal: {
+              name: input.name,
+              category: input.category,
+              portions: 1,
+              protein_g: round(input.protein_g),
+              fat_g: round(input.fat_g),
+              carbs_g: round(input.carbs_g),
+              kcal: round(kcalOf(input)),
+            },
+          };
+        },
+      ),
+    }),
     update_rule: tool({
       description:
-        "Set or change a standing rule for this user: a fixed operational fact the coach must always follow until it is changed again, e.g. medication timing, a dietary restriction, routine split, or a reminder cadence. Use a short snake_case `key` naming the rule and the exact `value`. Setting an existing key replaces its value; the previous value stops applying. Only call this when the user asks to set or change a rule, never for a one-off preference (that belongs in memory, not here). The user confirms before anything is written." +
+        "Set or change a standing rule for this user: a fixed operational fact the coach must always follow until it is changed again, e.g. medication timing, a dietary restriction, routine split, or a reminder cadence. Use a short snake_case `key` naming the rule and the exact `value`. Setting an existing key replaces its value; the previous value stops applying. Only call this when the user asks to set or change a rule, never for a one-off preference (that belongs in memory, not here). This writes immediately, with no confirmation step." +
         ` Reserved keys read by the reminder system, use these EXACT keys and formats or the reminder never fires: ${CADENCE_DEFS.map((d) => `\`${d.ruleKey}\``).join(", ")} take an integer number of days as the value, e.g. key "${CADENCE_DEFS[2].ruleKey}" value "21" for "recordame el InBody cada 21 días". Any key ending in "${TREATMENT_END_SUFFIX}" (e.g. "creatine${TREATMENT_END_SUFFIX}") takes a value in exactly YYYY-MM-DD format, e.g. key "creatine${TREATMENT_END_SUFFIX}" value "2026-08-30" for "estoy tomando creatina hasta el 30 de agosto". Never invent a differently-named or differently-formatted key for these two cases.`,
       inputSchema: z.object({
         key: z
@@ -1001,7 +1039,7 @@ export function buildCoachTools(
     }),
     log_fatigue: tool({
       description:
-        "Log the user's fatigue/energy score (1-5) and/or sleep info for a moment of the day: morning or post_lunch. All three fields (score, sleep_hours, sleep_location) are optional and independent: pass a field only when the user mentioned it in THIS message, leave it null otherwise, and logging the same time_of_day again today only overwrites the fields you pass, it never blanks out a field the user already logged earlier with a null from a later call that didn't mention it. If the user only mentions sleep (e.g. 'dormí 6 horas') without saying how they felt, call this with score null to save the sleep data, but you MUST still ask them for the energy score in your reply so it can be logged in a follow-up turn. The user confirms before anything is written.",
+        "Log the user's fatigue/energy score (1-5) and/or sleep info for a moment of the day: morning or post_lunch. All three fields (score, sleep_hours, sleep_location) are optional and independent: pass a field only when the user mentioned it in THIS message, leave it null otherwise, and logging the same time_of_day again today only overwrites the fields you pass, it never blanks out a field the user already logged earlier with a null from a later call that didn't mention it. If the user only mentions sleep (e.g. 'dormí 6 horas') without saying how they felt, call this with score null to save the sleep data, but you MUST still ask them for the energy score in your reply so it can be logged in a follow-up turn. This writes immediately, with no confirmation step.",
       inputSchema: z.object({
         time_of_day: z
           .enum(TIME_OF_DAY_KEYS)
@@ -1045,7 +1083,7 @@ export function buildCoachTools(
     }),
     log_workout_session: tool({
       description:
-        "Log a completed gym session: which exercises, and for each one its sets with reps and weight (per_side true when the weight is per dumbbell/side rather than total). The sets array needs ONE ENTRY PER SET actually performed: \"3x8 at 60kg\" is three separate set objects, each {reps: 8, weight: 60}, never one entry meant to summarize all three. Only call this when the user reports what they actually did in the gym. session_type is a short label like \"Upper A\". Pass exercise_catalog_id only when you have a real id (e.g. from get_workouts or a catalog search); omit it entirely otherwise, never pass null, and the app will try to match the exercise by name itself. weight can be null for bodyweight sets. The user confirms before anything is written.",
+        "Log a completed gym session: which exercises, and for each one its sets with reps and weight (per_side true when the weight is per dumbbell/side rather than total). The sets array needs ONE ENTRY PER SET actually performed: \"3x8 at 60kg\" is three separate set objects, each {reps: 8, weight: 60}, never one entry meant to summarize all three. Only call this when the user reports what they actually did in the gym. session_type is a short label like \"Upper A\". Pass exercise_catalog_id only when you have a real id (e.g. from get_workouts or a catalog search); omit it entirely otherwise, never pass null, and the app will try to match the exercise by name itself. weight can be null for bodyweight sets. This writes immediately, with no confirmation step.",
       inputSchema: logWorkoutSessionInput,
       execute: safe(
         "log_workout_session",
@@ -1071,7 +1109,7 @@ export function buildCoachTools(
     }),
     log_measurement: tool({
       description:
-        "Log a body measurement: waist (cm) or weight (kg) with its value, or a progress photo (no value, just marks that one was taken today). Only call this when the user reports a measurement or confirms they took a progress photo. Never invent a value. The user confirms before anything is written.",
+        "Log a body measurement: waist (cm) or weight (kg) with its value, or a progress photo (no value, just marks that one was taken today). Only call this when the user reports a measurement or confirms they took a progress photo. Never invent a value. This writes immediately, with no confirmation step.",
       inputSchema: z.object({
         type: measurementTypeSchema.describe("waist, weight, or photo"),
         value: measurementValueSchema.describe(
