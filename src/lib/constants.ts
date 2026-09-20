@@ -275,21 +275,27 @@ export const COACH_MAX_DURATION_SECONDS = 300;
 
 export const CATALOG_SEARCH_TOOL = "search_catalog";
 export const WRITE_TOOL = "log_meal";
+export const ESTIMATE_TOOL = "log_estimated_meal";
 export const RULE_TOOL = "update_rule";
 export const FATIGUE_TOOL = "log_fatigue";
 export const WORKOUT_TOOL = "log_workout_session";
 export const MEASUREMENT_TOOL = "log_measurement";
 export const CLOSE_DAY_TOOL = "close_day";
 export const SET_TARGETS_TOOL = "set_targets";
-export const WRITE_TOOLS = [
+export const DIRECT_WRITE_TOOLS = [
   WRITE_TOOL,
+  ESTIMATE_TOOL,
   RULE_TOOL,
   FATIGUE_TOOL,
   WORKOUT_TOOL,
   MEASUREMENT_TOOL,
-  CLOSE_DAY_TOOL,
-  SET_TARGETS_TOOL,
 ];
+
+export const CARD_WRITE_TOOLS = [CLOSE_DAY_TOOL, SET_TARGETS_TOOL];
+
+export const MEAL_WRITE_TOOLS = new Set([WRITE_TOOL, ESTIMATE_TOOL]);
+
+export const WRITE_TOOLS = [...DIRECT_WRITE_TOOLS, ...CARD_WRITE_TOOLS];
 
 export const FATIGUE_TIMES_OF_DAY = [
   { key: "morning", label: "Morning" },

@@ -18,6 +18,7 @@ import {
   unloggedNotice,
 } from "@/lib/ai/coachReplyText";
 import { bufferedOnEvent, watchForStop } from "@/lib/ai/coachStreamControl";
+import { writeReceipts } from "@/lib/ai/coachReceipts";
 import { offCatalogWarning } from "@/lib/ai/coachSuggestionGate";
 import { buildCoachTools, previewApproval } from "@/lib/ai/coachTools";
 import {
@@ -68,10 +69,13 @@ import {
 import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import type { Profile } from "@/lib/db/schema";
 import {
+  CARD_WRITE_TOOLS,
   CATALOG_SEARCH_TOOL,
   INTERRUPTED_ANSWER,
+  MEAL_WRITE_TOOLS,
   WRITE_TOOLS,
 } from "@/lib/constants";
+import { getDayData } from "@/lib/data/today";
 import type { MacroLine } from "@/lib/macros";
 
 export type CoachResult =
@@ -80,6 +84,7 @@ export type CoachResult =
       text: string;
       generated: boolean;
       daySummary?: DaySummary;
+      receipts?: string;
       stopped?: boolean;
       truncated?: boolean;
       learned?: string[];
@@ -207,6 +212,15 @@ async function summaryQuestion(
   }
 }
 
+export async function daySummaryAfterWrite(
+  userId: string,
+  profile: Profile,
+  day: string,
+): Promise<DaySummary | null> {
+  const dayData = await getDayData(userId, profile, day);
+  return dayData.summary;
+}
+
 export async function toolSetup(
   userId: string,
   profile: Profile,
@@ -280,10 +294,18 @@ async function toolReply(
       instructions: setup.instructions,
       messages: setup.messages,
       tools: buildCoachTools(userId, profile, setup.today, allowWrite),
-      approvalFor: WRITE_TOOLS,
+      approvalFor: CARD_WRITE_TOOLS,
+      writeTools: WRITE_TOOLS,
       onEvent: onEvent ?? (() => {}),
       signal,
     });
+
+    const receipts = writeReceipts(writeOutputs);
+    const daySummary = writeOutputs.some(
+      (output) => output.logged && MEAL_WRITE_TOOLS.has(output.toolName),
+    )
+      ? (await daySummaryAfterWrite(userId, profile, setup.today)) ?? undefined
+      : undefined;
 
     if (approvals.length) {
       const resolved = await Promise.all(
@@ -321,6 +343,8 @@ async function toolReply(
         approvalId: approvals[0].approvalId,
         previews,
         saved,
+        logged: receipts || undefined,
+        daySummary,
       };
     }
 
@@ -340,7 +364,7 @@ async function toolReply(
         );
       }
       const answer = leadWith(
-        notice,
+        [receipts, notice].filter(Boolean).join("\n\n"),
         text +
           (await offCatalogWarning(
             ref,
@@ -372,6 +396,20 @@ async function toolReply(
         generated: true,
         truncated: interrupted,
         learned,
+        daySummary,
+        receipts,
+      };
+    }
+
+    if (receipts) {
+      return {
+        status: "answered",
+        text: receipts,
+        generated: false,
+        truncated: interrupted,
+        learned,
+        daySummary,
+        receipts,
       };
     }
 
@@ -594,9 +632,15 @@ export async function coachReply(
     controller.signal.aborted && (result.truncated ?? !result.generated);
   if (genuinelyStopped) {
     await drain();
-    const text = buffer() || STOPPED_MID_ANSWER;
+    const text = leadWith(result.receipts ?? "", buffer() || STOPPED_MID_ANSWER);
     await updateExchangeContent(exchange, text);
-    return { status: "answered", text, generated: false, stopped: true };
+    return {
+      status: "answered",
+      text,
+      generated: false,
+      stopped: true,
+      daySummary: result.daySummary,
+    };
   }
 
   await drain();
@@ -604,6 +648,7 @@ export async function coachReply(
     generated: result.generated,
     force: true,
     learned: result.learned,
+    daySummary: result.daySummary,
   });
   if (!finalized) {
     await updateExchangeContent(exchange, result.text);
