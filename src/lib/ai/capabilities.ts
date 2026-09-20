@@ -265,6 +265,7 @@ export async function googleModels(
 
 const EXPLABS_CAPABILITIES: Record<string, { tools: boolean; structured: boolean }> = {
   "deepseek-v4-flash": { tools: true, structured: true },
+  "deepseek-v4.1-flash": { tools: true, structured: true },
   "gpt-5.6-luna": { tools: true, structured: true },
   "qwen3.8-27b": { tools: true, structured: true },
 };

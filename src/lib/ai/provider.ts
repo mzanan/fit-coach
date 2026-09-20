@@ -249,6 +249,11 @@ async function continueStreamedText(
   onEvent: (event: CoachEvent) => void,
   tools?: ToolSet,
   totals?: UsageTotals,
+  bookkeeping?: {
+    writes: Set<string>;
+    toolLog: string[];
+    writeOutputs: WriteOutput[];
+  },
 ): Promise<{ text: string; newMessages: ModelMessage[]; aborted: boolean }> {
   let finishReason: FinishReason = "length";
   let aborted = false;
@@ -275,6 +280,20 @@ async function continueStreamedText(
     for await (const part of result.fullStream) {
       if (part.type === "text-delta") {
         stepText += part.text;
+      } else if (part.type === "tool-result" && bookkeeping) {
+        if (bookkeeping.writes.has(part.toolName)) {
+          const output = part.output as { logged?: unknown; error?: unknown };
+          bookkeeping.writeOutputs.push({
+            toolCallId: part.toolCallId,
+            toolName: part.toolName,
+            logged: output?.logged === true,
+            error: typeof output?.error === "string" ? output.error : undefined,
+            output: part.output,
+          });
+        }
+        bookkeeping.toolLog.push(
+          `${part.toolName}(${JSON.stringify(part.input)}) -> ${JSON.stringify(part.output).slice(0, 400)}`,
+        );
       } else if (part.type === "finish") {
         sawFinish = true;
         finishReason = part.finishReason;
@@ -317,6 +336,7 @@ export interface WriteOutput {
   toolName: string;
   logged: boolean;
   error?: string;
+  output?: unknown;
 }
 
 export interface ToolStreamResult {
@@ -336,6 +356,7 @@ export interface ToolStreamOptions {
   messages: ModelMessage[];
   tools: ToolSet;
   approvalFor?: string | string[];
+  writeTools?: string | string[];
   maxSteps?: number;
   maxTokens?: number;
   onEvent: (event: CoachEvent) => void;
@@ -414,6 +435,8 @@ export async function chatToolsStream(
   const maxOutputTokens = maxTokens + googleThinkingBudget(ref);
   const providerOptions = reasoningOptions(ref);
   const gated = approvalSet(options.approvalFor);
+  const writes = approvalSet(options.writeTools ?? options.approvalFor);
+  const maxSteps = options.maxSteps ?? COACH_MAX_TOOL_STEPS;
   const result = streamText({
     model,
     instructions: options.instructions,
@@ -428,7 +451,9 @@ export async function chatToolsStream(
       ref,
       options.userId,
     ),
-    stopWhen: isStepCount(options.maxSteps ?? COACH_MAX_TOOL_STEPS),
+    stopWhen: isStepCount(maxSteps),
+    prepareStep: ({ stepNumber }) =>
+      stepNumber >= maxSteps - 1 ? { toolChoice: "none" } : undefined,
     maxOutputTokens,
     providerOptions,
     abortSignal: options.signal,
@@ -443,10 +468,22 @@ export async function chatToolsStream(
   let sawAbort = false;
   let sawFinish = false;
   let finishReason: FinishReason | undefined;
+  let stepText = "";
+  let stepCalledTool = false;
   for await (const part of result.fullStream) {
-    if (part.type === "tool-call") {
-      if (gated.has(part.toolName)) writeAttempted = true;
+    if (part.type === "start-step") {
+      stepText = "";
+      stepCalledTool = false;
+    } else if (part.type === "finish-step") {
+      if (!stepCalledTool && stepText) {
+        options.onEvent({ type: "delta", text: stepText });
+      }
+      stepText = "";
+    } else if (part.type === "tool-call") {
+      if (writes.has(part.toolName)) writeAttempted = true;
       text = "";
+      stepText = "";
+      stepCalledTool = true;
       options.onEvent({ type: "status", tool: part.toolName });
     } else if (part.type === "tool-approval-request") {
       console.info(
@@ -459,13 +496,14 @@ export async function chatToolsStream(
         input: part.toolCall.input,
       });
     } else if (part.type === "tool-result") {
-      if (gated.has(part.toolName)) {
+      if (writes.has(part.toolName)) {
         const output = part.output as { logged?: unknown; error?: unknown };
         writeOutputs.push({
           toolCallId: part.toolCallId,
           toolName: part.toolName,
           logged: output?.logged === true,
           error: typeof output?.error === "string" ? output.error : undefined,
+          output: part.output,
         });
       }
       toolLog.push(
@@ -475,9 +513,13 @@ export async function chatToolsStream(
       options.onEvent({ type: "reasoning", text: part.text });
     } else if (part.type === "text-delta") {
       text += part.text;
-      options.onEvent({ type: "delta", text: part.text });
+      stepText += part.text;
     } else if (part.type === "abort") {
       sawAbort = true;
+      if (!stepCalledTool && stepText) {
+        options.onEvent({ type: "delta", text: stepText });
+      }
+      stepText = "";
     } else if (part.type === "finish") {
       sawFinish = true;
       finishReason = part.finishReason;
@@ -499,6 +541,7 @@ export async function chatToolsStream(
       options.onEvent,
       options.tools,
       usageTotals,
+      { writes, toolLog, writeOutputs },
     );
     text += continued.text;
     messages = [...messages, ...continued.newMessages];
@@ -509,7 +552,12 @@ export async function chatToolsStream(
     `coach: ${ref.provider}/${ref.model} finished with ${approvals.length} approval(s), ${toolLog.length} tool result(s), ${text.trim().length} chars`,
   );
 
-  if (text.trim() || approvals.length || interrupted) {
+  if (
+    text.trim() ||
+    approvals.length ||
+    interrupted ||
+    writeOutputs.some((output) => output.logged)
+  ) {
     return {
       text: text.trim(),
       toolLog,
