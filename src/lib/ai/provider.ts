@@ -442,7 +442,7 @@ function toolApprovalFor(
   if (!gated.size && !judged.length) return undefined;
   return {
     ...Object.fromEntries([...gated].map((name) => [name, "user-approval" as const])),
-    ...(gate ? toolGateApprovals(gate, userId, judged) : {}),
+    ...(gate ? toolGateApprovals(gate, userId, judged, [CONTINUE_PROMPT]) : {}),
   };
 }
 

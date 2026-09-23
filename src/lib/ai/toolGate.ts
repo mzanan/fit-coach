@@ -16,6 +16,7 @@ import {
   statusLabel,
   TOOL_GATE_POLICY,
   verdictLabel,
+  withoutUserTexts,
   type GateMessage,
   type GateStatus,
   type GateThresholds,
@@ -96,6 +97,7 @@ export function toolGateApprovals(
   config: ToolGateConfig,
   userId: string,
   toolNames: readonly string[],
+  syntheticUserTexts: readonly string[] = [],
 ) {
   return Object.fromEntries(
     toolNames.map((toolName) => [
@@ -105,7 +107,12 @@ export function toolGateApprovals(
         options: { toolCallId: string; messages: GateMessage[] },
       ): Promise<GateStatus> => {
         if (humanApproved(options.messages, options.toolCallId)) return "not-applicable";
-        const verdict = await askJev(config, toolName, input, options.messages);
+        const verdict = await askJev(
+          config,
+          toolName,
+          input,
+          withoutUserTexts(options.messages, syntheticUserTexts),
+        );
         const status = gateStatus(verdict, config.thresholds, TOOL_GATE_ESCALATABLE.has(toolName));
         const outcome = verdict ? statusLabel(status) : "unavailable";
         const detail = `${toolName} ${outcome}${verdict ? ` ${verdictLabel(verdict)}` : ""}`;

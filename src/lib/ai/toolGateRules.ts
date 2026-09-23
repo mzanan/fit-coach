@@ -107,9 +107,19 @@ export function recentTurns(
     const { role } = messages[i];
     if (role !== "user" && role !== "assistant") continue;
     const text = textOf(messages[i].content);
-    if (text) turns.push({ role, text: text.slice(0, maxChars) });
+    if (text) turns.push({ role, text: text.length > maxChars ? text.slice(-maxChars) : text });
   }
   return turns.reverse();
+}
+
+export function withoutUserTexts(
+  messages: readonly GateMessage[],
+  ignored: readonly string[],
+): GateMessage[] {
+  if (!ignored.length) return [...messages];
+  return messages.filter(
+    (message) => !(message.role === "user" && ignored.includes(textOf(message.content))),
+  );
 }
 
 export function latestUserText(messages: readonly GateMessage[]): string {

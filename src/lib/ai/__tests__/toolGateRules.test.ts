@@ -9,6 +9,7 @@ import {
   latestUserText,
   parseJevVerdict,
   recentTurns,
+  withoutUserTexts,
   type GateVerdict,
 } from "@/lib/ai/toolGateRules";
 
@@ -172,6 +173,22 @@ describe("recentTurns", () => {
   it("keeps only the last turns and truncates long ones", () => {
     const messages = Array.from({ length: 10 }, (_, i) => ({ role: i % 2 ? "assistant" : "user", content: `m${i}` }));
     expect(recentTurns(messages, 3).map((t) => t.text)).toEqual(["m7", "m8", "m9"]);
-    expect(recentTurns([{ role: "user", content: "x".repeat(900) }], 6, 400)[0].text).toHaveLength(400);
+    const long = `${"x".repeat(800)}¿Qué nivel de energía del 1 al 10?`;
+    const kept = recentTurns([{ role: "assistant", content: long }], 6, 400)[0].text;
+    expect(kept).toHaveLength(400);
+    expect(kept.endsWith("¿Qué nivel de energía del 1 al 10?")).toBe(true);
+  });
+});
+
+describe("withoutUserTexts", () => {
+  it("drops synthetic user turns so the real request stays the latest", () => {
+    const messages = [
+      { role: "user", content: "cené bep an" },
+      { role: "assistant", content: "Anotando" },
+      { role: "user", content: "Continue the answer" },
+    ];
+    const cleaned = withoutUserTexts(messages, ["Continue the answer"]);
+    expect(latestUserText(cleaned)).toBe("cené bep an");
+    expect(withoutUserTexts(messages, [])).toEqual(messages);
   });
 });
