@@ -19,7 +19,7 @@ export type AiEventKind =
   | "fact_extraction_failed"
   | "write_claimed_not_run"
   | "tools_unavailable"
-  | "write_gate";
+  | "tool_gate";
 
 export interface UsageTotals {
   inputTokens?: number;

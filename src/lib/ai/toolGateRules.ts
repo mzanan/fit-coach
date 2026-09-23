@@ -23,11 +23,16 @@ export interface GateMessage {
   content: unknown;
 }
 
+export interface GateTurn {
+  role: "user" | "assistant";
+  text: string;
+}
+
 export const DEFAULT_GATE_THRESHOLDS: GateThresholds = { approveMin: 0.7, denyMin: 0.7 };
 
 export const TOOL_GATE_POLICY: Record<GateDecision, string> = {
   approve:
-    "The user's latest message asks to record exactly this: a meal they ate (a catalog item by id, or a food not in the catalog whose macros the assistant estimated, which is expected), fatigue, a workout session, a body measurement, or a standing rule the user wants applied from now on (always, every day, from now on). The food, category, portions and values match what the user said.",
+    "In the conversation, the user asks to record exactly this, either in their latest message or by answering the assistant's last question (a short reply such as a number, a choice or a yes completes what the assistant asked): a meal they ate (a catalog item by id, or a food not in the catalog whose macros the assistant estimated, which is expected), fatigue, a workout session, a body measurement, or a standing rule the user wants applied from now on (always, every day, from now on). The food, category, portions and values match what the user said.",
   escalate:
     "The user asked to record this, but a value is ambiguous or implausible for what they described (a portion count far from what they said, a measurement far outside a normal human range), so the user should confirm it before it is saved.",
   deny:
@@ -35,7 +40,7 @@ export const TOOL_GATE_POLICY: Record<GateDecision, string> = {
 };
 
 export const GATE_DENIED_REASON =
-  "Refused by the write gate: this does not match what the user asked. Do not retry the same call; tell the user what you were about to save and ask them.";
+  "Refused by the tool gate: this does not match what the user asked. Do not retry the same call; tell the user what you were about to save and ask them.";
 
 function isDecision(value: unknown): value is GateDecision {
   return typeof value === "string" && (GATE_DECISIONS as readonly string[]).includes(value);
@@ -54,6 +59,14 @@ export function parseJevVerdict(data: unknown): GateVerdict | null {
   return { decision: answer.choice, probabilities };
 }
 
+export function verdictLabel(verdict: GateVerdict): string {
+  return `${verdict.decision} p=${verdict.probabilities[verdict.decision].toFixed(2)}`;
+}
+
+export function statusLabel(status: GateStatus): string {
+  return typeof status === "string" ? status : status.type;
+}
+
 export function gateStatus(
   verdict: GateVerdict | null,
   thresholds: GateThresholds,
@@ -62,7 +75,7 @@ export function gateStatus(
   if (!verdict) return "not-applicable";
   const confidence = verdict.probabilities[verdict.decision];
   if (verdict.decision === "approve" && confidence >= thresholds.approveMin) {
-    return { type: "approved", reason: `write gate approved (p=${confidence.toFixed(2)})` };
+    return { type: "approved", reason: `tool gate approved (${verdictLabel(verdict)})` };
   }
   if (verdict.decision === "deny" && confidence >= thresholds.denyMin) {
     return { type: "denied", reason: GATE_DENIED_REASON };
@@ -82,6 +95,21 @@ function textOf(content: unknown): string {
     .filter(Boolean)
     .join(" ")
     .trim();
+}
+
+export function recentTurns(
+  messages: readonly GateMessage[],
+  maxTurns = 6,
+  maxChars = 400,
+): GateTurn[] {
+  const turns: GateTurn[] = [];
+  for (let i = messages.length - 1; i >= 0 && turns.length < maxTurns; i -= 1) {
+    const { role } = messages[i];
+    if (role !== "user" && role !== "assistant") continue;
+    const text = textOf(messages[i].content);
+    if (text) turns.push({ role, text: text.slice(0, maxChars) });
+  }
+  return turns.reverse();
 }
 
 export function latestUserText(messages: readonly GateMessage[]): string {

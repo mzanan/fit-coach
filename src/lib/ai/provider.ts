@@ -254,6 +254,8 @@ async function continueStreamedText(
     writes: Set<string>;
     toolLog: string[];
     writeOutputs: WriteOutput[];
+    approvals: ApprovalRequest[];
+    toolApproval: ReturnType<typeof toolApprovalFor>;
   },
 ): Promise<{ text: string; newMessages: ModelMessage[]; aborted: boolean }> {
   let finishReason: FinishReason = "length";
@@ -272,6 +274,7 @@ async function continueStreamedText(
       instructions,
       messages: [...messages, turn],
       tools,
+      toolApproval: bookkeeping?.toolApproval,
       maxOutputTokens,
       providerOptions,
       abortSignal: signal,
@@ -281,6 +284,17 @@ async function continueStreamedText(
     for await (const part of result.fullStream) {
       if (part.type === "text-delta") {
         stepText += part.text;
+      } else if (
+        part.type === "tool-approval-request" &&
+        !part.isAutomatic &&
+        bookkeeping
+      ) {
+        bookkeeping.approvals.push({
+          approvalId: part.approvalId,
+          toolCallId: part.toolCall.toolCallId,
+          toolName: part.toolCall.toolName,
+          input: part.toolCall.input,
+        });
       } else if (part.type === "tool-result" && bookkeeping) {
         if (bookkeeping.writes.has(part.toolName)) {
           const output = part.output as { logged?: unknown; error?: unknown };
@@ -452,12 +466,13 @@ export async function chatToolsStream(
   const gated = approvalSet(options.approvalFor);
   const writes = approvalSet(options.writeTools ?? options.approvalFor);
   const maxSteps = options.maxSteps ?? COACH_MAX_TOOL_STEPS;
+  const toolApproval = toolApprovalFor(gated, writes, options.userId);
   const result = streamText({
     model,
     instructions: options.instructions,
     messages: options.messages,
     tools: options.tools,
-    toolApproval: toolApprovalFor(gated, writes, options.userId),
+    toolApproval,
     repairToolCall: repairToolName(
       options.tools,
       options.approvalFor,
@@ -476,7 +491,8 @@ export async function chatToolsStream(
   const approvals: ApprovalRequest[] = [];
   const writeOutputs: WriteOutput[] = [];
   const usageTotals: UsageTotals = {};
-  let writeAttempted = false;
+  const writeCalls = new Set<string>();
+  const deniedCalls = new Set<string>();
   let text = "";
   let sawAbort = false;
   let sawFinish = false;
@@ -493,7 +509,7 @@ export async function chatToolsStream(
       }
       stepText = "";
     } else if (part.type === "tool-call") {
-      if (writes.has(part.toolName)) writeAttempted = true;
+      if (writes.has(part.toolName)) writeCalls.add(part.toolCallId);
       text = "";
       stepText = "";
       stepCalledTool = true;
@@ -508,6 +524,8 @@ export async function chatToolsStream(
         toolName: part.toolCall.toolName,
         input: part.toolCall.input,
       });
+    } else if (part.type === "tool-approval-response" && !part.approved) {
+      deniedCalls.add(part.toolCall.toolCallId);
     } else if (part.type === "tool-result") {
       if (writes.has(part.toolName)) {
         const output = part.output as { logged?: unknown; error?: unknown };
@@ -539,6 +557,7 @@ export async function chatToolsStream(
       addUsage(usageTotals, part.totalUsage);
     }
   }
+  const writeAttempted = [...writeCalls].some((id) => !deniedCalls.has(id));
   let interrupted = sawAbort && !sawFinish;
   let messages: ModelMessage[] = await result.responseMessages;
 
@@ -554,7 +573,7 @@ export async function chatToolsStream(
       options.onEvent,
       options.tools,
       usageTotals,
-      { writes, toolLog, writeOutputs },
+      { writes, toolLog, writeOutputs, approvals, toolApproval },
     );
     text += continued.text;
     messages = [...messages, ...continued.newMessages];

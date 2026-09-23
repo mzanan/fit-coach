@@ -8,8 +8,9 @@ import {
   humanApproved,
   latestUserText,
   parseJevVerdict,
+  recentTurns,
   type GateVerdict,
-} from "@/lib/toolGate";
+} from "@/lib/ai/toolGateRules";
 
 function verdict(decision: GateVerdict["decision"], p: number): GateVerdict {
   const rest = (1 - p) / 2;
@@ -55,7 +56,7 @@ describe("gateStatus", () => {
   it("approves a confident approve", () => {
     expect(gateStatus(verdict("approve", 0.86), t, true)).toEqual({
       type: "approved",
-      reason: "write gate approved (p=0.86)",
+      reason: "tool gate approved (approve p=0.86)",
     });
   });
 
@@ -81,7 +82,7 @@ describe("gateStatus", () => {
   it("treats the threshold as inclusive", () => {
     expect(gateStatus(verdict("approve", 0.7), t, true)).toEqual({
       type: "approved",
-      reason: "write gate approved (p=0.70)",
+      reason: "tool gate approved (approve p=0.70)",
     });
   });
 });
@@ -149,5 +150,28 @@ describe("humanApproved", () => {
 
   it("does not count an automatic approval as a human one", () => {
     expect(humanApproved([request("call-1", "ap-1", true), response("ap-1", true)], "call-1")).toBe(false);
+  });
+});
+
+describe("recentTurns", () => {
+  it("keeps user and assistant text in order and drops tool traffic", () => {
+    expect(
+      recentTurns([
+        { role: "user", content: "hoy estoy muy cansado" },
+        { role: "assistant", content: [{ type: "text", text: "¿Qué nivel de energía del 1 al 10?" }] },
+        { role: "tool", content: [{ type: "tool-result" }] },
+        { role: "user", content: "3" },
+      ]),
+    ).toEqual([
+      { role: "user", text: "hoy estoy muy cansado" },
+      { role: "assistant", text: "¿Qué nivel de energía del 1 al 10?" },
+      { role: "user", text: "3" },
+    ]);
+  });
+
+  it("keeps only the last turns and truncates long ones", () => {
+    const messages = Array.from({ length: 10 }, (_, i) => ({ role: i % 2 ? "assistant" : "user", content: `m${i}` }));
+    expect(recentTurns(messages, 3).map((t) => t.text)).toEqual(["m7", "m8", "m9"]);
+    expect(recentTurns([{ role: "user", content: "x".repeat(900) }], 6, 400)[0].text).toHaveLength(400);
   });
 });

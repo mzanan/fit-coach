@@ -15,7 +15,7 @@ const KIND_LABEL: Record<AiEvent["kind"], string> = {
   fact_extraction_failed: "Fact extraction failed",
   write_claimed_not_run: "Claimed a write it never ran",
   tools_unavailable: "Answered without tools",
-  write_gate: "Write gate stepped in",
+  tool_gate: "Tool gate stepped in",
 };
 
 function labelFor(event: AiEvent): string {
@@ -35,7 +35,7 @@ const KIND_TONE: Record<AiEvent["kind"], "muted" | "brand"> = {
   fact_extraction_failed: "muted",
   write_claimed_not_run: "muted",
   tools_unavailable: "muted",
-  write_gate: "muted",
+  tool_gate: "muted",
 };
 
 export function AiEventsList({

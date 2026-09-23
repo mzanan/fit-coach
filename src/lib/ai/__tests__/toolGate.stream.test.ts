@@ -84,7 +84,7 @@ async function run(messages: ModelMessage[], toolCallFirst = true) {
 
 const USER: ModelMessage[] = [{ role: "user", content: "almorcé pollo avo" }];
 
-describe("write gate inside a real streamText loop", () => {
+describe("tool gate inside a real streamText loop", () => {
   beforeEach(() => {
     vi.stubEnv("JEV_API_KEY", "test-key");
   });
@@ -100,6 +100,24 @@ describe("write gate inside a real streamText loop", () => {
     expect(executed).toHaveLength(1);
     expect(cards).toHaveLength(0);
     expect(denied).toHaveLength(0);
+  });
+
+  it("sends the recent conversation so a short answer keeps its context", async () => {
+    const fetchSpy = jevAnswers("approve", 0.9);
+    vi.stubGlobal("fetch", fetchSpy);
+    await run([
+      { role: "user", content: "almorcé algo del catálogo" },
+      { role: "assistant", content: "¿Pollo Avo, una porción?" },
+      { role: "user", content: "sí" },
+    ]);
+    const init = (fetchSpy.mock.calls as unknown[][])[0][1] as { body: string };
+    const body = JSON.parse(init.body) as { state: { recent_conversation: unknown; user_latest_message: string } };
+    expect(body.state.user_latest_message).toBe("sí");
+    expect(body.state.recent_conversation).toEqual([
+      { role: "user", text: "almorcé algo del catálogo" },
+      { role: "assistant", text: "¿Pollo Avo, una porción?" },
+      { role: "user", text: "sí" },
+    ]);
   });
 
   it("refuses a confident deny without running it or showing a card", async () => {
