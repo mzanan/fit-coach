@@ -27,6 +27,7 @@ import {
   COACH_MAX_TOOL_STEPS,
 } from "@/lib/ai/limits";
 import type { ReasoningEffort } from "@/lib/ai/options";
+import { toolGateApprovals, toolGateConfig } from "@/lib/ai/toolGate";
 import { logAiEvent, type UsageTotals } from "@/lib/data/aiEvents";
 
 export interface ChatMessage {
@@ -417,6 +418,20 @@ function repairToolName(
   };
 }
 
+function toolApprovalFor(
+  gated: Set<string>,
+  writes: Set<string>,
+  userId: string,
+) {
+  const gate = toolGateConfig();
+  const judged = gate ? [...writes].filter((name) => !gated.has(name)) : [];
+  if (!gated.size && !judged.length) return undefined;
+  return {
+    ...Object.fromEntries([...gated].map((name) => [name, "user-approval" as const])),
+    ...(gate ? toolGateApprovals(gate, userId, judged) : {}),
+  };
+}
+
 export async function chatToolsStream(
   ref: ModelRef,
   options: ToolStreamOptions,
@@ -442,9 +457,7 @@ export async function chatToolsStream(
     instructions: options.instructions,
     messages: options.messages,
     tools: options.tools,
-    toolApproval: gated.size
-      ? Object.fromEntries([...gated].map((name) => [name, "user-approval"]))
-      : undefined,
+    toolApproval: toolApprovalFor(gated, writes, options.userId),
     repairToolCall: repairToolName(
       options.tools,
       options.approvalFor,
@@ -485,7 +498,7 @@ export async function chatToolsStream(
       stepText = "";
       stepCalledTool = true;
       options.onEvent({ type: "status", tool: part.toolName });
-    } else if (part.type === "tool-approval-request") {
+    } else if (part.type === "tool-approval-request" && !part.isAutomatic) {
       console.info(
         `coach: approval requested for ${part.toolCall.toolName} ${JSON.stringify(part.toolCall.input)}`,
       );
