@@ -18,7 +18,8 @@ export type AiEventKind =
   | "exchange"
   | "fact_extraction_failed"
   | "write_claimed_not_run"
-  | "tools_unavailable";
+  | "tools_unavailable"
+  | "tool_gate";
 
 export interface UsageTotals {
   inputTokens?: number;

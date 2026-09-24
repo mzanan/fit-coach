@@ -297,6 +297,10 @@ export const MEAL_WRITE_TOOLS = new Set([WRITE_TOOL, ESTIMATE_TOOL]);
 
 export const WRITE_TOOLS = [...DIRECT_WRITE_TOOLS, ...CARD_WRITE_TOOLS];
 
+export const TOOL_GATE_ESCALATABLE: ReadonlySet<string> = new Set(
+  DIRECT_WRITE_TOOLS.filter((name) => name !== ESTIMATE_TOOL),
+);
+
 export const FATIGUE_TIMES_OF_DAY = [
   { key: "morning", label: "Morning" },
   { key: "post_lunch", label: "Post-lunch" },

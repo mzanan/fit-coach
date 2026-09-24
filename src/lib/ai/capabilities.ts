@@ -6,7 +6,7 @@ import type { AiProvider } from "@/lib/ai/options";
 import { isWriteBlocked } from "@/lib/ai/writeGate";
 import { FETCH_TIMEOUT_MS } from "@/lib/constants";
 
-const OPENROUTER_API = "https://openrouter.ai/api/v1";
+export const OPENROUTER_API = "https://openrouter.ai/api/v1";
 const GROQ_MODELS_URL = "https://api.groq.com/openai/v1/models";
 const GOOGLE_MODELS_URL =
   "https://generativelanguage.googleapis.com/v1beta/models";
