@@ -281,6 +281,13 @@
       "when": 1789572725593,
       "tag": "0039_young_grim_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1790397459167,
+      "tag": "0040_modern_squadron_sinister",
+      "breakpoints": true
     }
   ]
 }
