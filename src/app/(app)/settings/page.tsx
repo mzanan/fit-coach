@@ -1,6 +1,5 @@
 import { formatInTimeZone } from "date-fns-tz";
 import {
-  Activity,
   Database,
   FileText,
   MessageCircle,
@@ -16,7 +15,6 @@ import { ListGroup, ListRow } from "@/components/ui/ListRow";
 import { Page } from "@/components/ui/Page";
 import { getAiSettings } from "@/lib/ai/aiCredentials";
 import { getLatestScanTakenAt } from "@/lib/data/bodyScans";
-import { getWhoopConnection, hasWhoopEnv } from "@/lib/integrations/whoop";
 import { ensureProfile } from "@/lib/profile";
 import { requireUser } from "@/lib/session";
 import { targetsOf } from "@/lib/targets";
@@ -28,14 +26,12 @@ function timezoneCity(timezone: string): string {
 
 export default async function SettingsPage() {
   const user = await requireUser();
-  const [profile, whoop, latestScan, ai] = await Promise.all([
+  const [profile, latestScan, ai] = await Promise.all([
     ensureProfile(user.id),
-    getWhoopConnection(user.id),
     getLatestScanTakenAt(user.id),
     getAiSettings(user.id),
   ]);
 
-  const whoopConfigured = hasWhoopEnv();
   const targets = targetsOf(profile);
 
   return (
@@ -83,18 +79,6 @@ export default async function SettingsPage() {
               latestScan
                 ? formatInTimeZone(latestScan, profile.timezone, "d MMM")
                 : "No scans"
-            }
-          />
-          <ListRow
-            href="/settings/whoop"
-            icon={Activity}
-            label="Whoop"
-            value={
-              !whoopConfigured
-                ? "Unavailable"
-                : whoop
-                  ? "Connected"
-                  : "Not connected"
             }
           />
           <ListRow

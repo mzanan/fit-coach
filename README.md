@@ -90,7 +90,7 @@ The decisive detail is that the model is asked what a fact is _about_, never whe
 Until now, nothing in this app ran unless a user sent a chat message: the per-turn memory refresh and fact extraction both fire from inside a request. A daily Vercel Cron (`/api/cron/maintenance`, `CRON_SECRET`-gated) now does two things that need to happen whether or not the user is active:
 
 - **Stale-fact cleanup.** A `coach_facts` row untouched for 30+ days gets deactivated, same code path as supersession. `category = 'correction'` is exempt: a correction is defined as the thing that matters most, so it never silently expires just because the user hasn't repeated it.
-- **Memory consolidation.** `coach_memory` re-grounds from the user's active facts and recent logged data (targets, today's meals, the week's protein hit-rate, Whoop, latest scan), so it doesn't drift stale for a user who logs data without chatting. This merges into the existing memory rather than replacing it: the model is told what changed, not asked to reconstruct the summary from scratch, since facts and structured data cannot capture everything a conversation accumulates.
+- **Memory consolidation.** `coach_memory` re-grounds from the user's active facts and recent logged data (targets, today's meals, the week's protein hit-rate, latest scan), so it doesn't drift stale for a user who logs data without chatting. This merges into the existing memory rather than replacing it: the model is told what changed, not asked to reconstruct the summary from scratch, since facts and structured data cannot capture everything a conversation accumulates.
 
 Both run per-user through the same BYOK model reference every other AI call uses; a user with no saved key is skipped, not defaulted to a system key. Memory consolidation's model call is bounded to 60 seconds per user, so one slow or hung provider response can't consume the whole cron run and leave the remaining users unprocessed. The trigger itself (plain Vercel Cron over Workflow DevKit and Inngest) was chosen in an isolated lab, same method as everything else in this section.
 
@@ -119,6 +119,5 @@ Every change that touches logic goes through two review agents in parallel befor
 ## Known gaps
 
 - **Unit coverage is thin.** Vitest covers the pure logic in `src/lib` (`dates`, `macros`, `inbodyChecks`, `exercises`, `search`); everything stateful still relies on typecheck, lint, build, the review gates, and manual runtime checks against the real database.
-- **Whoop integration is code-complete but never exercised at runtime**, blocked on hardware rather than credentials.
 - **Truncated replies auto-continue, with one residual gap.** A reply cut by the output budget is continued server-side; a continuation that restarts the answer instead of continuing is detected and discarded, and the non-streaming path regenerates once with a doubled budget. On the streaming path the already-emitted text cannot be reset, so a restarted continuation there leaves the reply cut at the truncation point.
 - Facts written before supersession shipped carry no `subject` and are never superseded; they age out only by the semantic dedup path.
