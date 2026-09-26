@@ -1,12 +1,12 @@
 # CLAUDE.md
 
-Multi-user nutrition + training tracker (PWA) with an AI coach. Vault tracking: `personal-brain/01-Projects/15-fit-coach/`.
+Multi-user nutrition + training tracker (PWA) with an AI coach. Vault tracking: `personal-brain/01-Projects/12-fit-coach/`.
 
 Architecture and setup: `README.md`. How the project is built (review gate, architecture-first method, what each lab measured): `WORKFLOW.md`. Read both before changing the AI layer.
 
 ## Stack
 
-Next 16 (App Router) + React 19 + Tailwind v4 + shadcn/radix. Turso via Drizzle. Better Auth (Google OAuth primary, email OTP secondary) gated by `src/proxy.ts`, whose matcher excludes `.well-known/workflow/` so the Workflow DevKit's internal routes are not redirected to `/login`. AI: Vercel AI SDK v7 with three separate provider slots, text on per-user BYOK (Groq/OpenRouter/Google, key encrypted per user, no system fallback), vision and embeddings on system Gemini keys. Coach runs the SDK's native tool loop; `log_meal`, `update_rule` and `log_fatigue` are the writes and all three sit behind `toolApproval`. Architecture detail: `README.md`.
+Next 16 (App Router) + React 19 + Tailwind v4 + shadcn/radix. Turso via Drizzle. Better Auth (Google OAuth primary, email OTP secondary) gated by `src/proxy.ts`, whose matcher excludes `.well-known/workflow/` so the Workflow DevKit's internal routes are not redirected to `/login`. AI: Vercel AI SDK v7 with three separate provider slots, text on per-user BYOK (Groq/OpenRouter/Google/Experiential Labs, key encrypted per user, no system fallback), vision and embeddings on system Gemini keys. Coach runs the SDK's native tool loop. Additive writes (`log_meal`, `log_estimated_meal`, `update_rule`, `log_fatigue`, `log_workout_session`, `log_measurement`) run directly and show a receipt, optionally judged first by the Jev tool gate (`JEV_API_KEY`); `close_day` and `set_targets` always pause for a confirmation card via `toolApproval`. Architecture detail: `README.md`.
 
 ## Commands
 
@@ -15,7 +15,7 @@ Next 16 (App Router) + React 19 + Tailwind v4 + shadcn/radix. Turso via Drizzle.
 
 ## Structure
 
-- `src/app/(app)/` app routes (today, catalog, coach, workout, settings); `src/app/login/`; `src/app/api/{auth,coach,cron,import,push}/`
+- `src/app/(app)/` app routes (today, catalog, coach, workout, routine, body, settings); `src/app/login/`; `src/app/api/{auth,coach,cron,import,push}/`
 - `src/components/<feature>/` feature UI + colocated hooks; `src/components/ui/` primitives
 - `src/lib/` actions, ai, data, db (schema + drizzle), auth/session, macros/dates helpers, `integrations/` (credential crypto). `src/hooks/` cross-feature hooks, `src/types/` ambient declarations. `ai/aiCredentials.ts`, `ai/capabilities.ts` (model catalogs) and `data/catalog.ts` call `unstable_cache`, so `lib/` is coupled to the Next.js runtime and not portable as-is.
 - `src/lib/data/importRuns.ts` maps a workflow run id to its owner and answers which run a returning user can rejoin; `src/lib/importStream.ts` is the client side of start/stream/cancel/forget and `src/lib/importPreview.ts` maps an extraction to the review rows; the SDK writes its internal routes into `src/app/.well-known/workflow/` at build time (generated, gitignored)

@@ -49,7 +49,7 @@ export function usePushSubscription() {
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
       const json = subscription.toJSON();
-      await fetch("/api/push/subscribe", {
+      const res = await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -57,6 +57,10 @@ export function usePushSubscription() {
           keys: { p256dh: json.keys?.p256dh, auth: json.keys?.auth },
         }),
       });
+      if (!res.ok) {
+        await subscription.unsubscribe();
+        throw new Error(`push subscribe ${res.status}`);
+      }
       setSubscribed(true);
     } catch {
       toast.error("Could not enable notifications");
