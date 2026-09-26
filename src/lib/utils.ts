@@ -34,3 +34,11 @@ export function humanizeKey(key: string): string {
   const words = key.split("_").filter(Boolean).join(" ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
+
+export function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    out.push(items.slice(i, i + size));
+  }
+  return out;
+}

@@ -1,4 +1,5 @@
-const CACHE = "fit-coach-v1";
+const CACHE = "fit-coach-static-v2";
+const MAX_ENTRIES = 100;
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -54,18 +55,29 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
+async function trim(cache) {
+  const keys = await cache.keys();
+  await Promise.all(
+    keys.slice(0, Math.max(0, keys.length - MAX_ENTRIES)).map((key) => cache.delete(key)),
+  );
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
-  if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) {
+  if (request.method !== "GET") return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin || !url.pathname.startsWith("/_next/static/")) {
     return;
   }
   event.respondWith(
-    fetch(request)
-      .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE).then((cache) => cache.put(request, copy));
-        return response;
-      })
-      .catch(() => caches.match(request)),
+    caches.open(CACHE).then(async (cache) => {
+      const cached = await cache.match(request);
+      if (cached) return cached;
+      const response = await fetch(request);
+      if (response.ok && response.status !== 206) {
+        event.waitUntil(cache.put(request, response.clone()).then(() => trim(cache)));
+      }
+      return response;
+    }),
   );
 });

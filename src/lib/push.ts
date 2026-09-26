@@ -8,6 +8,7 @@ import {
   deleteSubscriptionByEndpoint,
   getSubscriptionsForUser,
 } from "@/lib/data/pushSubscriptions";
+import { isPushServiceEndpoint } from "@/lib/pushEndpoint";
 
 export interface PushPayload {
   title: string;
@@ -34,7 +35,16 @@ export async function sendPushToUser(
 ): Promise<void> {
   if (!ensureConfigured()) return;
 
-  const subscriptions = await getSubscriptionsForUser(userId);
+  const stored = await getSubscriptionsForUser(userId);
+  const subscriptions = stored.filter((sub) =>
+    isPushServiceEndpoint(sub.endpoint),
+  );
+  if (subscriptions.length < stored.length) {
+    console.warn(
+      "push: skipped subscriptions outside the push-service allowlist",
+      stored.length - subscriptions.length,
+    );
+  }
   if (!subscriptions.length) return;
 
   await Promise.all(

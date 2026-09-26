@@ -5,6 +5,7 @@ import { revalidatePath, updateTag } from "next/cache";
 
 import { db, schema } from "@/lib/db";
 import { requireUser } from "@/lib/session";
+import { chunk } from "@/lib/utils";
 
 const {
   profiles,
@@ -70,66 +71,80 @@ export async function exportData(): Promise<BackupPayload> {
 }
 
 type Row = Record<string, unknown>;
+const INSERT_CHUNK_ROWS = 200;
+const BACKUP_TABLE_KEYS = [
+  "catalog_items",
+  "catalog_components",
+  "meals",
+  "workouts",
+  "workout_exercises",
+  "workout_sets",
+] as const;
 const ts = (v: unknown) => (v == null ? null : new Date(v as string));
 
 export async function importData(payload: BackupPayload) {
   const user = await requireUser();
-  if (!payload || payload.version !== 1) {
+  if (
+    !payload ||
+    payload.version !== 1 ||
+    BACKUP_TABLE_KEYS.some((key) => !Array.isArray(payload[key]))
+  ) {
     throw new Error("Unsupported backup format");
   }
 
-  await db.delete(workout_sets).where(eq(workout_sets.user_id, user.id));
-  await db
-    .delete(workout_exercises)
-    .where(eq(workout_exercises.user_id, user.id));
-  await db.delete(workouts).where(eq(workouts.user_id, user.id));
-  await db.delete(meals).where(eq(meals.user_id, user.id));
-  await db
-    .delete(catalog_components)
-    .where(eq(catalog_components.user_id, user.id));
-  await db.delete(catalog_items).where(eq(catalog_items.user_id, user.id));
-
   const own = (r: Row): Row => ({ ...r, user_id: user.id });
+  const batches = <T>(rows: unknown[]) =>
+    chunk(rows as Row[], INSERT_CHUNK_ROWS).map((part) =>
+      part.map((r) => own(r) as T),
+    );
+  const withTimestamps = (r: Row): Row => ({
+    ...r,
+    created_at: ts(r.created_at),
+    ...("updated_at" in r ? { updated_at: ts(r.updated_at) } : {}),
+  });
 
-  if (payload.catalog_items.length) {
-    await db.insert(catalog_items).values(
-      payload.catalog_items.map((r) => {
-        const row = own(r as Row);
-        return { ...row, created_at: ts(row.created_at), updated_at: ts(row.updated_at) } as typeof catalog_items.$inferInsert;
-      }),
-    );
-  }
-  if (payload.catalog_components.length) {
-    await db
-      .insert(catalog_components)
-      .values(payload.catalog_components.map((r) => own(r as Row) as typeof catalog_components.$inferInsert));
-  }
-  if (payload.meals.length) {
-    await db.insert(meals).values(
-      payload.meals.map((r) => {
-        const row = own(r as Row);
-        return { ...row, created_at: ts(row.created_at) } as typeof meals.$inferInsert;
-      }),
-    );
-  }
-  if (payload.workouts.length) {
-    await db.insert(workouts).values(
-      payload.workouts.map((r) => {
-        const row = own(r as Row);
-        return { ...row, created_at: ts(row.created_at) } as typeof workouts.$inferInsert;
-      }),
-    );
-  }
-  if (payload.workout_exercises.length) {
-    await db
-      .insert(workout_exercises)
-      .values(payload.workout_exercises.map((r) => own(r as Row) as typeof workout_exercises.$inferInsert));
-  }
-  if (payload.workout_sets.length) {
-    await db
-      .insert(workout_sets)
-      .values(payload.workout_sets.map((r) => own(r as Row) as typeof workout_sets.$inferInsert));
-  }
+  await db.batch([
+    db.delete(workout_sets).where(eq(workout_sets.user_id, user.id)),
+    db.delete(workout_exercises).where(eq(workout_exercises.user_id, user.id)),
+    db.delete(workouts).where(eq(workouts.user_id, user.id)),
+    db.delete(meals).where(eq(meals.user_id, user.id)),
+    db
+      .delete(catalog_components)
+      .where(eq(catalog_components.user_id, user.id)),
+    db.delete(catalog_items).where(eq(catalog_items.user_id, user.id)),
+    ...batches<Row>(payload.catalog_items).map((rows) =>
+      db
+        .insert(catalog_items)
+        .values(
+          rows.map(
+            (r) => withTimestamps(r) as typeof catalog_items.$inferInsert,
+          ),
+        ),
+    ),
+    ...batches<typeof catalog_components.$inferInsert>(
+      payload.catalog_components,
+    ).map((rows) => db.insert(catalog_components).values(rows)),
+    ...batches<Row>(payload.meals).map((rows) =>
+      db
+        .insert(meals)
+        .values(
+          rows.map((r) => withTimestamps(r) as typeof meals.$inferInsert),
+        ),
+    ),
+    ...batches<Row>(payload.workouts).map((rows) =>
+      db
+        .insert(workouts)
+        .values(
+          rows.map((r) => withTimestamps(r) as typeof workouts.$inferInsert),
+        ),
+    ),
+    ...batches<typeof workout_exercises.$inferInsert>(
+      payload.workout_exercises,
+    ).map((rows) => db.insert(workout_exercises).values(rows)),
+    ...batches<typeof workout_sets.$inferInsert>(payload.workout_sets).map(
+      (rows) => db.insert(workout_sets).values(rows),
+    ),
+  ]);
 
   updateTag("catalog");
   revalidatePath("/");

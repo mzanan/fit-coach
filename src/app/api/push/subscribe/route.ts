@@ -5,10 +5,11 @@ import {
   deleteSubscription,
   saveSubscription,
 } from "@/lib/data/pushSubscriptions";
+import { isPushServiceEndpoint } from "@/lib/pushEndpoint";
 import { requireApiUser } from "@/lib/session";
 
 const subscribeSchema = z.object({
-  endpoint: z.string().min(1),
+  endpoint: z.string().min(1).refine(isPushServiceEndpoint),
   keys: z.object({
     p256dh: z.string().min(1),
     auth: z.string().min(1),

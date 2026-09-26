@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -93,6 +94,7 @@ export function useCoachChat(
   const [streamingExchange, setStreamingExchange] = useState<{
     ids: string[];
   } | null>(null);
+  const router = useRouter();
   const activeUrlRef = useRef<string | null>(null);
   const pendingStopRef = useRef(false);
 
@@ -101,6 +103,7 @@ export function useCoachChat(
   }, [anchor, bubbles, loading, streaming, pending]);
 
   useEffect(() => {
+    if (activeUrlRef.current) return;
     const last = initial[initial.length - 1];
     if (!last || last.role !== "assistant" || last.status !== "streaming") {
       return;
@@ -293,8 +296,9 @@ export function useCoachChat(
       setReasoning("");
       setStatus(null);
       setLoading(false);
+      router.refresh();
     }
-  }, []);
+  }, [router]);
 
   const ask = useCallback(
     async (text?: string) => {
