@@ -10,6 +10,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 
+import { unwrap } from "@/lib/actionResult";
 import { commitMdImport } from "@/lib/actions/mdImport";
 import {
   cancelImportRun,
@@ -449,7 +450,7 @@ export function useMdImport() {
             .map(withoutInclude),
           warnings: [],
         };
-        const result = await commitMdImport(payload);
+        const result = unwrap(await commitMdImport(payload));
         const skipped = result.skippedDuplicates + result.skippedCatalogItems;
         toast.success(
           `Imported ${result.meals} meals, ${result.workouts} workouts, ${result.catalogItems} catalog items, ${result.facts} facts, ${result.rules} rules, ${result.bodyScans} body scans${

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { unwrap } from "@/lib/actionResult";
 import {
   commitInbodyScan,
   importInbodyScan,
@@ -60,7 +61,7 @@ export function useInbodyImport() {
       const image = await compressImage(file);
       const form = new FormData();
       form.append("image", image, file.name || "inbody.jpg");
-      const result = await importInbodyScan(form);
+      const result = unwrap(await importInbodyScan(form));
 
       if (result.status === "saved") {
         setSaved(result.saved);

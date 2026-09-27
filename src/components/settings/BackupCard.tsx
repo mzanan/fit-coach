@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { unwrap } from "@/lib/actionResult";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/Button";
 import { Surface } from "@/components/ui/Surface";
@@ -52,7 +53,7 @@ export function BackupCard() {
     if (!pendingPayload) return;
     setBusy(true);
     try {
-      await importData(pendingPayload);
+      unwrap(await importData(pendingPayload));
       toast.success("Data imported");
       router.refresh();
     } catch (err) {

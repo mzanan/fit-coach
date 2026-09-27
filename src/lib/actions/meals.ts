@@ -4,6 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { fail, type ActionFailure } from "@/lib/actionResult";
 import { insertResolvedMeal, resolveCatalogMeal } from "@/lib/catalogMeal";
 import { db, schema } from "@/lib/db";
 import { requireUser } from "@/lib/session";
@@ -24,13 +25,15 @@ const fromCatalogSchema = z.object({
   day: dayString,
 });
 
-export async function addMealFromCatalog(input: unknown): Promise<string> {
+export async function addMealFromCatalog(
+  input: unknown,
+): Promise<string | ActionFailure> {
   const user = await requireUser();
   const { itemId, category, day } = fromCatalogSchema.parse(input);
 
   const resolved = await resolveCatalogMeal(user.id, { itemId });
   if (!resolved.ok) {
-    throw new Error(
+    return fail(
       resolved.reason === "no_macros"
         ? "This item has no macros yet. Edit it in the catalog first."
         : resolved.error,
@@ -72,7 +75,7 @@ export async function addComposableMeal(input: unknown) {
         inArray(catalog_components.id, componentIds),
       ),
     );
-  if (!comps.length) throw new Error("No components selected");
+  if (!comps.length) return fail("No components selected");
 
   const totals = comps.reduce(
     (acc, c) => ({

@@ -3,6 +3,7 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 
+import { fail } from "@/lib/actionResult";
 import { db, schema } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { chunk } from "@/lib/utils";
@@ -89,7 +90,7 @@ export async function importData(payload: BackupPayload) {
     payload.version !== 1 ||
     BACKUP_TABLE_KEYS.some((key) => !Array.isArray(payload[key]))
   ) {
-    throw new Error("Unsupported backup format");
+    return fail("Unsupported backup format");
   }
 
   const own = (r: Row): Row => ({ ...r, user_id: user.id });

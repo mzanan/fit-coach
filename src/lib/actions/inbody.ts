@@ -6,6 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { fail, type ActionFailure } from "@/lib/actionResult";
 import {
   canExtractInbody,
   extractInbody,
@@ -215,20 +216,20 @@ function friendlyExtractionError(error: unknown): string {
 
 export async function importInbodyScan(
   formData: FormData,
-): Promise<InbodyImportResult> {
+): Promise<InbodyImportResult | ActionFailure> {
   const user = await requireUser();
-  if (!canExtractInbody()) throw new Error("AI key is not configured");
+  if (!canExtractInbody()) return fail("AI key is not configured");
 
   const file = formData.get("image");
-  if (!(file instanceof File)) throw new Error("No image received");
-  if (file.size > MAX_IMAGE_BYTES) throw new Error("Image too large (max 8 MB)");
+  if (!(file instanceof File)) return fail("No image received");
+  if (file.size > MAX_IMAGE_BYTES) return fail("Image too large (max 8 MB)");
 
   const image = await toModelDataUrl(file);
   let extraction: InbodyExtraction;
   try {
     extraction = await extractInbody(image);
   } catch (error) {
-    throw new Error(friendlyExtractionError(error));
+    return fail(friendlyExtractionError(error));
   }
   const verification = verifyScan(
     extraction as unknown as Record<string, number | null | undefined>,
