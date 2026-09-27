@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { fail, type ActionFailure } from "@/lib/actionResult";
 import { db, schema } from "@/lib/db";
 import { resolveExerciseCatalog } from "@/lib/data/exerciseCatalog";
 import {
@@ -101,13 +102,15 @@ export async function reorderRoutineExercisesAction(input: unknown) {
 
 const startFromRoutineSchema = z.object({ day: dayString });
 
-export async function startFromRoutine(input: unknown): Promise<string> {
+export async function startFromRoutine(
+  input: unknown,
+): Promise<string | ActionFailure> {
   const user = await requireUser();
   const { day } = startFromRoutineSchema.parse(input);
 
   const routine = await getTodaysRoutine(user.id, day);
   if (!routine.label || routine.exercises.length === 0) {
-    throw new Error("No routine set for today");
+    return fail("No routine set for today");
   }
 
   const workout = await getOrCreateWorkout(db, user.id, day, routine.label);

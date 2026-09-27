@@ -3,11 +3,13 @@
 import { useTransition } from "react";
 import { toast } from "sonner";
 
+import { isActionFailure, type ActionFailure } from "@/lib/actionResult";
+
 export function useAction() {
   const [pending, startTransition] = useTransition();
 
   function run<T>(
-    fn: () => Promise<T>,
+    fn: () => Promise<T | ActionFailure>,
     opts?: {
       success?: string;
       onDone?: (result: T) => void;
@@ -17,7 +19,12 @@ export function useAction() {
   ) {
     startTransition(async () => {
       try {
-        const result = await fn();
+        const outcome = await fn();
+        if (isActionFailure(outcome)) {
+          toast.error(outcome.error);
+          return;
+        }
+        const result = outcome;
         if (opts?.success) {
           if (opts.undo) {
             toast.success(opts.success, {

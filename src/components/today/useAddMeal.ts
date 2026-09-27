@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import type { ActionFailure } from "@/lib/actionResult";
 import { addMealFromCatalog, repeatMeal } from "@/lib/actions/meals";
 import type { CatalogItemFull } from "@/lib/data/catalog";
 import type { RecentMeal } from "@/lib/data/recentMeals";
@@ -16,7 +17,7 @@ export interface PickerItem {
   fat_g: number;
   carbs_g: number;
   fat_quality: string | null;
-  action: (category: string, day: string) => Promise<string>;
+  action: (category: string, day: string) => Promise<string | ActionFailure>;
 }
 
 export function useAddMeal({

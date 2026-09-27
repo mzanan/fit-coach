@@ -4,6 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { parseISO } from "date-fns";
 
+import { fail } from "@/lib/actionResult";
 import { normalizeSubject, saveImportedFact } from "@/lib/ai/facts";
 import { mdExtraction } from "@/lib/ai/mdExtraction";
 import { hasEmbeddings } from "@/lib/ai/embeddings";
@@ -30,7 +31,7 @@ export async function commitMdImport(payload: unknown) {
   const data = mdExtraction.parse(payload);
 
   if (data.facts.length && !hasEmbeddings()) {
-    throw new Error(
+    return fail(
       "Coach memory items can't be imported: no embedding provider is configured. Uncheck them or set one up first.",
     );
   }

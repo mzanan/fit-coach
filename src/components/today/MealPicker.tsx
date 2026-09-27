@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import type { ActionFailure } from "@/lib/actionResult";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SearchField } from "@/components/ui/SearchField";
@@ -26,7 +27,7 @@ export function MealPicker({
   category: string;
   day: string;
   pending: boolean;
-  onPicked: (action: () => Promise<string>) => void;
+  onPicked: (action: () => Promise<string | ActionFailure>) => void;
   onManualFallback: (name: string) => void;
 }) {
   const { query, setQuery, recentItems, catalogItems, isEmpty } = useAddMeal({
