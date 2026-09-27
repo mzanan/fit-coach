@@ -37,7 +37,26 @@ export function toBubbles(messages: CoachMessage[]): ChatBubble[] {
   }));
 }
 
-export function localBubble(role: "user" | "assistant", content: string): ChatBubble {
+export interface ReattachTarget {
+  id: string;
+  createdAt: Date;
+}
+
+export function reattachTarget(
+  messages: CoachMessage[],
+): ReattachTarget | null {
+  const last = messages[messages.length - 1];
+  if (!last || last.role !== "assistant" || last.status !== "streaming") {
+    return null;
+  }
+  if (isStaleStream(last.created_at)) return null;
+  return { id: last.id, createdAt: last.created_at };
+}
+
+export function localBubble(
+  role: "user" | "assistant",
+  content: string,
+): ChatBubble {
   return {
     id: `local-${Date.now()}-${role}`,
     role,

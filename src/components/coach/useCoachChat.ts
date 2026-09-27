@@ -14,8 +14,10 @@ import {
   isStaleStream,
   lastUserBubbleId,
   localBubble,
+  reattachTarget,
   toBubbles,
   type ChatBubble,
+  type ReattachTarget,
 } from "@/lib/coachBubbles";
 import { INTERRUPTED_ANSWER } from "@/lib/constants";
 import type {
@@ -94,6 +96,10 @@ export function useCoachChat(
   const [streamingExchange, setStreamingExchange] = useState<{
     ids: string[];
   } | null>(null);
+  const [reattach, setReattach] = useState<ReattachTarget[]>(() => {
+    const target = reattachTarget(initial);
+    return target ? [target] : [];
+  });
   const router = useRouter();
   const activeUrlRef = useRef<string | null>(null);
   const pendingStopRef = useRef(false);
@@ -103,27 +109,30 @@ export function useCoachChat(
   }, [anchor, bubbles, loading, streaming, pending]);
 
   useEffect(() => {
-    if (activeUrlRef.current) return;
-    const last = initial[initial.length - 1];
-    if (!last || last.role !== "assistant" || last.status !== "streaming") {
-      return;
-    }
-    if (isStaleStream(last.created_at)) return;
+    if (!reattach.length) return;
 
     let cancelled = false;
-    const poll = async () => {
-      if (isStaleStream(last.created_at)) {
-        clearInterval(interval);
-        setBubbles((current) =>
-          current.map((bubble) =>
-            bubble.id === last.id ? { ...bubble, status: "stopped" } : bubble,
-          ),
-        );
+    const settle = (id: string, patch: Partial<ChatBubble>) => {
+      setReattach((current) => current.filter((target) => target.id !== id));
+      setBubbles((current) =>
+        current.map((bubble) =>
+          bubble.id === id ? { ...bubble, ...patch } : bubble,
+        ),
+      );
+    };
+    const pollOne = async (target: ReattachTarget) => {
+      if (isStaleStream(target.createdAt)) {
+        settle(target.id, { status: "stopped" });
         return;
       }
       try {
-        const res = await fetch(`/api/coach/message/${last.id}`);
-        if (!res.ok || cancelled) return;
+        const res = await fetch(`/api/coach/message/${target.id}`);
+        if (cancelled) return;
+        if (res.status === 404) {
+          settle(target.id, { status: "stopped" });
+          return;
+        }
+        if (!res.ok) return;
         const data = (await res.json()) as {
           content: string;
           status: CoachMessageStatus;
@@ -131,34 +140,39 @@ export function useCoachChat(
           daySummary: DaySummary | null;
           learned: string[] | null;
         };
-        setBubbles((current) =>
-          current.map((bubble) =>
-            bubble.id === last.id
-              ? {
-                  ...bubble,
-                  content: data.content,
-                  status: data.status,
-                  generated: data.generated,
-                  daySummary: data.daySummary ?? undefined,
-                  learned: data.learned ?? undefined,
-                }
-              : bubble,
-          ),
-        );
-        if (data.status !== "streaming") clearInterval(interval);
+        if (cancelled) return;
+        const patch: Partial<ChatBubble> = {
+          content: data.content,
+          status: data.status,
+          generated: data.generated,
+          daySummary: data.daySummary ?? undefined,
+          learned: data.learned ?? undefined,
+        };
+        if (data.status === "streaming") {
+          setBubbles((current) =>
+            current.map((bubble) =>
+              bubble.id === target.id ? { ...bubble, ...patch } : bubble,
+            ),
+          );
+        } else {
+          settle(target.id, patch);
+        }
       } catch {
-        // network hiccup, retry on the next tick
+        return;
       }
     };
+    const poll = () => {
+      for (const target of reattach) void pollOne(target);
+    };
 
-    const interval = setInterval(() => void poll(), REATTACH_POLL_MS);
-    void poll();
+    const interval = setInterval(poll, REATTACH_POLL_MS);
+    poll();
 
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [initial]);
+  }, [reattach]);
 
   const consume = useCallback(async (url: string, body: unknown) => {
     setLoading(true);
@@ -169,6 +183,9 @@ export function useCoachChat(
 
     const abort = new AbortController();
     setController(abort);
+    let answer = "";
+    let assistantId: string | null = null;
+    let startedAt = new Date();
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -187,12 +204,10 @@ export function useCoachChat(
       }
       if (!res.ok || !res.body) throw new Error("Coach unavailable");
 
-      let answer = "";
       let thoughts = "";
       let generated = true;
       let stopped = false;
       let learned: string[] | undefined;
-      let assistantId: string | null = null;
       let daySummary: DaySummary | undefined;
       let approval: PendingApproval | null = null;
 
@@ -203,6 +218,7 @@ export function useCoachChat(
           setStatus(STATUS[event.tool] ?? STATUS.thinking);
         } else if (event.type === "started") {
           assistantId = event.assistantId;
+          startedAt = new Date();
           setStreamingExchange({ ids: event.ids });
           if (pendingStopRef.current) {
             pendingStopRef.current = false;
@@ -284,6 +300,17 @@ export function useCoachChat(
             status: "stopped",
           },
         ]);
+      } else if (assistantId) {
+        const id = assistantId;
+        setBubbles((current) => [
+          ...current,
+          {
+            ...localBubble("assistant", answer),
+            id,
+            status: "streaming",
+          },
+        ]);
+        setReattach((current) => [...current, { id, createdAt: startedAt }]);
       } else {
         toast.error("Could not reach the coach");
       }
@@ -363,6 +390,7 @@ export function useCoachChat(
   }
 
   function clear() {
+    setReattach([]);
     setBubbles([]);
     setPending(null);
     setConfirmOpen(false);
