@@ -1,0 +1,15 @@
+# Fit Coach
+
+> Fit Coach is a mobile-first, installable web app for nutrition and training tracking with an AI coach. Log a meal in a few taps, see live macros against your targets, and get advice from a coach that remembers your history.
+
+## Features
+
+- Meal logging with live macros versus daily targets.
+- Training log and body metrics over time.
+- AI coach with memory of your own history that advises like a nutritionist and strength coach, without alarmist messages.
+- Installable PWA with push notifications.
+
+## Links
+
+- [Sign in](https://coach.itsmatias.com/login)
+- Built by [Matias Zanan](https://itsmatias.com), contact: hello@itsmatias.com
