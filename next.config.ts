@@ -1,5 +1,6 @@
 import { withWorkflow } from "workflow/next";
 import type { NextConfig } from "next";
+import { posthogRewrites, trailingSlashRedirect } from "./src/lib/analytics";
 
 const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
@@ -16,6 +17,13 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  skipTrailingSlashRedirect: true,
+  async rewrites() {
+    return posthogRewrites;
+  },
+  async redirects() {
+    return [trailingSlashRedirect];
+  },
   serverExternalPackages: ["heic-decode"],
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
