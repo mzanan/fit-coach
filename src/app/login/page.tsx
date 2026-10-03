@@ -1,8 +1,16 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { LoginForm } from "@/components/auth/LoginForm";
+import { JsonLd } from "@/components/ui/JsonLd";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { appJsonLd } from "@/lib/seo";
 import { getUser } from "@/lib/session";
+
+export const metadata: Metadata = {
+  title: "Sign in",
+  alternates: { canonical: "/login" },
+};
 
 export default async function LoginPage() {
   const user = await getUser();
@@ -13,6 +21,7 @@ export default async function LoginPage() {
 
   return (
     <main className="relative flex min-h-dvh flex-col px-5 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+2rem)]">
+      <JsonLd data={appJsonLd} />
       <ThemeToggle className="absolute top-[calc(env(safe-area-inset-top)+0.5rem)] right-3" />
 
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col">
