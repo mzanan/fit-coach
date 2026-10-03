@@ -7,6 +7,7 @@ import { emailOTP } from "better-auth/plugins";
 
 import { AUTH_COOKIE_PREFIX } from "@/lib/authCookies";
 import { db, schema } from "@/lib/db";
+import { captureServerEvent } from "@/lib/analytics";
 import { sendOtpEmail } from "@/lib/email";
 
 const disableSignUp = process.env.AUTH_DISABLE_SIGNUPS === "true";
@@ -27,6 +28,15 @@ export const auth = betterAuth({
     cookiePrefix: AUTH_COOKIE_PREFIX,
     database: {
       generateId: () => crypto.randomUUID(),
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (createdUser) => {
+          await captureServerEvent("signed_up", createdUser.id);
+        },
+      },
     },
   },
   session: {

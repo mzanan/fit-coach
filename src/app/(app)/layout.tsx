@@ -1,3 +1,4 @@
+import { AnalyticsIdentify } from "@/components/analytics/AnalyticsIdentify";
 import { AppHeader } from "@/components/shell/AppHeader";
 import { NavBar } from "@/components/shell/NavBar";
 import { SideNav } from "@/components/shell/SideNav";
@@ -14,6 +15,7 @@ export default async function AppLayout({
 
   return (
     <>
+      <AnalyticsIdentify userId={user.id} />
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-control focus:bg-card focus:px-4 focus:py-2 focus:text-body focus:shadow-raised"
