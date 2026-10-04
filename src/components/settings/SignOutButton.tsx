@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { ListRow } from "@/components/ui/ListRow";
 import { authClient } from "@/lib/authClient";
+import { resetAnalytics } from "@/lib/consent";
 
 export function SignOutButton() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export function SignOutButton() {
       onClick={async () => {
         setBusy(true);
         await authClient.signOut();
+        resetAnalytics();
         router.replace("/login");
         router.refresh();
       }}

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { after } from "next/server";
+
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
@@ -8,6 +10,7 @@ import { emailOTP } from "better-auth/plugins";
 import { AUTH_COOKIE_PREFIX } from "@/lib/authCookies";
 import { db, schema } from "@/lib/db";
 import { captureServerEvent } from "@/lib/analytics";
+import { hasAnalyticsConsent } from "@/lib/consentCookie";
 import { sendOtpEmail } from "@/lib/email";
 
 const disableSignUp = process.env.AUTH_DISABLE_SIGNUPS === "true";
@@ -33,8 +36,9 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        after: async (createdUser) => {
-          await captureServerEvent("signed_up", createdUser.id);
+        after: async (createdUser, ctx) => {
+          const distinctId = hasAnalyticsConsent(ctx?.headers) ? createdUser.id : null;
+          after(() => captureServerEvent("signed_up", distinctId));
         },
       },
     },

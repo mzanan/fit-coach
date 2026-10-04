@@ -8,6 +8,7 @@ import { DropdownMenu } from "radix-ui";
 import { useState } from "react";
 
 import { authClient } from "@/lib/authClient";
+import { resetAnalytics } from "@/lib/consent";
 import { cn } from "@/lib/utils";
 
 const ITEM =
@@ -33,6 +34,7 @@ export function UserMenu({
   async function signOut() {
     setBusy(true);
     await authClient.signOut();
+    resetAnalytics();
     router.replace("/login");
     router.refresh();
   }

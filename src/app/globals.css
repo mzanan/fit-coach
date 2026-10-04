@@ -85,6 +85,7 @@
   --spacing-block: 1.75rem;
   --spacing-nav: var(--nav-h);
   --spacing-safe-b: calc(var(--safe-b) + var(--spacing-tight));
+  --spacing-consent-gap: 5rem;
   --spacing-caption: 3.75rem;
   --spacing-rail: var(--rail-w);
   --spacing-gutter: var(--gutter);
@@ -172,6 +173,7 @@
   --stagger-3: 210ms;
   --nav-h: 3.75rem;
   --safe-b: env(safe-area-inset-bottom);
+  --consent-offset: var(--spacing-safe-b);
   --rail-w: 15rem;
   --gutter: 1.25rem;
 }
@@ -250,6 +252,22 @@
     0 2px 4px oklch(0 0 0 / 0.55), 0 20px 48px -16px oklch(0 0 0 / 0.85);
   --elevation-sheet: 0 -8px 40px -12px oklch(0 0 0 / 0.9);
   --elevation-inset: inset 0 1px 2px oklch(0 0 0 / 0.45);
+}
+
+@utility bottom-consent {
+  bottom: var(--consent-offset);
+}
+
+@media (width < 48rem) {
+  :root:has([data-slot="nav-bar"]) {
+    --consent-offset: calc(var(--spacing-nav) + var(--spacing-safe-b) + var(--spacing-consent-gap));
+  }
+}
+
+@media (width >= 48rem) {
+  :root:has([data-slot="sticky-actions"]) {
+    --consent-offset: calc(var(--spacing-safe-b) + var(--spacing-consent-gap));
+  }
 }
 
 @layer base {

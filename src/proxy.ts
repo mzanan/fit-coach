@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { AUTH_COOKIE_PREFIX } from "@/lib/authCookies";
 
-const PUBLIC_PREFIXES = ["/login", "/auth", "/api/auth"];
+const PUBLIC_PREFIXES = ["/login", "/privacy", "/auth", "/api/auth"];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PREFIXES.some(
