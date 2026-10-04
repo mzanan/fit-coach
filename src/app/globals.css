@@ -300,7 +300,7 @@
 
 @media (width < 48rem) {
   :root:has([data-slot="nav-bar"]) {
-    --consent-offset: calc(var(--spacing-nav) + var(--spacing-safe-b) + var(--spacing-consent-gap));
+    --consent-offset: calc(var(--spacing-nav) + var(--spacing-safe-b) + 1.75rem + var(--spacing-consent-gap));
   }
 }
 
