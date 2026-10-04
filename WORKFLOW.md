@@ -545,3 +545,78 @@ from each rebase and kept on its own branch instead.
   disprove a claim (one measured counterexample kills a threshold) and too
   small to establish a rate. Where a lab's verdict is provisional, it says
   so in that lab's own README.
+
+---
+
+# Appendix: architecture details
+
+Implementation details moved out of the README on 2026-10-04 so the README
+stays a cold-reader overview. Each one is a decision a reviewer may want to
+check against the code.
+
+## Write tools
+
+- `canWriteMeals` reads the same `canTools` capability check the rest of
+  the app uses, minus a `WRITE_BLOCKED_MODELS` escape hatch for models that
+  declare tools and fail in practice. When the capability lookup itself
+  cannot be reached, it fails open rather than silently disabling writes.
+- The confirmation flow is two requests: the model proposes a write, the
+  loop pauses and the request goes out over the answer's ndjson stream;
+  confirmation is a second request carrying only `{approvalId, approved}`.
+  The paused-state row is one per user and deleted on resolve.
+- The size picker's choice is applied at the tool's `execute()`, not
+  passed back through the model.
+- The Jev gate gets the proposed call plus the last few conversation
+  turns. A confident match runs; a write the user never asked for (a
+  question answered with a write) is refused with a reason the model sees;
+  a doubtful one (a meal correction saved as a standing rule, for
+  instance) falls back to the confirmation card where the tool has one.
+  Unset, or Jev unreachable within 3 s, the direct writes run as if the
+  gate did not exist. A card the user already approved is never sent back
+  to Jev.
+
+## Server-owned coach answers
+
+`/api/coach` does not use Vercel's opt-in request cancellation, so the
+generation runs to completion server-side whatever happens to the client.
+Stop (`/api/coach/stop`) resolves with a guarded
+`UPDATE ... WHERE status = 'streaming'`. When Stop and completion land close
+together, the AI SDK's own stream decides: an `abort` part means the answer
+was genuinely cut short, so it keeps whatever had streamed and is marked
+stopped; a natural finish means the Stop lost the race, and it is ignored so
+a complete reply is never mislabeled as interrupted.
+
+## Daily maintenance
+
+Memory consolidation tells the model what changed rather than asking it to
+rebuild the summary, since facts and structured data cannot capture
+everything a conversation accumulates. Its model call is bounded to 60
+seconds per user, so one hung provider cannot consume the whole cron run.
+Corrections are exempt from stale-fact cleanup because a correction is
+defined as the thing that matters most.
+
+## Durable markdown import
+
+- Pinned `workflow@5.0.0-beta.47`; `beta.48` is a broken publish.
+- `POST /api/import/extract` starts the run and returns a `runId`;
+  `GET /api/import/extract/<runId>?startIndex=N` replays the progress
+  stream from any point; `POST /api/import/extract/<runId>/cancel` stops it.
+- A chunk failing on a 429 or a 5xx retries up to three times, honoring
+  `retry-after` and falling back to 60 seconds, because a per-minute rate
+  limit cannot be outlasted by a few fast retries.
+- On mount, the import screen looks for a run from the last 24 hours and
+  reattaches to it. A completed run whose events have aged out still yields
+  its result from the run's return value.
+- An `import_runs` row records who started which run. It is deleted when
+  the extraction reaches the user, when the run is cancelled and when a new
+  import starts, so a user has at most one. A failed cancel keeps the row,
+  so a run still spending the key never becomes invisible.
+- All three routes return 404, never 403, for another user's run, so the
+  endpoint does not confirm that an unknown id exists.
+- A chunk's markdown is a step argument, so the imported text is persisted
+  in the run's state store. The decrypted provider key is not: it is read
+  inside each step and never crosses a step boundary.
+- The workflow body stays free of Node built-ins, which the SDK enforces at
+  build time: pure schema, chunking and merge logic lives in
+  `mdExtraction.ts`, and every model call, credential read and stream write
+  happens inside a `"use step"` function.
