@@ -5,13 +5,11 @@ import { after } from "next/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
-import { emailOTP } from "better-auth/plugins";
 
 import { AUTH_COOKIE_PREFIX } from "@/lib/authCookies";
 import { db, schema } from "@/lib/db";
 import { captureServerEvent } from "@/lib/analytics";
 import { hasAnalyticsConsent } from "@/lib/consentCookie";
-import { sendOtpEmail } from "@/lib/email";
 
 const disableSignUp = process.env.AUTH_DISABLE_SIGNUPS === "true";
 
@@ -57,14 +55,6 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    emailOTP({
-      otpLength: 6,
-      expiresIn: 600,
-      disableSignUp,
-      async sendVerificationOTP({ email, otp }) {
-        await sendOtpEmail(email, otp);
-      },
-    }),
     nextCookies(),
   ],
 });

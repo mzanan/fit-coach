@@ -44,7 +44,7 @@ export default async function LoginPage() {
             Your coach is <span className="text-brand-ink">ready.</span>
           </h1>
           <p className="mt-2.5 text-body text-muted-foreground">
-            Sign in with Google or an email code.
+            Sign in with Google.
           </p>
         </div>
 
