@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { LoginForm } from "@/components/auth/LoginForm";
 import { BrandMark } from "@/components/ui/BrandMark";
+import { CreditLinks } from "@/components/ui/CreditLinks";
 import { JsonLd } from "@/components/ui/JsonLd";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { appJsonLd } from "@/lib/seo";
@@ -24,7 +24,10 @@ export default async function LoginPage() {
   return (
     <main className="relative flex min-h-dvh flex-col overflow-hidden px-5 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+2rem)]">
       <JsonLd data={appJsonLd} />
-      <div aria-hidden className="bg-grid pointer-events-none absolute inset-0" />
+      <div
+        aria-hidden
+        className="bg-grid pointer-events-none absolute inset-0"
+      />
       <div
         aria-hidden
         className="hero-glow pointer-events-none absolute inset-x-0 top-0 h-[28rem]"
@@ -60,12 +63,7 @@ export default async function LoginPage() {
           </p>
         ) : null}
 
-        <Link
-          href="/privacy"
-          className="mt-3 text-center text-meta text-muted-foreground underline-offset-4 hover:underline"
-        >
-          Privacy policy
-        </Link>
+        <CreditLinks className="mt-3" />
       </div>
     </main>
   );
