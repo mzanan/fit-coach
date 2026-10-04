@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { LegalSection } from "@/components/legal/LegalSection";
 import { AnalyticsConsentRow } from "@/components/settings/AnalyticsConsentRow";
+import { CreditLinks } from "@/components/ui/CreditLinks";
 import { Page } from "@/components/ui/Page";
 
 export const metadata: Metadata = {
@@ -56,11 +57,11 @@ export default function PrivacyPage() {
 
           <LegalSection title="Processors we share with">
             <p>
-              Vercel (hosting), Turso (database), Google (sign-in), AI
-              providers such as Anthropic, Google or Groq (coach replies, scan
-              reading and search over your notes), your
-              browser push service (notifications) and PostHog EU (analytics,
-              see Cookies). Each only receives what it needs for its function.
+              Vercel (hosting), Turso (database), Google (sign-in), AI providers
+              such as Anthropic, Google or Groq (coach replies, scan reading and
+              search over your notes), your browser push service (notifications)
+              and PostHog EU (analytics, see Cookies). Each only receives what
+              it needs for its function.
             </p>
           </LegalSection>
 
@@ -97,6 +98,9 @@ export default function PrivacyPage() {
           </LegalSection>
         </div>
       </Page>
+      <footer className="mt-section">
+        <CreditLinks className="px-gutter" />
+      </footer>
     </main>
   );
 }
