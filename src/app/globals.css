@@ -95,7 +95,8 @@
   --spacing-block: 1.75rem;
   --spacing-nav: var(--nav-h);
   --spacing-safe-b: calc(var(--safe-b) + var(--spacing-tight));
-  --spacing-consent-gap: 5rem;
+  --spacing-consent-gap: 0.5rem;
+  --spacing-consent-sticky: 5rem;
   --spacing-caption: 3.75rem;
   --spacing-rail: var(--rail-w);
   --spacing-gutter: var(--gutter);
@@ -306,7 +307,7 @@
 
 @media (width >= 48rem) {
   :root:has([data-slot="sticky-actions"]) {
-    --consent-offset: calc(var(--spacing-safe-b) + var(--spacing-consent-gap));
+    --consent-offset: calc(var(--spacing-safe-b) + var(--spacing-consent-sticky));
   }
 }
 
