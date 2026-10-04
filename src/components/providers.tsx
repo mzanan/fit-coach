@@ -8,12 +8,23 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider
       attribute="class"
-      defaultTheme="system"
+      defaultTheme="dark"
       enableSystem
       disableTransitionOnChange
     >
       {children}
-      <Toaster position="top-center" richColors />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          classNames: {
+            toast:
+              "bg-popover text-popover-foreground border border-border rounded-xl shadow-raised text-body",
+            description: "text-meta text-muted-foreground",
+            success: "[&_[data-icon]]:text-brand-ink",
+            error: "[&_[data-icon]]:text-destructive",
+          },
+        }}
+      />
       <CookieConsent />
     </ThemeProvider>
   );

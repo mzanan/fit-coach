@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pill } from "@/components/ui/Pill";
@@ -36,12 +38,17 @@ export function StartWorkout({
   if (hasRoutine && routine) {
     return (
       <div className="space-y-tight">
-        <Surface radius="xl" className="divide-y divide-border overflow-hidden">
-          <div className="px-card py-3">
-            <p className="text-body font-medium">{routine.label}</p>
-            <p className="text-meta text-muted-foreground">
-              {"Today's prescribed routine"}
-            </p>
+        <Surface list>
+          <div className="flex items-center gap-3 px-card py-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-body font-medium">{routine.label}</p>
+              <p className="text-meta text-muted-foreground">
+                {"Today's prescribed routine"}
+              </p>
+            </div>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/routine">Edit</Link>
+            </Button>
           </div>
           {routine.exercises.map((exercise) => (
             <div
@@ -130,6 +137,9 @@ export function StartWorkout({
             onClick={() => start(undefined)}
           >
             Empty session
+          </Button>
+          <Button asChild variant="ghost" size="md" className="mt-2 w-full">
+            <Link href="/routine">Set up a weekly routine</Link>
           </Button>
         </div>
       }

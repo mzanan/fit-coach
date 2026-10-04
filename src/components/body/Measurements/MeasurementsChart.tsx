@@ -25,7 +25,7 @@ export function MeasurementsChart({
   const points = toColumnPoints(entries, metric);
 
   return (
-    <Surface className="p-card">
+    <Surface>
       <div className="flex items-center justify-between gap-3">
         <p className="eyebrow">Trend</p>
         <Segmented

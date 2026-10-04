@@ -85,9 +85,9 @@ export function InbodyCard({ aiReady }: { aiReady: boolean }) {
       />
 
       {saved ? (
-        <Surface level="raised" className="p-card">
+        <Surface level="raised">
           <p className="flex items-center gap-2 text-body">
-            <CheckCircle2 className="size-4 text-brand" />
+            <CheckCircle2 className="size-4 text-brand-ink" />
             Scan saved
           </p>
           <p className="mt-1.5 text-meta text-muted-foreground">
@@ -117,7 +117,7 @@ export function InbodyCard({ aiReady }: { aiReady: boolean }) {
           </div>
         </Surface>
       ) : reading ? (
-        <Surface level="raised" className="p-card">
+        <Surface level="raised">
           <p className="eyebrow">Reading the sheet</p>
           <Skeleton className="mt-3 h-5 w-40" />
           <Skeleton className="mt-2 h-5 w-32" />
@@ -154,7 +154,7 @@ export function InbodyCard({ aiReady }: { aiReady: boolean }) {
           ) : null}
 
           {warnings.length > 0 ? (
-            <Surface className="border-brand-line p-card">
+            <Surface className="border-brand-line">
               <p className="eyebrow">Check these</p>
               <ul className="mt-2 space-y-1 text-meta text-muted-foreground">
                 {warnings.map((w) => (
@@ -164,7 +164,7 @@ export function InbodyCard({ aiReady }: { aiReady: boolean }) {
             </Surface>
           ) : null}
 
-          <Surface className="p-card">
+          <Surface>
             <Label htmlFor="inbody-taken-at">Scan date</Label>
             <Input
               id="inbody-taken-at"
@@ -188,7 +188,7 @@ export function InbodyCard({ aiReady }: { aiReady: boolean }) {
           </Surface>
 
           {INBODY_FIELD_GROUPS.map((group) => (
-            <Surface key={group.title} className="p-card">
+            <Surface key={group.title}>
               <p className="eyebrow">{group.title}</p>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {group.fields.map((f) => (
@@ -207,7 +207,7 @@ export function InbodyCard({ aiReady }: { aiReady: boolean }) {
           ))}
 
           {segmental ? (
-            <Surface className="p-card">
+            <Surface>
               <button
                 type="button"
                 className="flex min-h-11 w-full items-center justify-between"
@@ -232,7 +232,7 @@ export function InbodyCard({ aiReady }: { aiReady: boolean }) {
             </Surface>
           ) : null}
 
-          <Surface className="p-card">
+          <Surface>
             <Label htmlFor="inbody-notes">Notes</Label>
             <Input
               id="inbody-notes"
@@ -252,7 +252,7 @@ export function InbodyCard({ aiReady }: { aiReady: boolean }) {
           </StickyActions>
         </div>
       ) : (
-        <Surface level="sunken" className="px-6 py-10 text-center">
+        <Surface level="sunken" pad="none" className="px-6 py-10 text-center">
           <ScanLine
             className="mx-auto size-6 text-muted-foreground"
             strokeWidth={1.5}

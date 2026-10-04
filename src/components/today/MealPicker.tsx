@@ -84,7 +84,7 @@ export function MealPicker({
           {recentItems.length > 0 ? (
             <div>
               <p className="eyebrow sticky top-0 z-10 bg-card py-2">Recent</p>
-              <Surface radius="xl" className="divide-y divide-border">
+              <Surface list>
                 {recentItems.map((item) => (
                   <MealPickerRow
                     key={item.key}
@@ -101,7 +101,7 @@ export function MealPicker({
           {catalogItems.length > 0 ? (
             <div className="mt-4">
               <p className="eyebrow sticky top-0 z-10 bg-card py-2">All saved</p>
-              <Surface radius="xl" className="divide-y divide-border">
+              <Surface list>
                 {catalogItems.map((item) => (
                   <MealPickerRow
                     key={item.key}

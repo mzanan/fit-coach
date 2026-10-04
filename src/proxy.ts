@@ -3,7 +3,13 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { AUTH_COOKIE_PREFIX } from "@/lib/authCookies";
 
-const PUBLIC_PREFIXES = ["/login", "/privacy", "/auth", "/api/auth"];
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/privacy",
+  "/auth",
+  "/api/auth",
+  "/opengraph-image",
+];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PREFIXES.some(
@@ -16,6 +22,18 @@ export async function proxy(request: NextRequest) {
     cookiePrefix: AUTH_COOKIE_PREFIX,
   });
   const { pathname } = request.nextUrl;
+
+  if (pathname === "/landing") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
+
+  if (!sessionCookie && pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/landing";
+    return NextResponse.rewrite(url);
+  }
 
   if (!sessionCookie && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();

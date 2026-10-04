@@ -34,7 +34,7 @@ export default async function CoachPage() {
     <Page
       title="Coach"
       description="Answers based on what you have logged."
-      className="flex h-full flex-col"
+      fill
     >
       <div className="flex min-h-0 flex-1 flex-col gap-block">
         {!ai ? (

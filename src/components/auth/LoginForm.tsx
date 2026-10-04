@@ -16,7 +16,7 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
   const panelOpen = mode !== "collapsed";
 
   return (
-    <Surface level="raised" radius="xl" className="p-card md:p-block">
+    <Surface level="raised">
       {googleEnabled ? (
         <>
           <Button

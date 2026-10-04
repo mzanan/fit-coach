@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ActiveModelLabel } from "@/components/shell/ActiveModelLabel";
 import { SIDE_NAV_ITEMS, isNavActive } from "@/components/shell/navItems";
 import { UserMenu } from "@/components/shell/UserMenu";
+import { BrandMark } from "@/components/ui/BrandMark";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { AiCredential } from "@/lib/ai/aiCredentials";
 import type { SessionUser } from "@/lib/session";
@@ -20,17 +21,15 @@ export function SideNav({
 }) {
   const pathname = usePathname();
   return (
-    <aside className="sticky top-0 hidden h-dvh w-rail shrink-0 flex-col border-r border-border px-3 pt-gutter pb-4 md:flex">
-      <div className="px-3 pb-6">
-        <span className="text-title font-medium tracking-(--tracking-snug)">
-          Fit Coach
-        </span>
+    <aside className="sticky top-0 hidden h-dvh w-rail shrink-0 flex-col border-r border-hairline bg-card/40 px-3 pt-gutter pb-4 md:flex">
+      <div className="px-2 pb-8">
+        <BrandMark href="/" />
         <ActiveModelLabel
           credential={activeModel}
-          className="mt-0.5 block truncate"
+          className="mt-1 block truncate pl-[2.375rem]"
         />
       </div>
-      <nav className="flex flex-col gap-0.5">
+      <nav className="flex flex-col gap-1">
         {SIDE_NAV_ITEMS.map((tab) => {
           const active = isNavActive(pathname, tab.href);
           const Icon = tab.icon;
@@ -40,16 +39,13 @@ export function SideNav({
               href={tab.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex min-h-11 items-center gap-3 rounded-control px-3 text-body font-medium transition-[background-color,color] duration-(--dur-base) ease-(--ease-out-soft)",
+                "flex min-h-11 items-center gap-3 rounded-full px-4 text-body font-medium transition-[background-color,color] duration-(--dur-base) ease-(--ease-out-soft)",
                 active
-                  ? "bg-surface-2 text-foreground"
+                  ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-overlay hover:text-foreground",
               )}
             >
-              <Icon
-                className={cn("size-5", active && "text-brand")}
-                strokeWidth={active ? 1.75 : 1.5}
-              />
+              <Icon className="size-5" strokeWidth={active ? 2 : 1.5} />
               {tab.label}
             </Link>
           );

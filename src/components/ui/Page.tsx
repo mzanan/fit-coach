@@ -7,6 +7,8 @@ export function Page({
   backHref,
   backLabel,
   action,
+  fill,
+  fab,
   children,
   className,
 }: {
@@ -15,13 +17,17 @@ export function Page({
   backHref?: string;
   backLabel?: string;
   action?: React.ReactNode;
+  fill?: boolean;
+  fab?: boolean;
   children: React.ReactNode;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "mx-auto w-full max-w-(--container-default) px-gutter",
+        "mx-auto w-full max-w-(--container-default) animate-in fade-in px-gutter duration-(--dur-slow) ease-(--ease-out-soft)",
+        fill && "flex h-full min-h-0 flex-col",
+        fab && "pb-(--spacing-fab-clear) md:pb-0",
         className,
       )}
     >
@@ -35,7 +41,9 @@ export function Page({
           className="mb-block"
         />
       ) : null}
-      {children}
+      <div className={cn("flex flex-col gap-block", fill && "min-h-0 flex-1")}>
+        {children}
+      </div>
     </div>
   );
 }

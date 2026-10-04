@@ -1,5 +1,7 @@
+import { AlertCircle } from "lucide-react";
+
 import { Button } from "@/components/ui/Button";
-import { Surface } from "@/components/ui/Surface";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export function ImportError({
   message,
@@ -11,17 +13,18 @@ export function ImportError({
   onBack: () => void;
 }) {
   return (
-    <Surface level="sunken" className="px-6 py-10 text-center">
-      <p className="text-body">Extraction interrupted</p>
-      <p className="mx-auto mt-1.5 max-w-[40ch] text-meta text-muted-foreground">
-        {message}
-      </p>
-      <div className="mt-5 flex justify-center gap-2">
-        <Button variant="outline" onClick={onBack}>
-          Back
-        </Button>
-        <Button onClick={onRetry}>Reconnect</Button>
-      </div>
-    </Surface>
+    <EmptyState
+      icon={AlertCircle}
+      title="Extraction interrupted"
+      body={message}
+      action={
+        <div className="flex justify-center gap-2">
+          <Button variant="outline" onClick={onBack}>
+            Back
+          </Button>
+          <Button onClick={onRetry}>Reconnect</Button>
+        </div>
+      }
+    />
   );
 }

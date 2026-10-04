@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { CatalogComponentsEditor } from "@/components/catalog/CatalogComponentsEditor";
@@ -46,7 +46,14 @@ export function CatalogItemRow({
           onClick={(e) => e.stopPropagation()}
         />
       ) : null}
-      <div className="min-w-0 flex-1">
+      <button
+        type="button"
+        aria-label={`Edit ${item.name}`}
+        aria-hidden={selectMode || undefined}
+        tabIndex={selectMode ? -1 : undefined}
+        onClick={selectMode ? undefined : () => setEditing(true)}
+        className="min-h-14 w-full min-w-0 flex-1 rounded-control text-left transition-colors duration-(--dur-fast) active:bg-overlay"
+      >
         <div className="flex items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-body font-medium">
             {item.name}
@@ -79,23 +86,11 @@ export function CatalogItemRow({
             {item.notes}
           </p>
         ) : null}
-      </div>
+      </button>
 
-      <div
-        className={
-          selectMode ? "hidden" : "flex shrink-0 items-center gap-1"
-        }
-      >
+      {selectMode ? null : (
         <Button
-          variant="ghost"
-          size="icon"
-          aria-label={`Edit ${item.name}`}
-          onClick={() => setEditing(true)}
-        >
-          <Pencil className="size-[18px]" strokeWidth={1.5} />
-        </Button>
-        <Button
-          variant="ghost"
+          variant="danger"
           size="icon"
           aria-label={`Archive ${item.name}`}
           disabled={pending}
@@ -103,7 +98,7 @@ export function CatalogItemRow({
         >
           <Trash2 className="size-[18px]" strokeWidth={1.5} />
         </Button>
-      </div>
+      )}
 
       <ResponsiveDialog
         open={editing}

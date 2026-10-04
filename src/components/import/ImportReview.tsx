@@ -67,7 +67,7 @@ export function ImportReview({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="scroll-slim min-h-0 flex-1 space-y-block overflow-y-auto pr-1">
         {warnings.length ? (
-          <Surface className="border-brand-line p-card">
+          <Surface className="border-brand-line">
             <p className="eyebrow">Check these</p>
             <ul className="mt-2 space-y-1 text-meta text-muted-foreground">
               {warnings.map((w, i) => (
@@ -78,7 +78,7 @@ export function ImportReview({
         ) : null}
 
         {days.map((d) => (
-          <Surface key={d.day} className="p-card">
+          <Surface key={d.day}>
             <p className="text-title font-medium tracking-(--tracking-snug)">
               {formatDayLabel(d.day, today)}
             </p>
@@ -103,7 +103,7 @@ export function ImportReview({
         ))}
 
         {catalogItems.length ? (
-          <Surface className="p-card">
+          <Surface>
             <p className="text-title font-medium tracking-(--tracking-snug)">
               Catalog items
             </p>
@@ -123,7 +123,7 @@ export function ImportReview({
         ) : null}
 
         {bodyScans.length ? (
-          <Surface className="p-card">
+          <Surface>
             <p className="text-title font-medium tracking-(--tracking-snug)">
               InBody scans
             </p>
@@ -143,7 +143,7 @@ export function ImportReview({
         ) : null}
 
         {rules.length ? (
-          <Surface className="p-card">
+          <Surface>
             <p className="text-title font-medium tracking-(--tracking-snug)">
               Coach rules
             </p>
@@ -160,7 +160,7 @@ export function ImportReview({
         ) : null}
 
         {facts.length ? (
-          <Surface className="p-card">
+          <Surface>
             <p className="text-title font-medium tracking-(--tracking-snug)">
               Coach memory
             </p>

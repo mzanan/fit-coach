@@ -29,7 +29,7 @@ export function RoutineExerciseRow({
   onDelete: () => void;
 }) {
   return (
-    <Surface radius="lg" className="flex items-center gap-1 px-2 py-1.5">
+    <Surface radius="lg" pad="none" className="flex items-center gap-1 px-2 py-1.5">
       <button
         type="button"
         onClick={onEdit}
@@ -47,7 +47,7 @@ export function RoutineExerciseRow({
         disabled={isFirst}
         onClick={() => onMove(-1)}
       >
-        <ChevronUp className="size-4" />
+        <ChevronUp className="size-[18px]" />
       </Button>
       <Button
         variant="ghost"
@@ -56,7 +56,7 @@ export function RoutineExerciseRow({
         disabled={isLast}
         onClick={() => onMove(1)}
       >
-        <ChevronDown className="size-4" />
+        <ChevronDown className="size-[18px]" />
       </Button>
       <Button
         variant="ghost"
@@ -64,7 +64,7 @@ export function RoutineExerciseRow({
         aria-label={`Delete ${exercise.name}`}
         onClick={onDelete}
       >
-        <Trash2 className="size-4" />
+        <Trash2 className="size-[18px]" />
       </Button>
     </Surface>
   );

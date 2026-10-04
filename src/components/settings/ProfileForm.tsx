@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { Input, Label } from "@/components/ui/Input";
+import { Field, Input, Label } from "@/components/ui/Input";
 import { NumberField } from "@/components/ui/NumberField";
 import { Segmented } from "@/components/ui/Segmented";
 import { Surface } from "@/components/ui/Surface";
@@ -39,7 +39,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   }
 
   return (
-    <Surface className="p-card">
+    <Surface>
       <form onSubmit={submit} className="space-y-card">
         <div>
           <Label>Sex</Label>
@@ -69,34 +69,30 @@ export function ProfileForm({ profile }: { profile: Profile }) {
             placeholder="190"
           />
         </div>
-        <div>
-          <Label htmlFor="timezone">Timezone</Label>
+        <Field
+          id="timezone"
+          label="Timezone"
+          hint="IANA name, for example Asia/Ho_Chi_Minh."
+        >
           <Input
             id="timezone"
             value={timezone}
             onChange={(e) => setTimezone(e.target.value)}
             placeholder="Asia/Ho_Chi_Minh"
+            aria-describedby="timezone-hint"
           />
-          <p className="mt-2 text-meta text-muted-foreground">
-            IANA name, for example Asia/Ho_Chi_Minh.
-          </p>
-        </div>
-        <div>
-          <NumberField
-            id="day_cutoff_hour"
-            label="Day cutoff hour"
-            value={cutoff}
-            onChange={setCutoff}
-            min={0}
-            step={1}
-          />
-          <p className="mt-2 text-meta text-muted-foreground">
-            Hours after midnight before a new day starts. At 4, a 3am meal
-            still counts as yesterday.
-          </p>
-        </div>
-        <Button type="submit" size="lg" className="w-full" disabled={pending}>
-          {pending ? "Saving..." : "Save profile"}
+        </Field>
+        <NumberField
+          id="day_cutoff_hour"
+          label="Day cutoff hour"
+          value={cutoff}
+          onChange={setCutoff}
+          min={0}
+          step={1}
+          hint="Hours after midnight before a new day starts. At 4, a 3am meal still counts as yesterday."
+        />
+        <Button type="submit" size="lg" className="w-full" pending={pending}>
+          Save profile
         </Button>
       </form>
     </Surface>

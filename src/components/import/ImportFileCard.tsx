@@ -21,7 +21,7 @@ export function ImportFileCard({ file }: { file: ImportFileStatus }) {
   );
 
   return (
-    <Surface className="flex items-center gap-3 p-4">
+    <Surface pad="compact" className="flex items-center gap-3">
       <FileText
         className="size-5 shrink-0 text-muted-foreground"
         strokeWidth={1.5}
@@ -57,7 +57,7 @@ export function ImportFileCard({ file }: { file: ImportFileStatus }) {
       </div>
       {file.status === "processing" && <Spinner />}
       {file.status === "done" && (
-        <CheckCircle2 className="size-5 shrink-0 text-brand" strokeWidth={1.5} />
+        <CheckCircle2 className="size-5 shrink-0 text-brand-ink" strokeWidth={1.5} />
       )}
       {file.status === "error" && (
         <AlertCircle

@@ -4,7 +4,7 @@ import {
   Check,
   ChevronRight,
   Copy,
-  Eraser,
+  RotateCcw,
   Pencil,
   Sparkles,
   Square,
@@ -17,6 +17,7 @@ import { Collapse } from "@/components/ui/Collapse";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Markdown } from "@/components/ui/Markdown";
 import { Pill } from "@/components/ui/Pill";
+import { Spinner } from "@/components/ui/Spinner";
 import { Surface } from "@/components/ui/Surface";
 import { cn } from "@/lib/utils";
 import { DiningModeAsk } from "@/components/coach/DiningModeAsk";
@@ -112,7 +113,7 @@ function Turn({
   if (bubble.role === "user") {
     return (
       <div className="group flex flex-col items-end sm:gap-1">
-        <div className="max-w-[80%] rounded-control bg-well px-4 py-3">
+        <div className="max-w-[80%] rounded-2xl rounded-br-md bg-primary px-4 py-3 text-primary-foreground">
           <p className="whitespace-pre-wrap text-body leading-relaxed">
             {bubble.content}
           </p>
@@ -142,10 +143,7 @@ function Turn({
       {bubble.reasoning ? <Thoughts text={bubble.reasoning} /> : null}
       <Markdown
         text={bubble.content}
-        className={cn(
-          stopped && "italic text-muted-foreground",
-          isStreaming && "animate-pulse",
-        )}
+        className={cn(stopped && "italic text-muted-foreground")}
       />
       {bubble.daySummary ? <MacroTable summary={bubble.daySummary} /> : null}
       {bubble.learned?.length ? <LearnedChip facts={bubble.learned} /> : null}
@@ -176,7 +174,8 @@ export function CoachPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {diningMode ? null : <DiningModeAsk />}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto fade-r [scrollbar-width:none] sm:flex-wrap">
         {weeklySummaryLabel ? (
           <Button
             type="button"
@@ -184,7 +183,7 @@ export function CoachPanel({
             size="sm"
             disabled={chat.loading}
             onClick={() => void chat.askSummary()}
-            className="text-muted-foreground hover:text-foreground"
+            className="shrink-0 text-muted-foreground hover:text-foreground"
           >
             {weeklySummaryLabel}
           </Button>
@@ -197,22 +196,23 @@ export function CoachPanel({
             size="sm"
             disabled={chat.loading}
             onClick={() => void chat.ask(q)}
-            className="text-muted-foreground hover:text-foreground"
+            className="shrink-0 text-muted-foreground hover:text-foreground"
           >
             {q}
           </Button>
         ))}
+        </div>
         {chat.bubbles.length ? (
           <Button
             type="button"
             variant="ghost"
-            size="sm"
+            size="icon"
+            aria-label="Clear conversation"
             disabled={chat.loading}
             onClick={() => chat.setConfirmOpen(true)}
-            className="ml-auto text-muted-foreground hover:text-foreground"
+            className="shrink-0 text-muted-foreground hover:text-foreground"
           >
-            <Eraser className="size-4" strokeWidth={1.5} />
-            Clear
+            <RotateCcw className="size-4" strokeWidth={1.5} />
           </Button>
         ) : null}
       </div>
@@ -230,7 +230,8 @@ export function CoachPanel({
           {chat.reasoning ? <Thoughts text={chat.reasoning} /> : null}
           {chat.streaming ? <Markdown text={chat.streaming} /> : null}
           {chat.status ? (
-            <p className="animate-pulse text-body text-muted-foreground">
+            <p className="flex items-center gap-2 text-meta text-muted-foreground">
+              <Spinner className="size-4" />
               {chat.status}...
             </p>
           ) : null}
@@ -258,7 +259,8 @@ export function CoachPanel({
       <div className="shrink-0 bg-background pt-3">
         <Surface
           level="raised"
-          className="rounded-control p-2 focus-within:border-ring"
+          pad="inset"
+          className="focus-within:border-ring"
         >
           <form
             onSubmit={(e) => {

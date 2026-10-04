@@ -13,7 +13,7 @@ export function RecompHero({
 }) {
   if (!delta) {
     return (
-      <Surface level="raised" className="p-5">
+      <Surface level="hero">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="eyebrow">Body fat</p>
@@ -58,7 +58,7 @@ export function RecompHero({
 
   if (!lead) {
     return (
-      <Surface level="raised" className="p-5">
+      <Surface level="hero">
         <p className="eyebrow">Last scan</p>
         <p className="mt-3 text-body text-muted-foreground">
           This scan and the previous one share no comparable values.
@@ -70,7 +70,7 @@ export function RecompHero({
   const note = scanVerdict(delta);
 
   return (
-    <Surface level="raised" className="p-5">
+    <Surface level="hero">
       <p className="eyebrow">
         {lead.label}, {delta.days} days
       </p>

@@ -4,7 +4,7 @@ import { clamp } from "@/lib/utils";
 const SIZE = {
   xs: "h-[3px]",
   sm: "h-1",
-  md: "h-1.5",
+  md: "h-2",
 } as const;
 
 export function ProgressBar({

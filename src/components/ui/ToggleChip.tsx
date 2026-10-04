@@ -3,12 +3,12 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const chip = cva(
-  "inline-flex items-center justify-center rounded-control px-3.5 font-medium whitespace-nowrap transition-[background-color,color,box-shadow] duration-(--dur-fast) ease-(--ease-out-soft) active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40",
+  "inline-flex items-center justify-center rounded-full px-4 font-medium whitespace-nowrap transition-[background-color,color,box-shadow] duration-(--dur-fast) ease-(--ease-out-soft) active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40",
   {
     variants: {
       size: {
         md: "h-11 text-meta",
-        sm: "h-9 text-eyebrow",
+        sm: "relative h-9 text-eyebrow before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']",
       },
       tone: {
         brand: "",

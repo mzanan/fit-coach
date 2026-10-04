@@ -2,6 +2,7 @@ import { MeasurementForm } from "@/components/body/Measurements/MeasurementForm"
 import { MeasurementHistory } from "@/components/body/Measurements/MeasurementHistory";
 import { MeasurementsChart } from "@/components/body/Measurements/MeasurementsChart";
 import { ReminderBanner } from "@/components/body/Measurements/ReminderBanner";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import type { MeasurementEntry } from "@/lib/data/bodyMeasurements";
 import type { ReminderItem } from "@/lib/reminders";
 
@@ -16,13 +17,9 @@ export function Measurements({
 }) {
   return (
     <div className="space-y-4">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-title font-medium tracking-(--tracking-snug)">
-          Measurements
-        </h2>
-      </div>
+      <SectionHeader title="Measurements" className="mb-0" />
 
-      <ReminderBanner reminders={reminders} />
+      <ReminderBanner reminders={reminders} today={today} />
       <MeasurementForm />
       <MeasurementsChart entries={entries} />
       <MeasurementHistory entries={entries} today={today} />

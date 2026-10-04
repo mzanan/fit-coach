@@ -57,7 +57,7 @@ function Fields({
           );
         })}
       </div>
-      <p className="mt-1.5 text-xs text-muted-foreground">
+      <p className="mt-1.5 text-meta text-muted-foreground">
         {known.length === 0 && optional
           ? "Macros unknown"
           : `${Math.round(

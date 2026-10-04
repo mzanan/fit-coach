@@ -23,32 +23,34 @@ export function DayNav({
   };
 
   return (
-    <div className="flex items-center justify-between">
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label="Previous day"
-        onClick={() => go(shiftDay(day, -1))}
-      >
-        <ChevronLeft className="size-5" />
-      </Button>
-      <div className="flex flex-col items-center">
-        <span className="text-title font-medium tracking-(--tracking-snug)">
-          {formatDayLabel(day, today)}
-        </span>
-        <Pill tone={isGymDay ? "brand" : "muted"} className="mt-0.5">
+    <div className="flex items-end gap-3">
+      <div className="min-w-0 flex-1">
+        <Pill tone={isGymDay ? "brand" : "muted"} variant={isGymDay ? "solid" : "soft"}>
           {isGymDay ? "Gym day" : "Rest day"}
         </Pill>
+        <h1 className="mt-2.5 truncate text-h1 font-semibold">
+          {formatDayLabel(day, today)}
+        </h1>
       </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label="Next day"
-        disabled={day >= today}
-        onClick={() => go(shiftDay(day, 1))}
-      >
-        <ChevronRight className="size-5" />
-      </Button>
+      <div className="flex shrink-0 gap-1.5">
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Previous day"
+          onClick={() => go(shiftDay(day, -1))}
+        >
+          <ChevronLeft className="size-5" strokeWidth={1.75} />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Next day"
+          disabled={day >= today}
+          onClick={() => go(shiftDay(day, 1))}
+        >
+          <ChevronRight className="size-5" strokeWidth={1.75} />
+        </Button>
+      </div>
     </div>
   );
 }

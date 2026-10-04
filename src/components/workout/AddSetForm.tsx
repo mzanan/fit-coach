@@ -23,7 +23,7 @@ export function AddSetForm({
     useAddSet({ exerciseId, lastCurrentSet, lastSessionTop });
 
   return (
-    <Surface level="sunken" radius="lg" className="flex h-full flex-col p-3">
+    <Surface level="sunken" radius="lg" pad="tight" className="flex h-full flex-col">
       <span className="eyebrow">SET {setCount + 1}</span>
       <form onSubmit={submit} className="mt-2 flex flex-1 flex-col justify-between">
         <div className="flex gap-2">

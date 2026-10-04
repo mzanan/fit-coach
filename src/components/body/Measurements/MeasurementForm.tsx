@@ -2,9 +2,8 @@
 
 import { useMeasurementForm } from "@/components/body/Measurements/useMeasurementForm";
 import { Button } from "@/components/ui/Button";
-import { Input, Label } from "@/components/ui/Input";
+import { Field, Input } from "@/components/ui/Input";
 import { Surface } from "@/components/ui/Surface";
-import { cn } from "@/lib/utils";
 
 export function MeasurementForm() {
   const {
@@ -21,11 +20,10 @@ export function MeasurementForm() {
   } = useMeasurementForm();
 
   return (
-    <Surface className="p-card">
+    <Surface>
       <p className="eyebrow mb-3">Log a measurement</p>
       <form onSubmit={submit} className="grid grid-cols-2 gap-3">
-        <div>
-          <Label htmlFor="measure-waist">Waist (cm)</Label>
+        <Field id="measure-waist" label="Waist (cm)" error={waistError ?? undefined}>
           <Input
             id="measure-waist"
             inputMode="decimal"
@@ -33,15 +31,11 @@ export function MeasurementForm() {
             onChange={(e) => setWaist(e.target.value)}
             onBlur={blurWaist}
             placeholder="e.g. 82"
-            aria-invalid={waistError ? "true" : undefined}
-            className={cn(waistError && "border-destructive")}
+            aria-invalid={waistError ? true : undefined}
+            aria-describedby={waistError ? "measure-waist-error" : undefined}
           />
-          {waistError ? (
-            <p className="mt-1 text-meta text-destructive">{waistError}</p>
-          ) : null}
-        </div>
-        <div>
-          <Label htmlFor="measure-weight">Weight (kg)</Label>
+        </Field>
+        <Field id="measure-weight" label="Weight (kg)" error={weightError ?? undefined}>
           <Input
             id="measure-weight"
             inputMode="decimal"
@@ -49,19 +43,12 @@ export function MeasurementForm() {
             onChange={(e) => setWeight(e.target.value)}
             onBlur={blurWeight}
             placeholder="e.g. 78"
-            aria-invalid={weightError ? "true" : undefined}
-            className={cn(weightError && "border-destructive")}
+            aria-invalid={weightError ? true : undefined}
+            aria-describedby={weightError ? "measure-weight-error" : undefined}
           />
-          {weightError ? (
-            <p className="mt-1 text-meta text-destructive">{weightError}</p>
-          ) : null}
-        </div>
-        <Button
-          type="submit"
-          className="col-span-2"
-          disabled={pending}
-        >
-          {pending ? "Logging..." : "Log"}
+        </Field>
+        <Button type="submit" className="col-span-2" pending={pending}>
+          Log measurement
         </Button>
       </form>
     </Surface>

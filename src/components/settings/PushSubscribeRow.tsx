@@ -12,7 +12,7 @@ export function PushSubscribeRow() {
   if (!supported) return null;
 
   return (
-    <ListGroup>
+    <ListGroup label="Notifications" enterIndex={4}>
       <ListRow
         icon={Bell}
         label="Push notifications"

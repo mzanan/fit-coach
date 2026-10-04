@@ -55,7 +55,7 @@ export function Stat({
         <p
           className={cn(
             "mt-auto flex items-center gap-0.5 pt-1 text-meta",
-            good === true ? "text-foreground" : "text-brand",
+            good === true ? "text-brand-ink" : "text-muted-foreground",
           )}
         >
           {rising ? (

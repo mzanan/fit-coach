@@ -13,7 +13,8 @@ export function TextRulesForm({
   action,
   maxLength,
   rows,
-  minHeightClass,
+  size,
+  mono,
   placeholder,
   ariaLabel,
   savedMessage,
@@ -26,7 +27,8 @@ export function TextRulesForm({
   action: (input: { rules: string }) => Promise<unknown>;
   maxLength: number;
   rows: number;
-  minHeightClass: string;
+  size?: "md" | "editor";
+  mono?: boolean;
   placeholder: string;
   ariaLabel: string;
   savedMessage: string;
@@ -46,13 +48,12 @@ export function TextRulesForm({
   }
 
   return (
-    <Surface className="p-card">
+    <Surface>
       <form
         onSubmit={(e) => {
           e.preventDefault();
           save(rules);
         }}
-        className="space-y-card"
       >
         <Textarea
           value={rules}
@@ -60,12 +61,16 @@ export function TextRulesForm({
           placeholder={placeholder}
           rows={rows}
           maxLength={maxLength}
-          className={`${minHeightClass} font-mono text-meta`}
+          size={size}
+          mono={mono}
           aria-label={ariaLabel}
         />
-        <div className="flex items-center gap-2">
-          <Button type="submit" disabled={pending}>
-            {pending ? "Saving..." : "Save rules"}
+        <p className="mt-1.5 text-right text-meta text-faint num">
+          {rules.length.toLocaleString()} / {maxLength.toLocaleString()} chars
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button type="submit" pending={pending}>
+            Save rules
           </Button>
           {initial ? (
             <Button
@@ -77,9 +82,6 @@ export function TextRulesForm({
               {resetLabel}
             </Button>
           ) : null}
-          <span className="ml-auto text-meta text-muted-foreground">
-            {rules.length.toLocaleString()} / {maxLength.toLocaleString()} chars
-          </span>
         </div>
       </form>
 

@@ -17,7 +17,7 @@ export function CookieConsent() {
       aria-label="Cookie consent"
       level="raised"
       radius="xl"
-      className="bottom-consent fixed inset-x-gutter z-40 flex animate-in flex-col gap-3 p-card duration-(--dur-slow) ease-(--ease-out-soft) fade-in slide-in-from-bottom-2 motion-reduce:animate-none md:right-gutter md:left-auto md:max-w-sm"
+      className="bottom-consent fixed inset-x-gutter z-40 flex animate-in flex-col gap-3 duration-(--dur-slow) ease-(--ease-out-soft) fade-in slide-in-from-bottom-2 motion-reduce:animate-none md:right-gutter md:left-auto md:max-w-sm"
     >
       <p className="text-meta text-muted-foreground">
         We use first-party cookies for analytics and text-masked session replay,

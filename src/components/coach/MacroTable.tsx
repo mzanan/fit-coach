@@ -22,7 +22,7 @@ function Row({ line, unit }: { line: MacroLine; unit: string }) {
         {unit}
       </span>
       <span
-        className={`num text-right ${remaining < 0 ? "text-brand" : "text-muted-foreground"}`}
+        className={`num text-right ${remaining < 0 ? "text-brand-ink" : "text-muted-foreground"}`}
       >
         {remaining < 0 ? `+${Math.abs(remaining)}` : remaining}
         {unit}
@@ -42,7 +42,7 @@ export function MacroTable({
     .filter((line): line is MacroLine => Boolean(line));
 
   return (
-    <Surface level="flat" radius="lg" className="p-3">
+    <Surface level="flat" radius="lg" pad="tight">
       <div className="grid grid-cols-4 gap-2 text-eyebrow text-faint">
         <span>Macro</span>
         <span className="text-right">Now</span>

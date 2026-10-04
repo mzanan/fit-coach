@@ -4,12 +4,15 @@
 
 ## Features
 
-- Meal logging with live macros versus daily targets.
-- Training log and body metrics over time.
+- Meal logging in a few taps from saved meals, recents or a bowl builder, with live macros versus daily targets and separate gym/rest day carb targets.
+- Workout logging with a weekly routine, animated demos from a 1,300+ exercise catalog and per-side weight.
+- Body composition: InBody result-sheet import from a photo, weight and waist tracking.
 - AI coach with memory of your own history that advises like a nutritionist and strength coach, without alarmist messages.
+- Bring your own AI provider key; Markdown history import; JSON backup and restore.
 - Installable PWA with push notifications.
 
 ## Links
 
+- [Home](https://coach.itsmatias.com/)
 - [Sign in](https://coach.itsmatias.com/login)
 - Built by [Matias Zanan](https://itsmatias.com), contact: hello@itsmatias.com

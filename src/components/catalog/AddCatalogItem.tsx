@@ -6,6 +6,7 @@ import { useState } from "react";
 import { CatalogForm } from "@/components/catalog/CatalogForm";
 import { ResponsiveDialog } from "@/components/ui/ResponsiveDialog";
 import { Button } from "@/components/ui/Button";
+import { Fab } from "@/components/ui/Fab";
 import { createCatalogItem } from "@/lib/actions/catalog";
 import { hasMacros } from "@/lib/macros";
 import { useAction } from "@/hooks/useAction";
@@ -21,14 +22,9 @@ export function AddCatalogItem({
   return (
     <>
       {variant === "fab" ? (
-        <Button
-          size="icon"
-          aria-label="Add catalog item"
-          className="fixed right-gutter bottom-[calc(var(--spacing-nav)+env(safe-area-inset-bottom)+var(--spacing-tight))] z-40 size-14 rounded-full shadow-raised md:hidden"
-          onClick={() => setOpen(true)}
-        >
+        <Fab aria-label="Add to catalog" onClick={() => setOpen(true)}>
           <Plus className="size-6" />
-        </Button>
+        </Fab>
       ) : (
         <Button size="md" onClick={() => setOpen(true)}>
           <Plus className="size-[18px]" strokeWidth={1.5} />

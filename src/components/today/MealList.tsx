@@ -15,12 +15,12 @@ export function MealList({ meals }: { meals: Meal[] }) {
   }
 
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-tight">
       {MEAL_CATEGORIES.map((cat) => {
         const rows = meals.filter((m) => m.category === cat.key);
         if (rows.length === 0) return null;
         return (
-          <Surface key={cat.key} className="px-5 pt-4 pb-1">
+          <Surface key={cat.key} pad="none" className="px-5 pt-4 pb-1">
             <p className="eyebrow">{cat.label}</p>
             <div className="mt-1">
               {rows.map((m) => (

@@ -8,6 +8,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input, Label } from "@/components/ui/Input";
 import { Segmented } from "@/components/ui/Segmented";
+import { Surface } from "@/components/ui/Surface";
 import { ToggleChip } from "@/components/ui/ToggleChip";
 import { RoutineExerciseList } from "@/components/routine/RoutineExerciseList";
 import { useRoutineSlot } from "@/components/routine/useRoutineSlot";
@@ -55,11 +56,13 @@ export function RoutineScreen({
       <Segmented
         ariaLabel="Weekday"
         options={WEEKDAY_OPTIONS}
+        size="lg"
+        markerValue={String(todayWeekday)}
         value={String(weekday)}
         onChange={(v) => setWeekday(Number(v))}
       />
 
-      <div>
+      <Surface>
         <Label htmlFor="routine-label">Split label</Label>
         <div className="flex gap-2">
           <Input
@@ -85,18 +88,19 @@ export function RoutineScreen({
           ))}
         </div>
         {slot ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mt-2 text-destructive"
-            disabled={pending}
-            onClick={() => setConfirmOpen(true)}
-          >
-            <Trash2 className="size-4" />
-            Remove this day
-          </Button>
+          <div className="mt-3 flex justify-end border-t border-border pt-3">
+            <Button
+              variant="danger"
+              size="sm"
+              disabled={pending}
+              onClick={() => setConfirmOpen(true)}
+            >
+              <Trash2 className="size-[18px]" />
+              Remove this day
+            </Button>
+          </div>
         ) : null}
-      </div>
+      </Surface>
 
       {slot ? (
         <RoutineExerciseList label={slot.label} exercises={exercises} />

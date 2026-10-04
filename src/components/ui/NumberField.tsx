@@ -1,6 +1,6 @@
 "use client";
 
-import { Input, Label } from "@/components/ui/Input";
+import { Field, Input } from "@/components/ui/Input";
 
 export function NumberField({
   id,
@@ -10,6 +10,8 @@ export function NumberField({
   min = 0,
   step,
   placeholder,
+  hint,
+  error,
 }: {
   id: string;
   label: string;
@@ -18,10 +20,11 @@ export function NumberField({
   min?: number;
   step?: number;
   placeholder?: string;
+  hint?: string;
+  error?: string;
 }) {
   return (
-    <div>
-      <Label htmlFor={id}>{label}</Label>
+    <Field id={id} label={label} hint={hint} error={error}>
       <Input
         id={id}
         type="number"
@@ -30,8 +33,10 @@ export function NumberField({
         step={step}
         value={value}
         placeholder={placeholder}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
         onChange={(e) => onChange(e.target.value)}
       />
-    </div>
+    </Field>
   );
 }

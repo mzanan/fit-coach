@@ -64,7 +64,7 @@ export function RoutineExerciseList({
       )}
 
       <Button variant="outline" size="md" className="w-full" onClick={openAdd}>
-        <Plus className="size-4" />
+        <Plus className="size-[18px]" />
         Add exercise
       </Button>
 

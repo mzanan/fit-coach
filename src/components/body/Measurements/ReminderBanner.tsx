@@ -1,14 +1,21 @@
 import { AlertCircle, Clock } from "lucide-react";
 
 import { Surface } from "@/components/ui/Surface";
+import { formatDayLabel } from "@/lib/dates";
 import type { ReminderItem } from "@/lib/reminders";
 import { cn } from "@/lib/utils";
 
-export function ReminderBanner({ reminders }: { reminders: ReminderItem[] }) {
+export function ReminderBanner({
+  reminders,
+  today,
+}: {
+  reminders: ReminderItem[];
+  today: string;
+}) {
   if (reminders.length === 0) return null;
 
   return (
-    <Surface className="space-y-2 p-card">
+    <Surface className="space-y-2">
       {reminders.map((reminder) => {
         const overdue = reminder.status === "overdue";
         const Icon = overdue ? AlertCircle : Clock;
@@ -26,7 +33,7 @@ export function ReminderBanner({ reminders }: { reminders: ReminderItem[] }) {
             />
             <p className="text-meta text-muted-foreground">
               {reminder.label}{" "}
-              {overdue ? "is overdue" : `due ${reminder.due_day}`}
+              {overdue ? "is overdue" : `due ${formatDayLabel(reminder.due_day, today)}`}
             </p>
           </div>
         );

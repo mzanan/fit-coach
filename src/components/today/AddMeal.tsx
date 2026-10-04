@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ResponsiveDialog } from "@/components/ui/ResponsiveDialog";
 import { Button } from "@/components/ui/Button";
 import { ChipRow } from "@/components/ui/ChipRow";
+import { Fab } from "@/components/ui/Fab";
 import { BowlBuilder } from "@/components/today/BowlBuilder";
 import { MealForm } from "@/components/today/MealForm";
 import { MealPicker } from "@/components/today/MealPicker";
@@ -93,14 +94,9 @@ export function AddMeal({
   return (
     <>
       {variant === "fab" ? (
-        <Button
-          size="icon"
-          aria-label="Add meal"
-          className="fixed right-gutter bottom-[calc(var(--spacing-nav)+var(--spacing-safe-b))] z-40 size-14 rounded-full shadow-raised md:hidden"
-          onClick={openSheet}
-        >
+        <Fab aria-label="Add meal" onClick={openSheet}>
           <Plus className="size-6" />
-        </Button>
+        </Fab>
       ) : (
         <Button size="md" onClick={openSheet}>
           <Plus className="size-[18px]" strokeWidth={1.5} />

@@ -1,5 +1,6 @@
 import { ActiveModelLabel } from "@/components/shell/ActiveModelLabel";
 import { UserMenu } from "@/components/shell/UserMenu";
+import { BrandMark } from "@/components/ui/BrandMark";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { AiCredential } from "@/lib/ai/aiCredentials";
 import { requireUser } from "@/lib/session";
@@ -21,9 +22,7 @@ export async function AppHeader({
         className,
       )}
     >
-      <span className="shrink-0 text-title font-medium tracking-(--tracking-snug)">
-        Fit Coach
-      </span>
+      <BrandMark href="/" size="sm" className="shrink-0" />
       <ActiveModelLabel
         credential={activeModel}
         className="min-w-0 flex-1 truncate text-right"

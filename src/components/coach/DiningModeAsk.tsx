@@ -15,7 +15,7 @@ export function DiningModeAsk() {
   }
 
   return (
-    <Surface className="mb-block p-card">
+    <Surface className="mb-block">
       <p className="text-body font-medium">One question before we start</p>
       <p className="mt-0.5 text-meta text-muted-foreground">
         Do you cook at home, or do you order from your saved catalog? The coach
