@@ -16,8 +16,9 @@ export function Segmented({
   options,
   value,
   onChange,
-  size = "md",
+  size = "lg",
   ariaLabel,
+  markerValue,
   className,
 }: {
   options: readonly SegmentedOption[];
@@ -25,13 +26,14 @@ export function Segmented({
   onChange: (value: string) => void;
   size?: keyof typeof SIZE;
   ariaLabel?: string;
+  markerValue?: string;
   className?: string;
 }) {
   return (
     <div
       role="group"
       aria-label={ariaLabel}
-      className={cn("flex gap-1 rounded-control bg-muted p-1", className)}
+      className={cn("flex gap-1 rounded-full bg-muted p-1", className)}
     >
       {options.map((o) => (
         <button
@@ -40,14 +42,20 @@ export function Segmented({
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "flex-1 rounded-control-inset px-2 py-1.5 text-meta font-medium transition-[background-color,color,box-shadow] duration-(--dur-fast) ease-(--ease-out-soft)",
+            "relative flex-1 rounded-full px-3 py-1.5 text-meta font-medium transition-[background-color,color,box-shadow] duration-(--dur-fast) ease-(--ease-out-soft)",
             SIZE[size],
             value === o.value
-              ? "bg-card text-foreground shadow-sm"
-              : "text-muted-foreground",
+              ? "bg-segment-active text-foreground shadow-card"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           {o.label}
+          {markerValue === o.value ? (
+            <span
+              aria-hidden
+              className="absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-brand"
+            />
+          ) : null}
         </button>
       ))}
     </div>

@@ -55,7 +55,7 @@ export function AiEventsList({
   }
 
   return (
-    <Surface radius="xl" className="divide-y divide-border overflow-hidden">
+    <Surface list>
       {events.map((event) => {
         const detail = eventDetailText(event);
         return (

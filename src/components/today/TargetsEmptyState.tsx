@@ -5,7 +5,7 @@ import { Surface } from "@/components/ui/Surface";
 
 export function TargetsEmptyState() {
   return (
-    <Surface level="raised" className="p-5 text-center">
+    <Surface level="raised" className="text-center">
       <p className="eyebrow">Targets</p>
       <p className="mt-2 text-title font-medium tracking-(--tracking-snug)">
         No targets yet

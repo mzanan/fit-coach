@@ -1,5 +1,7 @@
+import { FileText } from "lucide-react";
+
 import { Button } from "@/components/ui/Button";
-import { Surface } from "@/components/ui/Surface";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export function ImportEmpty({
   warnings,
@@ -9,11 +11,16 @@ export function ImportEmpty({
   onBack: () => void;
 }) {
   return (
-    <Surface level="sunken" className="px-6 py-10 text-center">
-      <p className="text-body">Nothing to import</p>
-      <p className="mx-auto mt-1.5 max-w-[32ch] text-meta text-muted-foreground">
-        No days, meals or workouts were found in that log.
-      </p>
+    <EmptyState
+      icon={FileText}
+      title="Nothing to import"
+      body="No days, meals or workouts were found in that log."
+      action={
+        <Button variant="outline" onClick={onBack}>
+          Back
+        </Button>
+      }
+    >
       {warnings.length ? (
         <ul className="mx-auto mt-card max-w-[52ch] space-y-1 text-left text-meta text-muted-foreground">
           {warnings.map((w, i) => (
@@ -21,9 +28,6 @@ export function ImportEmpty({
           ))}
         </ul>
       ) : null}
-      <Button variant="outline" className="mt-5" onClick={onBack}>
-        Back
-      </Button>
-    </Surface>
+    </EmptyState>
   );
 }

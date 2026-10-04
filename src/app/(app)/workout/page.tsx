@@ -55,16 +55,14 @@ export default async function WorkoutPage() {
       }
       action={workout ? <DeleteWorkoutButton workoutId={workout.id} /> : null}
     >
-      <div className="space-y-block">
-        <WorkoutScreen
-          workout={workout}
-          day={day}
-          history={history}
-          historyAvailable={historyAvailable}
-          suggestedSplit={suggestedSplit}
-          routine={routine}
-        />
-      </div>
+      <WorkoutScreen
+        workout={workout}
+        day={day}
+        history={history}
+        historyAvailable={historyAvailable}
+        suggestedSplit={suggestedSplit}
+        routine={routine}
+      />
     </Page>
   );
 }

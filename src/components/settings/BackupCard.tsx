@@ -66,7 +66,7 @@ export function BackupCard() {
 
   return (
     <>
-      <Surface className="p-card">
+      <Surface>
         <p className="text-title font-medium tracking-(--tracking-snug)">Export</p>
         <p className="mt-1 text-meta text-muted-foreground">
           Downloads meals, workouts, scans and catalog as one file.
@@ -82,7 +82,7 @@ export function BackupCard() {
         </Button>
       </Surface>
 
-      <Surface className="mt-card p-card">
+      <Surface className="mt-card">
         <p className="text-title font-medium tracking-(--tracking-snug)">Restore</p>
         <p className="mt-1 text-meta text-muted-foreground">
           Replaces everything currently in this account.

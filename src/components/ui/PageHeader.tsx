@@ -34,7 +34,7 @@ export function PageHeader({
         </Button>
       ) : null}
       <div className={cn(backHref && "pt-1.5")}>
-        <h1 className="text-h1 font-medium tracking-(--tracking-snug)">{title}</h1>
+        <h1 className="text-h1 font-semibold">{title}</h1>
         {description ? (
           <p className="mt-1 text-meta text-muted-foreground">{description}</p>
         ) : null}

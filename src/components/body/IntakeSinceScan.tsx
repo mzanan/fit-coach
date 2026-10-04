@@ -17,7 +17,7 @@ export function IntakeSinceScan({
   const hasKcalTarget = adherence.kcalTarget != null;
 
   return (
-    <Surface className="p-5">
+    <Surface>
       <div className="flex items-baseline justify-between">
         <h2 className="text-title font-medium tracking-(--tracking-snug)">
           {title}

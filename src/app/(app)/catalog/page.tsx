@@ -13,6 +13,7 @@ export default async function CatalogPage() {
   return (
     <Page
       title="Catalog"
+      fab
       description={
         catalog.length === 1 ? "1 saved meal" : `${catalog.length} saved meals`
       }

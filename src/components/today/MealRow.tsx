@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { ResponsiveDialog } from "@/components/ui/ResponsiveDialog";
@@ -19,8 +19,13 @@ export function MealRow({ meal }: { meal: Meal }) {
   const { pending, run } = useAction();
 
   return (
-    <div className="flex items-center gap-3 border-b border-border py-3.5 last:border-b-0">
-      <div className="min-w-0 flex-1">
+    <div className="flex items-center gap-1 border-b border-border py-1 last:border-b-0">
+      <button
+        type="button"
+        aria-label={`Edit ${meal.name}`}
+        onClick={() => setEditing(true)}
+        className="min-h-14 min-w-0 flex-1 rounded-control py-2.5 text-left transition-colors active:bg-overlay"
+      >
         <div className="flex items-center gap-2">
           <span className="truncate text-body font-medium">{meal.name}</span>
           {meal.fat_quality === "clean" ? (
@@ -33,26 +38,16 @@ export function MealRow({ meal }: { meal: Meal }) {
           <p className="mt-0.5 text-meta text-faint">{meal.place}</p>
         ) : null}
         <MacroChips macros={meal} className="mt-1.5" />
-      </div>
-      <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Edit"
-          onClick={() => setEditing(true)}
-        >
-          <Pencil className="size-[18px]" strokeWidth={1.5} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Delete"
-          disabled={pending}
-          onClick={() => setConfirming(true)}
-        >
-          <Trash2 className="size-[18px]" strokeWidth={1.5} />
-        </Button>
-      </div>
+      </button>
+      <Button
+        variant="danger"
+        size="icon"
+        aria-label={`Delete ${meal.name}`}
+        disabled={pending}
+        onClick={() => setConfirming(true)}
+      >
+        <Trash2 className="size-[18px]" strokeWidth={1.5} />
+      </Button>
 
       <ConfirmDialog
         open={confirming}

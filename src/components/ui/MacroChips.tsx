@@ -5,19 +5,28 @@ import {
   known,
   type PartialMacros,
 } from "@/lib/macros";
+import { MACRO_TONE, type MacroKey } from "@/components/ui/macroTone";
 import { cn } from "@/lib/utils";
 
 function Value({
   n,
   unit,
+  tone,
 }: {
   n: number | null | undefined;
   unit: string;
+  tone: MacroKey;
 }) {
   return (
-    <span className={known(n) ? "text-foreground" : "text-faint"}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5",
+        known(n) ? "text-foreground" : "text-faint",
+      )}
+    >
+      <span aria-hidden className={cn("size-1.5 rounded-full", MACRO_TONE[tone].dot)} />
       <span className="num">{known(n) ? Math.round(n) : "?"}</span>
-      <span className="ml-0.5 font-sans text-faint">{unit}</span>
+      <span className="-ml-1 font-sans text-faint">{unit}</span>
     </span>
   );
 }
@@ -39,11 +48,11 @@ export function MacroChips({
 
   return (
     <div
-      className={cn("flex flex-wrap items-center gap-x-2.5 text-meta", className)}
+      className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 text-meta", className)}
     >
-      <Value n={macros.protein_g} unit="P" />
-      <Value n={macros.carbs_g} unit="C" />
-      <Value n={macros.fat_g} unit="F" />
+      <Value n={macros.protein_g} unit="P" tone="protein" />
+      <Value n={macros.carbs_g} unit="C" tone="carbs" />
+      <Value n={macros.fat_g} unit="F" tone="fat" />
       {hasMacros(macros) ? (
         <span className="text-faint">
           <span className="num">{Math.round(kcalOf(macros))}</span>

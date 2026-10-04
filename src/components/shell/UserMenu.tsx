@@ -1,18 +1,21 @@
 "use client";
 
-import { Dumbbell, LogOut, Settings, UtensilsCrossed } from "lucide-react";
+import { CalendarDays, LogOut, Settings, UtensilsCrossed } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { DropdownMenu } from "radix-ui";
 import { useState } from "react";
 
+import {
+  MenuContent,
+  MenuItem,
+  MenuRoot,
+  MenuSeparator,
+  MenuTrigger,
+} from "@/components/ui/Menu";
 import { authClient } from "@/lib/authClient";
 import { resetAnalytics } from "@/lib/consent";
 import { cn } from "@/lib/utils";
-
-const ITEM =
-  "flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-control px-3 text-body outline-none transition-colors duration-(--dur-fast) focus-visible:bg-accent data-[highlighted]:bg-accent";
 
 export function UserMenu({
   email,
@@ -64,9 +67,9 @@ export function UserMenu({
   }
 
   return (
-    <DropdownMenu.Root>
+    <MenuRoot>
       {variant === "rail" ? (
-        <DropdownMenu.Trigger
+        <MenuTrigger
           aria-label="Account menu"
           className="flex min-h-12 min-w-0 flex-1 items-center gap-2.5 rounded-control px-2 text-left outline-none transition-colors duration-(--dur-fast) hover:bg-overlay focus-visible:ring-2 focus-visible:ring-ring"
         >
@@ -81,65 +84,61 @@ export function UserMenu({
               </span>
             ) : null}
           </span>
-        </DropdownMenu.Trigger>
+        </MenuTrigger>
       ) : (
-        <DropdownMenu.Trigger
+        <MenuTrigger
           aria-label="Account menu"
-          className="rounded-full outline-none transition-colors duration-(--dur-fast) focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex size-11 items-center justify-center rounded-full outline-none transition-colors duration-(--dur-fast) focus-visible:ring-2 focus-visible:ring-ring"
         >
           {avatar(36)}
-        </DropdownMenu.Trigger>
+        </MenuTrigger>
       )}
 
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align={variant === "rail" ? "start" : "end"}
-          side={variant === "rail" ? "top" : "bottom"}
-          sideOffset={8}
-          className="z-50 min-w-56 rounded-xl border border-border bg-popover p-1.5 shadow-raised"
+      <MenuContent
+        align={variant === "rail" ? "start" : "end"}
+        side={variant === "rail" ? "top" : "bottom"}
+      >
+        {variant === "rail" ? null : (
+          <>
+            <div className="px-3 py-2">
+              {name ? <p className="text-body font-medium">{name}</p> : null}
+              <p className="truncate text-meta text-muted-foreground">
+                {email}
+              </p>
+            </div>
+            <MenuSeparator />
+            <MenuItem asChild>
+              <Link href="/catalog">
+                <UtensilsCrossed className="size-[18px]" strokeWidth={1.5} />
+                Catalog
+              </Link>
+            </MenuItem>
+            <MenuItem asChild>
+              <Link href="/routine">
+                <CalendarDays className="size-[18px]" strokeWidth={1.5} />
+                Routine
+              </Link>
+            </MenuItem>
+            <MenuItem asChild>
+              <Link href="/settings">
+                <Settings className="size-[18px]" strokeWidth={1.5} />
+                Settings
+              </Link>
+            </MenuItem>
+          </>
+        )}
+        <MenuItem
+          disabled={busy}
+          onSelect={(e) => {
+            e.preventDefault();
+            void signOut();
+          }}
+          className="text-destructive"
         >
-          {variant === "rail" ? null : (
-            <>
-              <div className="px-3 py-2">
-                {name ? <p className="text-body font-medium">{name}</p> : null}
-                <p className="truncate text-meta text-muted-foreground">
-                  {email}
-                </p>
-              </div>
-              <div className="my-1 h-px bg-border" />
-              <DropdownMenu.Item asChild>
-                <Link href="/catalog" className={ITEM}>
-                  <UtensilsCrossed className="size-[18px]" strokeWidth={1.5} />
-                  Catalog
-                </Link>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item asChild>
-                <Link href="/routine" className={ITEM}>
-                  <Dumbbell className="size-[18px]" strokeWidth={1.5} />
-                  Routine
-                </Link>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item asChild>
-                <Link href="/settings" className={ITEM}>
-                  <Settings className="size-[18px]" strokeWidth={1.5} />
-                  Settings
-                </Link>
-              </DropdownMenu.Item>
-            </>
-          )}
-          <DropdownMenu.Item
-            disabled={busy}
-            onSelect={(e) => {
-              e.preventDefault();
-              void signOut();
-            }}
-            className={cn(ITEM, "text-destructive")}
-          >
-            <LogOut className="size-[18px]" strokeWidth={1.5} />
-            Sign out
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+          <LogOut className="size-[18px]" strokeWidth={1.5} />
+          Sign out
+        </MenuItem>
+      </MenuContent>
+    </MenuRoot>
   );
 }

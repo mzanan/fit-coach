@@ -29,6 +29,12 @@ const eslintConfig = defineConfig([
           message:
             'Inline solid button/anchor styling, reuse <Pill variant="solid"> (@/components/ui/Pill) instead of hand-written bg-white rounded-full classes.',
         },
+        {
+          selector:
+            "JSXOpeningElement[name.name=/^(Surface|Button|Input|Textarea|ToggleChip|Pill)$/] > JSXAttribute[name.name='className'] Literal[value=/(^|\\s)(rounded-|p-(\\d|card))/]",
+          message:
+            "Use the primitive's radius/pad/size props instead of overriding rounded-* or p-* in className.",
+        },
       ],
     },
   },

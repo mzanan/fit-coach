@@ -1,5 +1,6 @@
 import {
   Activity,
+  CalendarDays,
   Dumbbell,
   Home,
   MessageCircle,
@@ -25,6 +26,7 @@ export const NAV_TABS: NavTab[] = [
 export const SIDE_NAV_ITEMS: NavTab[] = [
   { href: "/", label: "Today", icon: Home },
   { href: "/workout", label: "Workout", icon: Dumbbell },
+  { href: "/routine", label: "Routine", icon: CalendarDays },
   { href: "/body", label: "Body", icon: Activity },
   { href: "/coach", label: "Coach", icon: MessageCircle },
   { href: "/catalog", label: "Catalog", icon: UtensilsCrossed },

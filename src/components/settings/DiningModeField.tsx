@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 import { Segmented } from "@/components/ui/Segmented";
-import { Surface } from "@/components/ui/Surface";
 import { updateDiningMode } from "@/lib/actions/profile";
 import { useAction } from "@/hooks/useAction";
 
@@ -17,7 +16,7 @@ export function DiningModeField({ initial }: { initial: string | null }) {
   const [mode, setMode] = useState(initial ?? "");
 
   return (
-    <Surface className="p-card">
+    <div>
       <p className="text-body font-medium">Kitchen</p>
       <p className="mt-0.5 mb-card text-meta text-muted-foreground">
         Whether the coach may suggest cooking, or must stay inside your
@@ -35,6 +34,6 @@ export function DiningModeField({ initial }: { initial: string | null }) {
           });
         }}
       />
-    </Surface>
+    </div>
   );
 }

@@ -15,7 +15,7 @@ export function ImportProgress({
 }) {
   return (
     <div className="space-y-card">
-      <Surface level="raised" className="p-card">
+      <Surface level="raised">
         <div className="flex items-center gap-2">
           <Spinner />
           <p className="eyebrow">Reading the log</p>
@@ -24,10 +24,7 @@ export function ImportProgress({
           {progress ?? "Starting"}
         </p>
         <p className="mt-1 text-meta text-muted-foreground">
-          Each part is one call to your model, and a free tier can rate limit
-          them, so a long log takes minutes. The run keeps going on the server
-          if you leave, and this page picks it up again when you come back.
-          Nothing is saved until you confirm the review.
+          Each part is one call to your model, so a long log can take minutes on a free tier. You can leave; the run continues and resumes here. Nothing is saved until you confirm.
         </p>
         <Button variant="outline" className="mt-card" onClick={onCancel}>
           Cancel

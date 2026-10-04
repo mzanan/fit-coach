@@ -22,7 +22,7 @@ export function InbodyGuidance({
       : null;
 
   return (
-    <Surface className="p-5">
+    <Surface>
       <h2 className="text-title font-medium tracking-(--tracking-snug)">
         What InBody suggests
       </h2>

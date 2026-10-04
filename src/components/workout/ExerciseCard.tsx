@@ -17,6 +17,7 @@ import { normalizeSearch } from "@/lib/search";
 import { beatsLast, formatSet, formatSetLine, topSet } from "@/lib/workoutHistory";
 import { useAction } from "@/hooks/useAction";
 import { cn } from "@/lib/utils";
+import { staggerDelay } from "@/lib/motion";
 
 export function ExerciseCard({
   exercise,
@@ -50,10 +51,9 @@ export function ExerciseCard({
 
   return (
     <Surface
-      level="flat"
-      radius="xl"
+      pad="none"
       className="animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards px-card py-4 duration-(--dur-base) ease-(--ease-out-soft) md:p-5"
-      style={{ animationDelay: `${Math.min(index, 6) * 70}ms` }}
+      style={staggerDelay(index)}
     >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">

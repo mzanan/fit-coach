@@ -3,10 +3,36 @@ import { extendTailwindMerge } from "tailwind-merge";
 
 const twMerge = extendTailwindMerge({
   extend: {
+    theme: {
+      spacing: [
+        "tight",
+        "card",
+        "card-compact",
+        "block",
+        "section",
+        "nav",
+        "gutter",
+        "rail",
+        "fab",
+        "fab-clear",
+        "safe-b",
+        "caption",
+      ],
+    },
     classGroups: {
       "font-size": [
         {
-          text: ["hero", "h1", "metric", "title", "body", "meta", "eyebrow"],
+          text: [
+            "display",
+            "hero",
+            "h1",
+            "metric",
+            "title",
+            "input",
+            "body",
+            "meta",
+            "eyebrow",
+          ],
         },
       ],
     },

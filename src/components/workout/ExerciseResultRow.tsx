@@ -7,6 +7,7 @@ import { MediaPlate } from "@/components/ui/MediaPlate";
 import { Spinner } from "@/components/ui/Spinner";
 import type { ExerciseCatalogOption } from "@/lib/data/exerciseCatalog";
 import { exerciseGifUrl, formatExerciseMeta } from "@/lib/exercises";
+import { staggerDelay } from "@/lib/motion";
 
 export function ExerciseResultRow({
   exercise,
@@ -27,7 +28,7 @@ export function ExerciseResultRow({
     <li
       className="animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards flex items-center gap-3 py-3"
       style={{
-        animationDelay: `${Math.min(index, 7) * 40}ms`,
+        ...staggerDelay(index, "--stagger-dense", 7),
         animationDuration: "var(--dur-base)",
       }}
     >

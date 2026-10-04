@@ -7,6 +7,7 @@ const surface = cva("border border-border", {
     level: {
       flat: "bg-card surface-edge",
       raised: "bg-card surface-edge-raised",
+      hero: "bg-card surface-edge-raised surface-hero",
       sunken: "bg-well shadow-inset",
     },
     radius: {
@@ -14,16 +15,40 @@ const surface = cva("border border-border", {
       lg: "rounded-lg",
       xl: "rounded-xl",
     },
+    pad: {
+      none: "",
+      inset: "p-2",
+      tight: "p-tight",
+      compact: "p-card-compact",
+      default: "p-card",
+    },
+    list: {
+      true: "divide-y divide-border overflow-hidden",
+      false: "",
+    },
   },
-  defaultVariants: { level: "flat", radius: "xl" },
+  defaultVariants: { level: "flat", radius: "xl", pad: "default", list: false },
 });
 
 export interface SurfaceProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof surface> {}
 
-export function Surface({ className, level, radius, ...props }: SurfaceProps) {
+export function Surface({
+  className,
+  level,
+  radius,
+  pad,
+  list,
+  ...props
+}: SurfaceProps) {
   return (
-    <div className={cn(surface({ level, radius }), className)} {...props} />
+    <div
+      className={cn(
+        surface({ level, radius, pad: list ? "none" : pad, list }),
+        className,
+      )}
+      {...props}
+    />
   );
 }

@@ -80,7 +80,7 @@ export function AiCard({
 
   return (
     <div className="space-y-block">
-      <Surface level="raised" className="relative p-card">
+      <Surface level="raised" className="relative">
         {setup.active ? (
           <Pill tone="brand" className="absolute top-4 right-4">
             {PROVIDER_LABEL[setup.active.provider]}
@@ -156,7 +156,8 @@ export function AiCard({
             />
             <Surface
               level="sunken"
-              className="mt-2 max-h-96 overflow-y-auto p-1.5"
+              pad="inset"
+              className="mt-2 max-h-96 overflow-y-auto"
             >
               {ai.visible.length ? (
                 <div className="space-y-0.5">

@@ -5,6 +5,7 @@ import { MacroOverview } from "@/components/today/MacroOverview";
 import { MealList } from "@/components/today/MealList";
 import { TargetsEmptyState } from "@/components/today/TargetsEmptyState";
 import { Page } from "@/components/ui/Page";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { ensureDay } from "@/lib/data/days";
 import { getCatalog } from "@/lib/data/catalog";
 import { getWeekDays } from "@/lib/data/days";
@@ -47,19 +48,18 @@ export default async function TodayPage({
     : [];
 
   return (
-    <Page>
-      <div className="space-y-7">
-        <DayNav day={day} today={today} isGymDay={dayData.isGymDay} />
-        {dayData.summary && dayData.targets ? (
-          <MacroOverview summary={dayData.summary} targets={dayData.targets} />
-        ) : (
-          <TargetsEmptyState />
-        )}
-        <div className="hidden items-center gap-3 md:flex">
-          <h2 className="text-title font-medium tracking-(--tracking-snug)">
-            Meals
-          </h2>
-          <div className="ml-auto">
+    <Page fab>
+      <DayNav day={day} today={today} isGymDay={dayData.isGymDay} />
+      {dayData.summary && dayData.targets ? (
+        <MacroOverview summary={dayData.summary} targets={dayData.targets} />
+      ) : (
+        <TargetsEmptyState />
+      )}
+      <div>
+        <SectionHeader
+          title="Meals"
+          className="hidden md:flex"
+          action={
             <AddMeal
               catalog={catalog}
               recents={recents}
@@ -69,25 +69,25 @@ export default async function TodayPage({
               isGymDay={dayData.isGymDay}
               variant="inline"
             />
-          </div>
-        </div>
+          }
+        />
         <MealList meals={dayData.meals} />
-        <CloseDay
-          day={day}
-          dayRow={dayData.dayRow}
-          weeklyStepsAvg={weeklyStepsAvg}
-          deviations={deviations}
-        />
-        <AddMeal
-          catalog={catalog}
-          recents={recents}
-          day={day}
-          today={today}
-          cfg={cfg}
-          isGymDay={dayData.isGymDay}
-          variant="fab"
-        />
       </div>
+      <CloseDay
+        day={day}
+        dayRow={dayData.dayRow}
+        weeklyStepsAvg={weeklyStepsAvg}
+        deviations={deviations}
+      />
+      <AddMeal
+        catalog={catalog}
+        recents={recents}
+        day={day}
+        today={today}
+        cfg={cfg}
+        isGymDay={dayData.isGymDay}
+        variant="fab"
+      />
     </Page>
   );
 }

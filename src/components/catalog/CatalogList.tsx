@@ -15,6 +15,7 @@ import { ResponsiveDialog } from "@/components/ui/ResponsiveDialog";
 import { StickyActions } from "@/components/ui/StickyActions";
 import { Surface } from "@/components/ui/Surface";
 import type { CatalogItemFull } from "@/lib/data/catalog";
+import { staggerDelay } from "@/lib/motion";
 
 function ClearCatalogDialog({
   open,
@@ -91,24 +92,7 @@ export function CatalogList({ items }: { items: CatalogItemFull[] }) {
   const selectedCount = selection.selected.size;
 
   return (
-    <>
-      <div className="flex items-center justify-end gap-2">
-        {selection.active ? (
-          <>
-            <Button variant="outline" size="sm" onClick={() => setClearOpen(true)}>
-              Clear catalog
-            </Button>
-            <Button variant="ghost" size="sm" onClick={selection.exit}>
-              Cancel
-            </Button>
-          </>
-        ) : (
-          <Button variant="outline" size="sm" onClick={selection.enter}>
-            Select
-          </Button>
-        )}
-      </div>
-
+    <div className="flex flex-col gap-card">
       {showToolbar ? (
         <CatalogToolbar
           query={query}
@@ -124,11 +108,37 @@ export function CatalogList({ items }: { items: CatalogItemFull[] }) {
         />
       ) : null}
 
-      {isFiltering && filtered.length > 0 ? (
-        <p role="status" aria-live="polite" className="text-meta text-muted-foreground">
-          Showing {filtered.length} of {items.length}
+      <div className="flex items-center justify-between">
+        <p
+          role="status"
+          aria-live="polite"
+          className="text-meta text-muted-foreground"
+        >
+          {isFiltering
+            ? `Showing ${filtered.length} of ${items.length}`
+            : `${items.length} saved`}
         </p>
-      ) : null}
+        <div className="flex items-center gap-2">
+          {selection.active ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setClearOpen(true)}
+              >
+                Clear catalog
+              </Button>
+              <Button variant="ghost" size="sm" onClick={selection.exit}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={selection.enter}>
+              Select
+            </Button>
+          )}
+        </div>
+      </div>
 
       {filtered.length === 0 ? (
         <EmptyState
@@ -148,7 +158,7 @@ export function CatalogList({ items }: { items: CatalogItemFull[] }) {
           }
         />
       ) : (
-        <Surface radius="xl" className="divide-y divide-border">
+        <Surface list>
           {filtered.map((item, i) => (
             <div
               key={item.id}
@@ -157,7 +167,7 @@ export function CatalogList({ items }: { items: CatalogItemFull[] }) {
                   ? "animate-in fade-in duration-(--dur-fast)"
                   : "animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards duration-(--dur-base) ease-(--ease-out-soft)"
               }
-              style={interactive ? undefined : { animationDelay: `${Math.min(i, 6) * 70}ms` }}
+              style={interactive ? undefined : staggerDelay(i)}
             >
               <CatalogItemRow
                 item={item}
@@ -218,6 +228,6 @@ export function CatalogList({ items }: { items: CatalogItemFull[] }) {
         pending={selection.pending}
         onClear={selection.clearAll}
       />
-    </>
+    </div>
   );
 }

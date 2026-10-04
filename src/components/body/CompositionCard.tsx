@@ -11,7 +11,7 @@ export function CompositionCard({ scan }: { scan: BodyScan }) {
   const other = usable ? Math.max(0, Math.round((lean - muscle) * 10) / 10) : 0;
 
   return (
-    <Surface className="p-5">
+    <Surface>
       <div className="flex items-baseline justify-between">
         <h2 className="text-title font-medium tracking-(--tracking-snug)">
           Composition

@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Nutrition and training tracking with an AI coach.",
     start_url: "/",
     display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#0f9b8e",
+    background_color: "#0f1114",
+    theme_color: "#0f1114",
     icons: [
       {
         src: "/icon.svg",

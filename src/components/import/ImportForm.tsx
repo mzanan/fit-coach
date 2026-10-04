@@ -38,7 +38,7 @@ export function ImportForm({
 
   return (
     <div className="space-y-card pb-2 md:pb-gutter">
-      <Surface className="p-card">
+      <Surface>
         <Label htmlFor="md-text">Markdown log</Label>
         <Textarea
           id="md-text"
@@ -108,7 +108,7 @@ export function ImportForm({
         />
       </Surface>
       {savedCount ? (
-        <Surface level="raised" className="p-card">
+        <Surface level="raised">
           <p className="eyebrow">Already extracted</p>
           <p className="mt-1 text-meta text-muted-foreground">
             {savedCount === 1

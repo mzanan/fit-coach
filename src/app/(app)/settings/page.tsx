@@ -1,5 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz";
 import {
+  CalendarDays,
   Database,
   FileText,
   MessageCircle,
@@ -7,6 +8,7 @@ import {
   Sparkles,
   Target,
   User,
+  UtensilsCrossed,
 } from "lucide-react";
 
 import { AnalyticsConsentRow } from "@/components/settings/AnalyticsConsentRow";
@@ -37,67 +39,75 @@ export default async function SettingsPage() {
 
   return (
     <Page title="Settings" description={user.email}>
-      <div className="space-y-block">
-        <ListGroup
-          label="Plan"
-          className="animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards duration-(--dur-slow) ease-(--ease-out-soft)"
-        >
-          <ListRow
-            href="/settings/targets"
-            icon={Target}
-            label="Macro targets"
-            value={targets ? `${Math.round(targets.calories_target)} kcal` : "Not set"}
-          />
-          <ListRow
-            href="/settings/profile"
-            icon={User}
-            label="Profile"
-            value={timezoneCity(profile.timezone)}
-          />
-          <ListRow
-            href="/settings/ai"
-            icon={Sparkles}
-            label="AI"
-            value={ai ? ai.model.split("/").pop() : "Not configured"}
-          />
-          <ListRow
-            href="/settings/coach"
-            icon={MessageCircle}
-            label="Coach rules"
-            value={profile.coach_rules ? "Yours" : "Built-in"}
-          />
-        </ListGroup>
+      <ListGroup label="Library" enterIndex={0}>
+        <ListRow href="/catalog" icon={UtensilsCrossed} label="Saved meals" />
+        <ListRow href="/routine" icon={CalendarDays} label="Weekly routine" />
+      </ListGroup>
 
-        <ListGroup
-          label="Data"
-          className="animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards delay-(--stagger-1) duration-(--dur-slow) ease-(--ease-out-soft)"
-        >
-          <ListRow
-            href="/settings/scan"
-            icon={ScanLine}
-            label="InBody scan"
-            value={
-              latestScan
-                ? formatInTimeZone(latestScan, profile.timezone, "d MMM")
-                : "No scans"
-            }
-          />
-          <ListRow
-            href="/settings/import"
-            icon={FileText}
-            label="Import from Markdown"
-          />
-          <ListRow href="/settings/backup" icon={Database} label="Backup" />
-        </ListGroup>
+      <ListGroup label="Plan" enterIndex={1}>
+        <ListRow
+          href="/settings/targets"
+          icon={Target}
+          label="Macro targets"
+          value={targets ? `${Math.round(targets.calories_target)} kcal` : "Not set"}
+        />
+        <ListRow
+          href="/settings/profile"
+          icon={User}
+          label="Profile"
+          value={timezoneCity(profile.timezone)}
+          hint="Body data and when your day rolls over"
+        />
+      </ListGroup>
 
-        <PushSubscribeRow />
+      <ListGroup label="Coach" enterIndex={2}>
+        <ListRow
+          href="/settings/ai"
+          icon={Sparkles}
+          label="AI model"
+          value={ai ? ai.model.split("/").pop() : "Not configured"}
+        />
+        <ListRow
+          href="/settings/coach"
+          icon={MessageCircle}
+          label="Coach rules"
+          value={profile.coach_rules ? "Yours" : "Built-in"}
+          hint="Method, kitchen, language, weekly summary"
+        />
+        <ListRow
+          href="/settings/import"
+          icon={FileText}
+          label="Import from Markdown"
+          hint="Turn notes into meals, workouts and rules"
+        />
+      </ListGroup>
 
-        <AnalyticsConsentRow />
+      <ListGroup label="Data" enterIndex={3}>
+        <ListRow
+          href="/settings/scan"
+          icon={ScanLine}
+          label="InBody scan"
+          value={
+            latestScan
+              ? formatInTimeZone(latestScan, profile.timezone, "d MMM")
+              : "No scans"
+          }
+        />
+        <ListRow
+          href="/settings/backup"
+          icon={Database}
+          label="Backup"
+          hint="Export or restore everything"
+        />
+      </ListGroup>
 
-        <ListGroup className="animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards delay-(--stagger-2) duration-(--dur-slow) ease-(--ease-out-soft)">
-          <SignOutButton />
-        </ListGroup>
-      </div>
+      <PushSubscribeRow />
+
+      <AnalyticsConsentRow />
+
+      <ListGroup enterIndex={5}>
+        <SignOutButton />
+      </ListGroup>
     </Page>
   );
 }

@@ -4,6 +4,7 @@ import { Check, X } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { ToggleChip } from "@/components/ui/ToggleChip";
 import { MacroChips } from "@/components/ui/MacroChips";
 import { Surface } from "@/components/ui/Surface";
 import {
@@ -37,7 +38,7 @@ import {
   scaledOption,
 } from "@/lib/approvalPreview";
 import type { DisplayOption, PreviewKind } from "@/lib/approvalPreview";
-import { cn, humanizeKey } from "@/lib/utils";
+import { humanizeKey } from "@/lib/utils";
 import { formatSetLine } from "@/lib/workoutHistory";
 
 interface MacroShape {
@@ -60,19 +61,14 @@ function SizePicker({
   return (
     <div className="flex flex-wrap gap-1.5 pt-1">
       {options.map((option) => (
-        <button
+        <ToggleChip
           key={option.id}
-          type="button"
-          onClick={() => onChoose(option.id)}
-          className={cn(
-            "rounded-control border px-2.5 py-1 text-meta transition-colors duration-(--dur-fast)",
-            option.id === chosenId
-              ? "border-ring bg-well text-foreground"
-              : "border-input text-muted-foreground hover:text-foreground",
-          )}
+          size="sm"
+          pressedState={option.id === chosenId}
+          onPressedChange={() => onChoose(option.id)}
         >
           {option.name}
-        </button>
+        </ToggleChip>
       ))}
     </div>
   );
@@ -285,7 +281,7 @@ export function ApprovalCard({
   const confirmLabel = confirmLabelFor(kinds);
 
   return (
-    <Surface level="raised" className="rounded-control p-4">
+    <Surface level="raised">
       <p className="text-meta text-muted-foreground">{prompt}</p>
       <div className="mt-3 space-y-4">
         {previews.map((preview, index) => {
@@ -338,10 +334,10 @@ export function ApprovalCard({
           );
         })}
       </div>
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 grid grid-cols-2 gap-2">
         <Button
           type="button"
-          size="sm"
+          size="md"
           disabled={busy}
           onClick={() =>
             onDecide(
@@ -355,7 +351,7 @@ export function ApprovalCard({
         </Button>
         <Button
           type="button"
-          size="sm"
+          size="md"
           variant="outline"
           disabled={busy}
           onClick={() => onDecide(false)}

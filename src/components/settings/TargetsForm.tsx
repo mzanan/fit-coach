@@ -46,7 +46,7 @@ export function TargetsForm({ profile }: { profile: Profile }) {
   }
 
   return (
-    <Surface className="p-card">
+    <Surface>
       <form onSubmit={submit} className="space-y-card">
         <div>
           <p className="eyebrow mb-1.5">Calories</p>
@@ -114,8 +114,8 @@ export function TargetsForm({ profile }: { profile: Profile }) {
             Min and max are the target band. Floor is the hard minimum.
           </p>
         </div>
-        <Button type="submit" size="lg" className="w-full" disabled={pending}>
-          {pending ? "Saving..." : hadTargets ? "Save targets" : "Set targets"}
+        <Button type="submit" size="lg" className="w-full" pending={pending}>
+          {hadTargets ? "Save targets" : "Set targets"}
         </Button>
       </form>
     </Surface>

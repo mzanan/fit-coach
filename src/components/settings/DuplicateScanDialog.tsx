@@ -37,7 +37,7 @@ export function DuplicateScanDialog({
     >
       {duplicate && (
         <div className="space-y-card">
-          <Surface level="sunken" className="grid grid-cols-2 gap-4 p-card">
+          <Surface level="sunken" className="grid grid-cols-2 gap-4">
             <div>
               <p className="eyebrow">Saved</p>
               <ul className="mt-2 space-y-1 text-meta text-muted-foreground">
