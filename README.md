@@ -15,6 +15,7 @@ Built mobile-first: the core loop is logging a meal from a personal catalog in a
 | Auth    | Better Auth: Google OAuth                                                             |
 | AI      | Vercel AI SDK v7, per-user BYOK across Groq / OpenRouter / Google / Experiential Labs |
 | Hosting | Vercel (`hnd1`, colocated with the Turso region)                                      |
+| Analytics | PostHog EU behind a first-party proxy, cookie consent with a cookieless fallback; `?notrack=1` excludes a browser |
 
 ## Running locally
 
