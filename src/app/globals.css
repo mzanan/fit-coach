@@ -99,6 +99,7 @@
   --spacing-consent-sticky: 5rem;
   --spacing-caption: 3.75rem;
   --spacing-rail: var(--rail-w);
+  --spacing-rail-collapsed: var(--rail-w-collapsed);
   --spacing-gutter: var(--gutter);
   --container-default: 52rem;
   --container-wide: 68rem;
@@ -212,6 +213,7 @@
   --safe-b: env(safe-area-inset-bottom);
   --consent-offset: var(--spacing-safe-b);
   --rail-w: 15rem;
+  --rail-w-collapsed: 5rem;
   --gutter: 1.25rem;
   --section-y: 4.5rem;
 }

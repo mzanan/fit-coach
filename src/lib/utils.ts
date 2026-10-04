@@ -13,6 +13,7 @@ const twMerge = extendTailwindMerge({
         "nav",
         "gutter",
         "rail",
+        "rail-collapsed",
         "fab",
         "fab-clear",
         "safe-b",

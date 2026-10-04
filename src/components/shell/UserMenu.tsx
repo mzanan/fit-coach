@@ -15,18 +15,15 @@ import {
 } from "@/components/ui/Menu";
 import { authClient } from "@/lib/authClient";
 import { resetAnalytics } from "@/lib/consent";
-import { cn } from "@/lib/utils";
 
 export function UserMenu({
   email,
   name,
   image,
-  variant = "header",
 }: {
   email: string;
   name: string | null;
   image: string | null;
-  variant?: "header" | "rail";
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -42,91 +39,63 @@ export function UserMenu({
     router.refresh();
   }
 
-  function avatar(size: 32 | 36) {
-    return (
-      <span
-        className={cn(
-          "flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-hairline-strong bg-surface-2 text-meta font-medium",
-          size === 32 ? "size-8" : "size-9",
-        )}
-      >
-        {image && !avatarFailed ? (
-          <Image
-            src={image}
-            alt=""
-            width={size}
-            height={size}
-            unoptimized
-            onError={() => setAvatarFailed(true)}
-          />
-        ) : (
-          initial
-        )}
-      </span>
-    );
-  }
-
   return (
     <MenuRoot>
-      {variant === "rail" ? (
-        <MenuTrigger
-          aria-label="Account menu"
-          className="flex min-h-12 min-w-0 flex-1 items-center gap-2.5 rounded-control px-2 text-left outline-none transition-colors duration-(--dur-fast) hover:bg-overlay focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {avatar(32)}
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-meta font-medium">
-              {name || email}
-            </span>
-            {name ? (
-              <span className="block truncate text-eyebrow text-muted-foreground">
-                {email}
-              </span>
-            ) : null}
-          </span>
-        </MenuTrigger>
-      ) : (
-        <MenuTrigger
-          aria-label="Account menu"
-          className="flex size-11 items-center justify-center rounded-full outline-none transition-colors duration-(--dur-fast) focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {avatar(36)}
-        </MenuTrigger>
-      )}
-
-      <MenuContent
-        align={variant === "rail" ? "start" : "end"}
-        side={variant === "rail" ? "top" : "bottom"}
+      <MenuTrigger
+        aria-label="Account menu"
+        className="flex size-11 items-center justify-center gap-2.5 rounded-full outline-none transition-colors duration-(--dur-fast) focus-visible:ring-2 focus-visible:ring-ring lg:size-auto lg:min-h-11 lg:max-w-64 lg:min-w-0 lg:rounded-control lg:px-2 lg:hover:bg-overlay"
       >
-        {variant === "rail" ? null : (
-          <>
-            <div className="px-3 py-2">
-              {name ? <p className="text-body font-medium">{name}</p> : null}
-              <p className="truncate text-meta text-muted-foreground">
-                {email}
-              </p>
-            </div>
-            <MenuSeparator />
-            <MenuItem asChild>
-              <Link href="/catalog">
-                <UtensilsCrossed className="size-[18px]" strokeWidth={1.5} />
-                Catalog
-              </Link>
-            </MenuItem>
-            <MenuItem asChild>
-              <Link href="/routine">
-                <CalendarDays className="size-[18px]" strokeWidth={1.5} />
-                Routine
-              </Link>
-            </MenuItem>
-            <MenuItem asChild>
-              <Link href="/settings">
-                <Settings className="size-[18px]" strokeWidth={1.5} />
-                Settings
-              </Link>
-            </MenuItem>
-          </>
-        )}
+        <span className="hidden min-w-0 flex-1 text-right lg:block">
+          <span className="block truncate text-meta font-medium">
+            {name || email}
+          </span>
+          {name ? (
+            <span className="block truncate text-eyebrow text-muted-foreground">
+              {email}
+            </span>
+          ) : null}
+        </span>
+        <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-hairline-strong bg-surface-2 text-meta font-medium lg:size-8">
+          {image && !avatarFailed ? (
+            <Image
+              src={image}
+              alt=""
+              width={36}
+              height={36}
+              unoptimized
+              className="size-full"
+              onError={() => setAvatarFailed(true)}
+            />
+          ) : (
+            initial
+          )}
+        </span>
+      </MenuTrigger>
+
+      <MenuContent align="end" side="bottom">
+        <div className="px-3 py-2 lg:hidden">
+          {name ? <p className="text-body font-medium">{name}</p> : null}
+          <p className="truncate text-meta text-muted-foreground">{email}</p>
+        </div>
+        <MenuSeparator className="lg:hidden" />
+        <MenuItem asChild className="md:hidden">
+          <Link href="/catalog">
+            <UtensilsCrossed className="size-[18px]" strokeWidth={1.5} />
+            Catalog
+          </Link>
+        </MenuItem>
+        <MenuItem asChild className="md:hidden">
+          <Link href="/routine">
+            <CalendarDays className="size-[18px]" strokeWidth={1.5} />
+            Routine
+          </Link>
+        </MenuItem>
+        <MenuItem asChild className="md:hidden">
+          <Link href="/settings">
+            <Settings className="size-[18px]" strokeWidth={1.5} />
+            Settings
+          </Link>
+        </MenuItem>
         <MenuItem
           disabled={busy}
           onSelect={(e) => {

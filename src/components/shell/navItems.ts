@@ -36,3 +36,7 @@ export const SIDE_NAV_ITEMS: NavTab[] = [
 export function isNavActive(pathname: string, href: string): boolean {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
+
+export function activeNavItem(pathname: string): NavTab | undefined {
+  return SIDE_NAV_ITEMS.find((item) => isNavActive(pathname, item.href));
+}

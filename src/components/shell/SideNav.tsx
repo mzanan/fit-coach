@@ -3,31 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { ActiveModelLabel } from "@/components/shell/ActiveModelLabel";
 import { SIDE_NAV_ITEMS, isNavActive } from "@/components/shell/navItems";
-import { UserMenu } from "@/components/shell/UserMenu";
+import { useRail } from "@/components/shell/useRail";
 import { BrandMark } from "@/components/ui/BrandMark";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import type { AiCredential } from "@/lib/ai/aiCredentials";
-import type { SessionUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-export function SideNav({
-  user,
-  activeModel,
-}: {
-  user: SessionUser;
-  activeModel: AiCredential | null;
-}) {
+export function SideNav() {
   const pathname = usePathname();
+  const { collapsed } = useRail();
   return (
-    <aside className="sticky top-0 hidden h-dvh w-rail shrink-0 flex-col border-r border-hairline bg-card/40 px-3 pt-gutter pb-4 md:flex">
-      <div className="px-2 pb-8">
-        <BrandMark href="/" />
-        <ActiveModelLabel
-          credential={activeModel}
-          className="mt-1 block truncate pl-[2.375rem]"
-        />
+    <aside
+      className={cn(
+        "sticky top-0 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-hairline bg-card/40 px-4 pb-4 whitespace-nowrap transition-[width] duration-(--dur-slow) ease-(--ease-in-out-soft) md:flex",
+        collapsed ? "w-rail-collapsed" : "w-rail",
+      )}
+    >
+      <div className="-mx-4 mb-6 flex h-nav shrink-0 items-center border-b border-hairline pl-6.5">
+        <BrandMark href="/" iconOnly={collapsed} />
       </div>
       <nav className="flex flex-col gap-1">
         {SIDE_NAV_ITEMS.map((tab) => {
@@ -38,29 +30,31 @@ export function SideNav({
               key={tab.href}
               href={tab.href}
               aria-current={active ? "page" : undefined}
+              title={collapsed ? tab.label : undefined}
               className={cn(
-                "flex min-h-11 items-center gap-3 rounded-full px-4 text-body font-medium transition-[background-color,color] duration-(--dur-base) ease-(--ease-out-soft)",
+                "flex h-12 items-center gap-3 overflow-hidden rounded-full px-3.5 text-body font-medium transition-[width,background-color,color] duration-(--dur-slow) ease-(--ease-in-out-soft)",
+                collapsed ? "w-12" : "w-full",
                 active
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-overlay hover:text-foreground",
               )}
             >
-              <Icon className="size-5" strokeWidth={active ? 2 : 1.5} />
-              {tab.label}
+              <Icon
+                className="size-5 shrink-0"
+                strokeWidth={active ? 2 : 1.5}
+              />
+              <span
+                className={cn(
+                  "transition-opacity duration-(--dur-base) ease-(--ease-in-out-soft)",
+                  collapsed && "opacity-0",
+                )}
+              >
+                {tab.label}
+              </span>
             </Link>
           );
         })}
       </nav>
-
-      <div className="mt-auto flex items-center gap-1 border-t border-hairline pt-3">
-        <UserMenu
-          variant="rail"
-          email={user.email}
-          name={user.name}
-          image={user.image}
-        />
-        <ThemeToggle />
-      </div>
     </aside>
   );
 }

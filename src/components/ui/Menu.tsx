@@ -33,10 +33,16 @@ export const MenuItem = forwardRef<
   HTMLDivElement,
   React.ComponentProps<typeof DropdownMenu.Item>
 >(({ className, ...props }, ref) => (
-  <DropdownMenu.Item ref={ref} className={cn(MENU_ITEM, className)} {...props} />
+  <DropdownMenu.Item
+    ref={ref}
+    className={cn(MENU_ITEM, className)}
+    {...props}
+  />
 ));
 MenuItem.displayName = "MenuItem";
 
-export function MenuSeparator() {
-  return <DropdownMenu.Separator className="my-1 h-px bg-border" />;
+export function MenuSeparator({ className }: { className?: string }) {
+  return (
+    <DropdownMenu.Separator className={cn("my-1 h-px bg-border", className)} />
+  );
 }
