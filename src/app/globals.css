@@ -337,6 +337,17 @@
   }
 }
 
+@layer components {
+  .eyebrow {
+    font-size: var(--text-eyebrow);
+    line-height: 1;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    color: var(--muted-foreground);
+  }
+}
+
 @layer utilities {
   .surface-edge {
     background-image: var(--sheen);
@@ -387,14 +398,6 @@
     font-family: var(--font-display);
     font-variant-numeric: tabular-nums lining-nums;
     letter-spacing: var(--tracking-snug);
-  }
-  .eyebrow {
-    font-size: var(--text-eyebrow);
-    line-height: 1;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-eyebrow);
-    color: var(--muted-foreground);
   }
   .surface-hero {
     position: relative;
