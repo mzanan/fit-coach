@@ -1,10 +1,11 @@
 "use server";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { fail, type ActionFailure } from "@/lib/actionResult";
+import { trackActivation } from "@/lib/activation";
 import { insertResolvedMeal, resolveCatalogMeal } from "@/lib/catalogMeal";
 import { db, schema } from "@/lib/db";
 import { requireUser } from "@/lib/session";
@@ -17,6 +18,14 @@ function anyOily(qualities: (string | null)[]): "clean" | "oily" | null {
   if (qualities.some((q) => q === "oily")) return "oily";
   if (qualities.some((q) => q === "clean")) return "clean";
   return null;
+}
+
+async function trackFirstMeal(userId: string) {
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(meals)
+    .where(eq(meals.user_id, userId));
+  if (total === 1) await trackActivation(userId);
 }
 
 const fromCatalogSchema = z.object({
@@ -41,6 +50,7 @@ export async function addMealFromCatalog(
   }
 
   const id = await insertResolvedMeal(user.id, resolved.meal, category, day);
+  await trackFirstMeal(user.id);
   revalidatePath("/");
   return id;
 }
@@ -100,6 +110,7 @@ export async function addComposableMeal(input: unknown) {
     catalog_item_id: item[0].id,
     created_at: new Date(),
   });
+  await trackFirstMeal(user.id);
   revalidatePath("/");
 }
 
@@ -130,6 +141,7 @@ export async function addManualMeal(input: unknown) {
     catalog_item_id: null,
     created_at: new Date(),
   });
+  await trackFirstMeal(user.id);
   revalidatePath("/");
 }
 
@@ -191,6 +203,7 @@ export async function repeatMeal(input: unknown): Promise<string> {
     catalog_item_id: source[0].catalog_item_id,
     created_at: new Date(),
   });
+  await trackFirstMeal(user.id);
   revalidatePath("/");
   return id;
 }
