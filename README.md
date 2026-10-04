@@ -4,17 +4,17 @@ Multi-user nutrition and training tracker (installable PWA) with an AI coach tha
 
 Built mobile-first: the core loop is logging a meal from a personal catalog in a few taps, seeing the day's macros against targets, and asking the coach a question that is answered from real rows, not from a pre-assembled text blob.
 
-> **[WORKFLOW.md](./WORKFLOW.md) documents how this was built**: the review process in front of every merge, the experiments run before each architectural decision, what they measured, and the designs that failed. Start there if you care more about the reasoning than the result.
+> **[WORKFLOW.md](./WORKFLOW.md) documents how this was built**: the review process in front of every merge, the experiments run before each architectural decision, what they measured, the designs that failed, and the implementation details this README leaves out.
 
 ## Stack
 
-| Layer   | Choice                                                            |
-| ------- | ----------------------------------------------------------------- |
-| App     | Next.js 16 (App Router), React 19, Tailwind v4, Radix primitives  |
-| Data    | Turso (libSQL) + Drizzle ORM                                      |
-| Auth    | Better Auth: Google OAuth primary, email OTP secondary            |
+| Layer   | Choice                                                                                |
+| ------- | ------------------------------------------------------------------------------------- |
+| App     | Next.js 16 (App Router), React 19, Tailwind v4, Radix primitives                      |
+| Data    | Turso (libSQL) + Drizzle ORM                                                          |
+| Auth    | Better Auth: Google OAuth primary, email OTP secondary                                |
 | AI      | Vercel AI SDK v7, per-user BYOK across Groq / OpenRouter / Google / Experiential Labs |
-| Hosting | Vercel (`hnd1`, colocated with the Turso region)                  |
+| Hosting | Vercel (`hnd1`, colocated with the Turso region)                                      |
 
 ## Running locally
 
@@ -26,98 +26,75 @@ npm run dev                    # http://localhost:3040
 npm test                       # unit specs (Vitest)
 ```
 
-`.env.example` states what each variable is for and which are optional. The app runs without any AI key: the coach degrades to a deterministic rule-based summary and the markdown import is disabled with a CTA.
+The app runs without any AI key: the coach degrades to a deterministic rule-based summary and the markdown import is disabled with a CTA.
 
 ## Architecture
 
 ### Data access
 
-Server-first. Server Components by default, `"use client"` only where there is state or an event handler. Every query and mutation filters by `user_id` explicitly; there is no row-level security backstop, so that filter is a reviewed invariant rather than an enforced one.
-
-A logical-day helper wraps every day-scoped read and write, so a user whose day ends at 04:00 in their own timezone gets their meals grouped the way they actually eat rather than by UTC midnight.
+Server Components by default, `"use client"` only where there is state or an event handler. Every query and mutation filters by `user_id` explicitly; there is no row-level security backstop, so that filter is a reviewed invariant rather than an enforced one. A logical-day helper wraps every day-scoped read and write, so a user whose day ends at 04:00 in their own timezone gets their meals grouped the way they actually eat rather than by UTC midnight.
 
 ### The AI layer
 
 Three provider slots, deliberately separate because they have different constraints:
 
-- **Text** (coach, extraction): per-user BYOK. The user stores their own provider, API key and model in Settings. Keys are encrypted at rest with AES-256-GCM using a per-user AAD. There is no system-key fallback by design: no AI runs until the user supplies a key, so the app never spends someone else's budget silently.
-- **Vision** (InBody scan OCR): a system Gemini key, because it is a fixed pipeline tuned against a real result sheet rather than something the user configures.
-- **Embeddings** (long-term memory): also Gemini, because Groq publishes no embedding model. Pinned to `gemini-embedding-001` truncated to 768 dimensions, which must match the `F32_BLOB(n)` column, and deliberately out of BYOK scope: the user never chooses this model, it is app infrastructure rather than a user-facing decision. Every `coach_facts` row stamps which model built its vector, so a future re-embed job (not built yet) can tell what it is looking at.
+- **Text** (coach, extraction): per-user BYOK, keys encrypted at rest with AES-256-GCM and a per-user AAD. No system-key fallback: no AI runs until the user supplies a key, so the app never spends someone else's budget silently.
+- **Vision** (InBody scan OCR): a system Gemini key, because it is a fixed pipeline tuned against a real result sheet.
+- **Embeddings** (long-term memory): Gemini `gemini-embedding-001` at 768 dimensions, app infrastructure outside BYOK. Every `coach_facts` row stamps which model built its vector, so a future re-embed job can tell what it is looking at.
 
-Model capability is not uniform and no layer normalizes it, so the app keeps its own capability registry: it reads the provider catalog, marks which models declare tool use and structured output, and gates features per model instead of failing at request time. Models are named where behavior was actually measured rather than inferred from a capability flag, because _declaring_ tool support and _choosing to call a write tool when asked_ are different things.
+Model capability is not uniform, so the app keeps its own capability registry: it reads the provider catalog, marks which models declare tool use and structured output, and gates features per model instead of failing at request time.
 
 ### The coach is an agent, not a prompt
 
 The coach runs on the SDK's native tool loop with read tools (`get_current_time`, `get_today`, `search_catalog`, `get_workouts`, `get_body_scans`, `get_progress_overview`, `check_progression_eligible`) plus writes. The model decides which to call; the app does not pre-assemble context.
 
-The writes come in two tiers. Additive, easy-to-undo writes run directly and the reply shows a receipt of what was saved: `log_meal`, `log_estimated_meal` (an off-catalog food with estimated macros), `update_rule` (standing rules like medication timing or a dietary constraint), `log_fatigue` (a 1-5 energy check-in per morning/post-lunch slot), `log_workout_session` (exercises and sets against the catalog) and `log_measurement`. Writes that close the day or change targets (`close_day`, `set_targets`) always pause for a confirmation card through the SDK's `toolApproval`. All of them are only registered for models whose provider catalogue declares tool support (`canWriteMeals`, which reads the same `canTools` capability check the rest of the app uses, minus a `WRITE_BLOCKED_MODELS` escape hatch for models that declare tools and fail in practice); any other active model never sees any of them, and the system prompt tells it to send the user to manual logging instead. When the capability lookup itself cannot be reached, it fails open rather than silently disabling the feature.
+- **Additive writes** (`log_meal`, `log_estimated_meal`, `update_rule`, `log_fatigue`, `log_workout_session`, `log_measurement`) run directly, and the reply shows a receipt of what was saved.
+- **Writes that close the day or change targets** (`close_day`, `set_targets`) pause for a confirmation card through the SDK's `toolApproval`. The pause is emitted over the answer's ndjson stream so the serverless function exits; the card's macros are resolved server-side from the catalog, never from the model's arguments; the pending state lives in a database row, so a backgrounded PWA tab does not lose it.
+- **Capability gate.** Writes are only registered for models whose catalog declares tool support (`canWriteMeals`); any other model is told to send the user to manual logging.
+- **Optional decision gate.** With `JEV_API_KEY` set, each direct write is checked by TypeSafe Jev, a typed decision model, which runs it, refuses it, or falls back to the confirmation card. Calibrated first in the `labs` repository (`p10-jev-tool-gate`).
 
-An optional tool gate sits in front of the direct writes. With `JEV_API_KEY` set, each direct write goes through the same `toolApproval` hook to TypeSafe Jev, a typed decision model, with the proposed call and the last few conversation turns: a confident match runs, a write the user never asked for (a question answered with a write) is refused with a reason the model sees, and a doubtful one (a meal correction saved as a standing rule, for instance) falls back to the confirmation card where the tool has one. Unset, or Jev unreachable within 3 s, the direct writes behave exactly as above. A card the user already approved is never sent back to Jev. The design and its calibration were measured first in the `labs` repository (`p10-jev-tool-gate`).
+Where a prompt rule proved insufficient, the rule moved into code: the model choosing a portion size became an app-rendered size picker, and the model claiming a write it never performed became an app-side check against whether the tool actually ran.
 
-For the writes that pause, the flow matters:
+A per-user cap of 30 coach turns per rolling hour guards against a stuck loop spending unboundedly; the tool-loop and retry limits are named constants in `src/lib/ai/limits.ts`.
 
-1. The model proposes a write. The loop pauses and the request is emitted over the same ndjson stream the answer uses, so the serverless function exits instead of holding a connection open waiting for a human.
-2. **Macros are resolved server-side before the pause.** The confirmation card renders from a server preview keyed by catalog id, never from the model's arguments, so the numbers a user confirms are the catalog's numbers.
-3. The paused state lives in a database row, one per user, deleted on resolve. This is a phone PWA: the tab can be backgrounded between the proposal and the confirmation, which is exactly where client-held pending state is lost.
-4. Confirmation is a second request carrying only `{approvalId, approved}`.
-
-Where a prompt rule proved insufficient, the rule moved into code. The model choosing a portion size on its own became an app-rendered size picker whose choice is applied at the tool's `execute()`; the model claiming a write it never performed became an app-side check against whether the tool actually ran.
-
-A per-user cap of 30 coach turns per rolling hour, checked before any model call runs, guards against a bug or a stuck retry loop spending unboundedly; the tool-loop step count and the truncation-continuation retry limit are named constants (`src/lib/ai/limits.ts`) rather than inline numbers.
-
-**The answer itself is server-owned, not tied to the request that started it.** `/api/coach` does not use Vercel's opt-in request cancellation, so a refresh, a backgrounded tab or a dropped connection no longer kills the generation: it keeps running to completion server-side, streaming its own partial text into the row every second so a reload can pick it up mid-answer instead of losing it. Stop is its own request (`/api/coach/stop`) rather than a side effect of the client disconnecting, resolved with a guarded `UPDATE ... WHERE status = 'streaming'`. Precedence when Stop and completion land close together: the AI SDK's own stream reports whether generation was actually cut short (an `abort` part) or ran to a natural finish; a genuinely-cut-short answer keeps whatever had streamed so far and is marked stopped, the same way Claude or ChatGPT keep a stopped answer rather than discarding it, while a late Stop that lost the race against a real, complete answer is ignored so a finished reply is never mislabeled as interrupted. `/api/coach/approve` (the write-confirmation flow) still uses the older request-bound cancellation; unifying it is open work.
+The answer is server-owned, not tied to the request that started it: a refresh or a dropped connection does not kill the generation, its partial text is written to the row every second so a reload picks it up mid-answer, and Stop is its own request (`/api/coach/stop`).
 
 ### Memory
 
 Three stores, each solving a different problem:
 
-| Store            | Shape                                                                                                                                    | Purpose                                                                                      |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `coach_messages` | Full turns, verbatim once done; a row mid-generation carries live partial text and a `streaming` status until it finalizes or is stopped | Conversation continuity. The last N turns go into every call.                                |
-| `coach_memory`   | One rolling ~150-word summary per user                                                                                                   | Cheap always-on context that survives clearing the chat and works without an embeddings key. |
-| `coach_facts`    | Discrete facts, one row each, with a 768-dim embedding                                                                                   | Durable preferences, constraints, corrections and routines, retrieved by cosine similarity.  |
+| Store            | Shape                                                     | Purpose                                                                                      |
+| ---------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `coach_messages` | Full turns; a row mid-generation carries its partial text | Conversation continuity. The last N turns go into every call.                                |
+| `coach_memory`   | One rolling ~150-word summary per user                    | Cheap always-on context that survives clearing the chat and works without an embeddings key. |
+| `coach_facts`    | Discrete facts, one row each, with a 768-dim embedding    | Durable preferences, constraints, corrections and routines, retrieved by cosine similarity.  |
 
 `coach_facts` retrieval uses libSQL's native `vector_distance_cos` with thresholds calibrated against measured distances (retrieval 0.45, semantic dedup 0.06). It filters by `user_id` and then scans rather than using an ANN index, because libSQL's `vector_top_k` is global and would leak or drop rows across users.
 
-**Supersession.** A vector store models similarity, not time: two facts stored months apart rank identically if the text matches, so a correction used to sit alongside the belief it replaced and both could be retrieved. Facts therefore carry a `subject`, a normalized key naming _what the fact is about_ (`salmon`, `training_time`). A new fact deactivates every active fact sharing its subject, inside a transaction, and retrieval only reads active rows. Superseded rows are retained with a `superseded_by` pointer rather than deleted, so the chain stays auditable.
+**Supersession.** A vector store models similarity, not time, so without a time model a correction would be retrieved alongside the belief it replaced. Facts carry a `subject`, a normalized key naming _what the fact is about_ (`salmon`, `training_time`). A new fact deactivates every active fact with the same subject inside a transaction; the old row is kept with a `superseded_by` pointer. _At most one active fact per (user, subject)_ is enforced in code and by a partial unique index.
 
-The invariant is _at most one active fact per (user, subject)_, and it is enforced twice: in code, where the semantic-dedup path is scoped to the same subject so it can never merge two different topics into one row, and in the schema, by a partial unique index that makes the invalid state unrepresentable regardless of what the code does. Facts with no subject are exempt from both, which is what lets rows written before this shipped keep working unchanged.
+The model is asked what a fact is _about_, never whether it _contradicts_ something, because a lab showed similarity cannot carry that decision: same-topic contradictions landed between 0.1152 and 0.2056 cosine distance, and an unrelated pair at 0.1754, inside that range.
 
-The decisive detail is that the model is asked what a fact is _about_, never whether it _contradicts_ something. An isolated experiment measured that similarity alone cannot carry that decision: genuine same-topic contradictions landed between 0.1152 and 0.2056 cosine distance, while a genuinely unrelated pair landed at 0.1754, inside that range. No threshold separates the two classes, so the resolution is an exact key match with no distance involved.
+### Background jobs
 
-### Background maintenance
+- **Daily maintenance** (Vercel Cron, `/api/cron/maintenance`, `CRON_SECRET`-gated): deactivates facts untouched for 30+ days (corrections exempt) and re-grounds `coach_memory` from active facts and recent logged data, merging into the existing summary instead of rewriting it. Runs per user on their own BYOK model; users without a key are skipped.
+- **Markdown import** (Vercel Workflow DevKit): a long multi-step extraction that survives the tab closing, timeouts and crashes, retries rate-limited chunks honoring `retry-after`, and lets the import screen reattach to a run still in progress. A run owned by another user returns 404.
 
-Until now, nothing in this app ran unless a user sent a chat message: the per-turn memory refresh and fact extraction both fire from inside a request. A daily Vercel Cron (`/api/cron/maintenance`, `CRON_SECRET`-gated) now does two things that need to happen whether or not the user is active:
-
-- **Stale-fact cleanup.** A `coach_facts` row untouched for 30+ days gets deactivated, same code path as supersession. `category = 'correction'` is exempt: a correction is defined as the thing that matters most, so it never silently expires just because the user hasn't repeated it.
-- **Memory consolidation.** `coach_memory` re-grounds from the user's active facts and recent logged data (targets, today's meals, the week's protein hit-rate, latest scan), so it doesn't drift stale for a user who logs data without chatting. This merges into the existing memory rather than replacing it: the model is told what changed, not asked to reconstruct the summary from scratch, since facts and structured data cannot capture everything a conversation accumulates.
-
-Both run per-user through the same BYOK model reference every other AI call uses; a user with no saved key is skipped, not defaulted to a system key. Memory consolidation's model call is bounded to 60 seconds per user, so one slow or hung provider response can't consume the whole cron run and leave the remaining users unprocessed. The trigger itself (plain Vercel Cron over Workflow DevKit and Inngest) was chosen in an isolated lab, same method as everything else in this section.
-
-### Durable markdown import
-
-Importing a markdown log is a long multi-step model job, and it used to be one streaming HTTP request: closing the tab, a timeout or a crash halfway through lost every chunk already extracted. It now runs on the Vercel Workflow DevKit (pinned `workflow@5.0.0-beta.47`; `beta.48` is a broken publish). `POST /api/import/extract` starts the run and returns a `runId`, `GET /api/import/extract/<runId>?startIndex=N` replays the progress stream from any point, and `POST /api/import/extract/<runId>/cancel` stops it. The run survives the client disconnecting, and a chunk that fails on a 429 or a 5xx retries on its own up to three times, honoring the provider's `retry-after` header and falling back to 60 seconds, because a per-minute rate limit cannot be outlasted by a few fast retries.
-
-Because the run outlives the page, the import screen asks on mount whether the user has a run from the last 24 hours still worth joining and reattaches to its stream, replaying the progress it missed and landing on the review it would otherwise never see. A completed run whose events have aged out still yields its result, read from the run's return value. The ownership row lives exactly as long as it is needed: it is deleted the moment the extraction reaches the user, when the run is cancelled, and when a new import starts, so a user has at most one row and nothing accumulates. A cancel that fails keeps the row on purpose, so the run stays reachable instead of becoming invisible while it is still spending the key.
-
-A `runId` is not a capability: an `import_runs` table records which user started which run, and all three routes return 404 for a run somebody else owns, never 403, so the endpoint does not confirm that an unknown id exists. Durability has a cost worth stating: a chunk's markdown is a step argument, so the text being imported is persisted in the run's state store instead of living only in request memory. The decrypted provider key is not: it is read inside each step and never crosses a step boundary. The workflow body stays free of Node built-ins, which the SDK enforces at build time: the pure schema, chunking and merge logic lives in `mdExtraction.ts`, and every model call, credential read and stream write happens inside a `"use step"` function.
-
-The daily maintenance job deliberately stays on plain Vercel Cron. An isolated lab measured both, and durability across a dying invocation is worth an SDK for one long import run and worth nothing for a single-step nightly job.
+Each job's runtime was chosen in an isolated lab: durability is worth an SDK for the long import and worth nothing for a single-step nightly job.
 
 ### Observability
 
-The AI layer logs its own behavior to an `ai_events` table, readable per user under Settings > AI > Activity: rate limits, turn caps, repaired or unresolvable tool calls, nightly maintenance runs, and one `exchange` event per generated coach answer carrying the model, a hash of the composed system prompt and the token usage behind that specific message. Outside production the event also stores the full prompt text, so a "the model ignored X" report can be answered by reading what was actually sent instead of reproducing the conversation live.
+The AI layer logs its own behavior to an `ai_events` table, readable under Settings > AI > Activity: rate limits, turn caps, repaired tool calls, maintenance runs, and one `exchange` event per coach answer with the model, a hash of the system prompt and the token usage. Outside production it also stores the full prompt, so a "the model ignored X" report can be answered by reading what was actually sent.
 
 ## Method
 
-Components that can be built more than one way get an isolated experiment before they touch this repo, kept in a separate `labs` repository: the provider abstraction, the tool loop, human-in-the-loop approval, and the memory supersession question above were each measured before being integrated. Several findings only surfaced that way, including that one free model never calls a write tool at all under a prompt that makes two others call it reliably.
+Components that can be built more than one way get an isolated experiment in a separate `labs` repository before they touch this one: the provider abstraction, the tool loop, human-in-the-loop approval and memory supersession were each measured before being integrated. Some findings only surfaced that way, including that one free model never calls a write tool under a prompt that makes two others call it reliably.
 
 Every change that touches logic goes through two review agents in parallel before merge, one attacking the new code and one guarding the existing flows.
 
-[WORKFLOW.md](./WORKFLOW.md) is the full record: both phases of how the project has been built, the bugs the review gate caught before they reached `main`, what each experiment measured, and the design that passed its lab and still failed in production.
-
 ## Known gaps
 
-- **Unit coverage is thin.** Vitest covers the pure logic in `src/lib` (`dates`, `macros`, `inbodyChecks`, `exercises`, `search`); everything stateful still relies on typecheck, lint, build, the review gates, and manual runtime checks against the real database.
-- **Truncated replies auto-continue, with one residual gap.** A reply cut by the output budget is continued server-side; a continuation that restarts the answer instead of continuing is detected and discarded, and the non-streaming path regenerates once with a doubled budget. On the streaming path the already-emitted text cannot be reset, so a restarted continuation there leaves the reply cut at the truncation point.
+- **Unit coverage is thin.** Vitest covers the pure logic in `src/lib` (`dates`, `macros`, `inbodyChecks`, `exercises`, `search`); everything stateful relies on typecheck, lint, build, the review gates and manual checks against the real database.
+- **Truncated replies on the streaming path.** A cut reply is continued server-side and a continuation that restarts the answer is discarded, but already-streamed text cannot be reset, so the reply stays cut at the truncation point.
+- **`/api/coach/approve` is still request-bound.** Unlike `/api/coach`, a dropped connection cancels the write-confirmation flow.
 - Facts written before supersession shipped carry no `subject` and are never superseded; they age out only by the semantic dedup path.
