@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { LoginForm } from "@/components/auth/LoginForm";
@@ -45,6 +46,13 @@ export default async function LoginPage() {
             Invite only. New accounts are closed.
           </p>
         ) : null}
+
+        <Link
+          href="/privacy"
+          className="mt-3 text-center text-meta text-muted-foreground underline-offset-4 hover:underline"
+        >
+          Privacy policy
+        </Link>
       </div>
     </main>
   );
