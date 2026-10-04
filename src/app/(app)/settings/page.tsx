@@ -9,6 +9,7 @@ import {
   User,
 } from "lucide-react";
 
+import { AnalyticsConsentRow } from "@/components/settings/AnalyticsConsentRow";
 import { PushSubscribeRow } from "@/components/settings/PushSubscribeRow";
 import { SignOutButton } from "@/components/settings/SignOutButton";
 import { ListGroup, ListRow } from "@/components/ui/ListRow";
@@ -90,6 +91,8 @@ export default async function SettingsPage() {
         </ListGroup>
 
         <PushSubscribeRow />
+
+        <AnalyticsConsentRow />
 
         <ListGroup className="animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards delay-(--stagger-2) duration-(--dur-slow) ease-(--ease-out-soft)">
           <SignOutButton />

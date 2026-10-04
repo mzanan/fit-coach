@@ -10,6 +10,7 @@ export function NavBar({ className }: { className?: string }) {
   const pathname = usePathname();
   return (
     <nav
+      data-slot="nav-bar"
       className={cn(
         "hairline-t sticky bottom-0 z-40 bg-background/80 backdrop-blur-xl",
         className,
