@@ -27,7 +27,7 @@ export async function AppHeader({
       <BrandMark href="/" size="sm" className="shrink-0 md:hidden" />
       <div className="hidden shrink-0 items-center gap-2 md:flex">
         <RailToggle className="-ml-3" />
-        <SectionCrumb className="flex" />
+        <SectionCrumb />
       </div>
       <ActiveModelLabel
         credential={activeModel}
@@ -35,17 +35,7 @@ export async function AppHeader({
       />
       <div className="flex shrink-0 items-center gap-1">
         <ThemeToggle />
-        <div className="md:hidden">
-          <UserMenu email={user.email} name={user.name} image={user.image} />
-        </div>
-        <div className="hidden md:block">
-          <UserMenu
-            variant="detailed"
-            email={user.email}
-            name={user.name}
-            image={user.image}
-          />
-        </div>
+        <UserMenu email={user.email} name={user.name} image={user.image} />
       </div>
     </header>
   );
