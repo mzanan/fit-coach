@@ -7,7 +7,7 @@ import { emailOTP } from "better-auth/plugins";
 
 import { AUTH_COOKIE_PREFIX } from "@/lib/authCookies";
 import { db, schema } from "@/lib/db";
-import { captureServerEvent } from "@/lib/analytics";
+import { captureServerEvent, hasAnalyticsConsent } from "@/lib/analytics";
 import { sendOtpEmail } from "@/lib/email";
 
 const disableSignUp = process.env.AUTH_DISABLE_SIGNUPS === "true";
@@ -33,8 +33,11 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        after: async (createdUser) => {
-          await captureServerEvent("signed_up", createdUser.id);
+        after: async (createdUser, ctx) => {
+          await captureServerEvent(
+            "signed_up",
+            hasAnalyticsConsent(ctx?.headers) ? createdUser.id : null,
+          );
         },
       },
     },
