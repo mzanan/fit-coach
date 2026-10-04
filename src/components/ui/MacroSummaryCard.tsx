@@ -4,6 +4,12 @@ import { Ring } from "@/components/ui/Ring";
 import { Surface } from "@/components/ui/Surface";
 import { cn } from "@/lib/utils";
 
+const BAR_DELAY = [
+  "[--bar-delay:calc(var(--delay-hero-data)+var(--stagger-1))]",
+  "[--bar-delay:calc(var(--delay-hero-data)+var(--stagger-2))]",
+  "[--bar-delay:calc(var(--delay-hero-data)+var(--stagger-3))]",
+];
+
 export interface MacroSummaryLine {
   key: MacroKey;
   label: string;
@@ -76,9 +82,7 @@ export function MacroSummaryCard({
                 barClassName={cn(
                   MACRO_TONE[line.key].bar,
                   animate && "animate-bar-fill motion-reduce:animate-none",
-                  animate && i === 0 && "[--bar-delay:calc(var(--delay-hero-data)+var(--stagger-1))]",
-                  animate && i === 1 && "[--bar-delay:calc(var(--delay-hero-data)+var(--stagger-2))]",
-                  animate && i === 2 && "[--bar-delay:calc(var(--delay-hero-data)+var(--stagger-3))]",
+                  animate && BAR_DELAY[i],
                 )}
               />
             </div>
