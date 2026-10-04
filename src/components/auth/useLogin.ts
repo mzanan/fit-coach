@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import { authClient } from "@/lib/authClient";
 
@@ -10,7 +9,6 @@ export type LoginMode = "collapsed" | "email" | "code";
 const RESEND_COOLDOWN_S = 30;
 
 export function useLogin() {
-  const router = useRouter();
   const [mode, setMode] = useState<LoginMode>("collapsed");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -126,8 +124,7 @@ export function useLogin() {
         setCode("");
         return;
       }
-      router.replace("/");
-      router.refresh();
+      window.location.replace("/");
     } catch {
       setPending(false);
       setVerifyError("Could not verify the code. Check your connection and try again.");
