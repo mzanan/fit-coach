@@ -9,7 +9,8 @@ import { emailOTP } from "better-auth/plugins";
 
 import { AUTH_COOKIE_PREFIX } from "@/lib/authCookies";
 import { db, schema } from "@/lib/db";
-import { captureServerEvent, hasAnalyticsConsent } from "@/lib/analytics";
+import { captureServerEvent } from "@/lib/analytics";
+import { hasAnalyticsConsent } from "@/lib/consentCookie";
 import { sendOtpEmail } from "@/lib/email";
 
 const disableSignUp = process.env.AUTH_DISABLE_SIGNUPS === "true";

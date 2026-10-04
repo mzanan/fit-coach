@@ -1,5 +1,7 @@
 import posthog from "posthog-js";
-import { CONSENT_CHANGE_EVENT, CONSENT_COOKIE } from "@/lib/analytics";
+import { consentCookie } from "@/lib/consentCookie";
+
+const CONSENT_CHANGE_EVENT = "analytics-consent-change";
 
 export type ConsentStatus = "granted" | "denied" | "pending";
 
@@ -23,7 +25,7 @@ export function readServerConsent(): ConsentStatus | null {
 export function setConsent(granted: boolean) {
   if (granted) posthog.opt_in_capturing();
   else posthog.opt_out_capturing();
-  document.cookie = `${CONSENT_COOKIE}=${granted ? "granted" : "denied"}; path=/; max-age=31536000; samesite=lax; secure`;
+  document.cookie = consentCookie(granted);
   window.dispatchEvent(new Event(CONSENT_CHANGE_EVENT));
 }
 
