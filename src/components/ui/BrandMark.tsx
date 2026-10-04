@@ -11,17 +11,25 @@ const SIZE = {
 export function BrandMark({
   size = "md",
   href,
+  iconOnly,
   className,
 }: {
   size?: keyof typeof SIZE;
   href?: string;
+  iconOnly?: boolean;
   className?: string;
 }) {
   const s = SIZE[size];
   const content = (
     <>
       <Image src="/icon.svg" alt="" width={s.px} height={s.px} unoptimized />
-      <span className={cn("font-medium tracking-(--tracking-snug)", s.text)}>
+      <span
+        className={cn(
+          "font-medium tracking-(--tracking-snug) transition-opacity duration-(--dur-base) ease-(--ease-in-out-soft)",
+          s.text,
+          iconOnly && "opacity-0",
+        )}
+      >
         Fit Coach
       </span>
     </>

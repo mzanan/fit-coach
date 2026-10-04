@@ -26,7 +26,7 @@ export function UserMenu({
   email: string;
   name: string | null;
   image: string | null;
-  variant?: "header" | "rail";
+  variant?: "header" | "detailed";
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -68,13 +68,12 @@ export function UserMenu({
 
   return (
     <MenuRoot>
-      {variant === "rail" ? (
+      {variant === "detailed" ? (
         <MenuTrigger
           aria-label="Account menu"
-          className="flex min-h-12 min-w-0 flex-1 items-center gap-2.5 rounded-control px-2 text-left outline-none transition-colors duration-(--dur-fast) hover:bg-overlay focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-11 max-w-64 min-w-0 items-center gap-2.5 rounded-control px-2 outline-none transition-colors duration-(--dur-fast) hover:bg-overlay focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {avatar(32)}
-          <span className="min-w-0 flex-1">
+          <span className="min-w-0 flex-1 text-right">
             <span className="block truncate text-meta font-medium">
               {name || email}
             </span>
@@ -84,6 +83,7 @@ export function UserMenu({
               </span>
             ) : null}
           </span>
+          {avatar(32)}
         </MenuTrigger>
       ) : (
         <MenuTrigger
@@ -94,11 +94,8 @@ export function UserMenu({
         </MenuTrigger>
       )}
 
-      <MenuContent
-        align={variant === "rail" ? "start" : "end"}
-        side={variant === "rail" ? "top" : "bottom"}
-      >
-        {variant === "rail" ? null : (
+      <MenuContent align="end" side="bottom">
+        {variant === "detailed" ? null : (
           <>
             <div className="px-3 py-2">
               {name ? <p className="text-body font-medium">{name}</p> : null}

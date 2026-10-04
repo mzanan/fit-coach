@@ -1,8 +1,12 @@
+import { cookies } from "next/headers";
+
 import { AnalyticsIdentify } from "@/components/analytics/AnalyticsIdentify";
 import { AppHeader } from "@/components/shell/AppHeader";
 import { NavBar } from "@/components/shell/NavBar";
+import { RailShell } from "@/components/shell/RailShell";
 import { SideNav } from "@/components/shell/SideNav";
 import { getAiSettings } from "@/lib/ai/aiCredentials";
+import { RAIL_COOKIE, isRailCollapsed } from "@/lib/railCookie";
 import { requireUser } from "@/lib/session";
 
 export default async function AppLayout({
@@ -12,6 +16,9 @@ export default async function AppLayout({
 }) {
   const user = await requireUser();
   const activeModel = await getAiSettings(user.id);
+  const railCollapsed = isRailCollapsed(
+    (await cookies()).get(RAIL_COOKIE)?.value,
+  );
 
   return (
     <>
@@ -22,10 +29,10 @@ export default async function AppLayout({
       >
         Skip to content
       </a>
-      <div className="fixed inset-0 flex overflow-hidden">
-        <SideNav user={user} activeModel={activeModel} />
+      <RailShell initialCollapsed={railCollapsed}>
+        <SideNav />
         <div className="flex w-full min-w-0 flex-1 flex-col">
-          <AppHeader className="md:hidden" activeModel={activeModel} />
+          <AppHeader activeModel={activeModel} />
           <main
             id="main"
             className="scroll-slim min-h-0 flex-1 overflow-y-auto pt-2 pb-6 md:pt-gutter md:pb-gutter"
@@ -34,7 +41,7 @@ export default async function AppLayout({
           </main>
           <NavBar className="md:hidden" />
         </div>
-      </div>
+      </RailShell>
     </>
   );
 }
