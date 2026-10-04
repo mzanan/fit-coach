@@ -1,6 +1,7 @@
 "use client";
 
-import { RailContext, useRailState } from "@/components/shell/useRail";
+import { RailContext } from "@/components/shell/RailContext";
+import { useRailState } from "@/components/shell/useRail";
 
 export function RailShell({
   initialCollapsed,

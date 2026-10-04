@@ -1,18 +1,9 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { useContext, useState } from "react";
 
+import { RailContext, type RailState } from "@/components/shell/RailContext";
 import { railCookie } from "@/lib/railCookie";
-
-interface RailState {
-  collapsed: boolean;
-  toggle: () => void;
-}
-
-export const RailContext = createContext<RailState>({
-  collapsed: false,
-  toggle: () => {},
-});
 
 export function useRailState(initialCollapsed: boolean): RailState {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -20,7 +11,7 @@ export function useRailState(initialCollapsed: boolean): RailState {
   function toggle() {
     const next = !collapsed;
     setCollapsed(next);
-    document.cookie = railCookie(next);
+    document.cookie = railCookie(next, window.location.protocol === "https:");
   }
 
   return { collapsed, toggle };

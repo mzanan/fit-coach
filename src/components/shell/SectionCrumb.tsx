@@ -15,7 +15,7 @@ export function SectionCrumb({ className }: { className?: string }) {
     <Link
       href={item.href}
       className={cn(
-        "group min-h-11 shrink-0 items-center gap-2.5 text-body font-medium text-foreground",
+        "group flex min-h-11 shrink-0 items-center gap-2.5 text-body font-medium text-foreground",
         className,
       )}
     >
