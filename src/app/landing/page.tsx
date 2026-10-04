@@ -80,7 +80,7 @@ export default function LandingPage() {
         <OwnershipList />
         <ClosingCta ctaLabel={ctaLabel} meta={meta} />
       </main>
-      <LandingFooter year={new Date().getFullYear()} />
+      <LandingFooter />
     </>
   );
 }

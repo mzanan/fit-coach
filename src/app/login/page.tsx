@@ -29,7 +29,11 @@ export default async function LoginPage() {
         aria-hidden
         className="hero-glow pointer-events-none absolute inset-x-0 top-0 h-[28rem]"
       />
-      <ThemeToggle className="absolute top-[calc(env(safe-area-inset-top)+0.5rem)] right-3" />
+      <div className="pointer-events-none absolute inset-x-0 top-[calc(env(safe-area-inset-top)+0.5rem)] z-10">
+        <div className="mx-auto flex max-w-(--container-wide) justify-end px-gutter">
+          <ThemeToggle className="pointer-events-auto" />
+        </div>
+      </div>
 
       <div className="relative mx-auto flex w-full max-w-sm flex-1 flex-col">
         <div className="flex-[1.4] min-h-16 md:flex-1" />
