@@ -35,7 +35,7 @@ export default function LandingPage() {
   const ctaLabel = signupsDisabled ? "Sign in" : "Get started";
   const meta = signupsDisabled
     ? "Invite only for now. Existing accounts can sign in."
-    : "Free. Sign in with Google or an email code.";
+    : "Free. Sign in with Google.";
 
   return (
     <>

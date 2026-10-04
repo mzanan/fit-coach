@@ -29,7 +29,7 @@ export default function PrivacyPage() {
           <LegalSection title="Information we collect">
             <p>
               <strong className="text-foreground">Account.</strong> Your email,
-              name and a Google sign-in identifier if you use it.
+              name and Google sign-in identifier.
             </p>
             <p>
               <strong className="text-foreground">
@@ -56,9 +56,9 @@ export default function PrivacyPage() {
 
           <LegalSection title="Processors we share with">
             <p>
-              Vercel (hosting), Turso (database), Google (sign-in), Resend
-              (sign-in emails), AI providers such as Anthropic, Google or Groq
-              (coach replies, scan reading and search over your notes), your
+              Vercel (hosting), Turso (database), Google (sign-in), AI
+              providers such as Anthropic, Google or Groq (coach replies, scan
+              reading and search over your notes), your
               browser push service (notifications) and PostHog EU (analytics,
               see Cookies). Each only receives what it needs for its function.
             </p>
