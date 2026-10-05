@@ -16,17 +16,23 @@ import { OwnershipList } from "@/components/landing/OwnershipList";
 import { RecentsPreview } from "@/components/landing/RecentsPreview";
 import { WorkoutPreview } from "@/components/landing/WorkoutPreview";
 import { JsonLd } from "@/components/ui/JsonLd";
-import { LANDING_DESCRIPTION, LANDING_TITLE, landingJsonLd } from "@/lib/seo";
+import { LANDING_DESCRIPTION, LANDING_TITLE, OG_IMAGE, landingJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: { absolute: LANDING_TITLE },
   description: LANDING_DESCRIPTION,
   alternates: { canonical: "/" },
-  openGraph: { title: LANDING_TITLE, description: LANDING_DESCRIPTION, url: "/" },
+  openGraph: {
+    title: LANDING_TITLE,
+    description: LANDING_DESCRIPTION,
+    url: "/",
+    images: [OG_IMAGE],
+  },
   twitter: {
     card: "summary_large_image",
     title: LANDING_TITLE,
     description: LANDING_DESCRIPTION,
+    images: [OG_IMAGE],
   },
 };
 

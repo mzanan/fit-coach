@@ -7,6 +7,13 @@ export const LANDING_TITLE = "Fit Coach: macro tracking with an AI coach";
 export const LANDING_DESCRIPTION =
   "Log meals in a few taps, track macros, workouts and body composition, and ask an AI coach that remembers your history. Free installable web app.";
 
+export const OG_IMAGE = {
+  url: "/opengraph-image",
+  width: 1200,
+  height: 630,
+  alt: "Fit Coach: macro tracking with an AI coach that remembers.",
+};
+
 export const AI_CRAWLERS = [
   "GPTBot",
   "OAI-SearchBot",
