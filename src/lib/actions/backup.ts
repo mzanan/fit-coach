@@ -1,9 +1,13 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 
 import { fail } from "@/lib/actionResult";
+import {
+  normalizeBackupWorkouts,
+  referencedExerciseCatalogIds,
+} from "@/lib/backupNormalize";
 import { db, schema } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { chunk } from "@/lib/utils";
@@ -16,6 +20,7 @@ const {
   workouts,
   workout_exercises,
   workout_sets,
+  exercise_catalog,
 } = schema;
 
 export interface BackupPayload {
@@ -104,6 +109,23 @@ export async function importData(payload: BackupPayload) {
     ...("updated_at" in r ? { updated_at: ts(r.updated_at) } : {}),
   });
 
+  const referenced = referencedExerciseCatalogIds(payload.workout_exercises as Row[]);
+  const knownCatalogIds = new Set(
+    referenced.length
+      ? (
+          await db
+            .select({ id: exercise_catalog.id })
+            .from(exercise_catalog)
+            .where(inArray(exercise_catalog.id, referenced))
+        ).map((r) => r.id)
+      : [],
+  );
+  const normalized = normalizeBackupWorkouts(
+    payload.workouts as Row[],
+    payload.workout_exercises as Row[],
+    knownCatalogIds,
+  );
+
   await db.transaction(async (tx) => {
     const queries = [
       tx.delete(workout_sets).where(eq(workout_sets.user_id, user.id)),
@@ -133,7 +155,7 @@ export async function importData(payload: BackupPayload) {
             rows.map((r) => withTimestamps(r) as typeof meals.$inferInsert),
           ),
       ),
-      ...batches<Row>(payload.workouts).map((rows) =>
+      ...batches<Row>(normalized.workouts).map((rows) =>
         tx
           .insert(workouts)
           .values(
@@ -141,7 +163,7 @@ export async function importData(payload: BackupPayload) {
           ),
       ),
       ...batches<typeof workout_exercises.$inferInsert>(
-        payload.workout_exercises,
+        normalized.workout_exercises,
       ).map((rows) => tx.insert(workout_exercises).values(rows)),
       ...batches<typeof workout_sets.$inferInsert>(payload.workout_sets).map(
         (rows) => tx.insert(workout_sets).values(rows),

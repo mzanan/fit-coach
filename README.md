@@ -23,7 +23,7 @@ Built mobile-first: the core loop is logging a meal from a personal catalog in a
 npm install
 cp .env.example .env.local     # every variable is documented inline
 npm run db:migrate             # applies drizzle/migrations to DATABASE_URL_UNPOOLED
-npm run db:backup              # manual local pg_dump to ~/Backups/fit-coach
+npm run db:backup -- <neon-endpoint>   # manual local pg_dump to ~/Backups/fit-coach
 npm run dev                    # http://localhost:3040
 npm test                       # unit specs (Vitest)
 ```

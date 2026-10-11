@@ -46,7 +46,7 @@ export async function embed(
   if (!values?.length) throw new Error("embedding response had no values");
   if (values.length !== EMBEDDING_DIM) {
     throw new Error(
-      `embedding dimension ${values.length} does not match column F32_BLOB(${EMBEDDING_DIM})`,
+      `embedding dimension ${values.length} does not match column vector(${EMBEDDING_DIM})`,
     );
   }
   return normalize(values);

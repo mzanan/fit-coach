@@ -166,12 +166,13 @@ export async function listActiveFacts(userId: string): Promise<string[]> {
 }
 
 async function nearestFactId(
+  executor: Pick<typeof db, "execute">,
   userId: string,
   category: CoachFactCategory,
   subject: string | null,
   literal: string,
 ): Promise<{ id: string; distance: number } | null> {
-  const { rows } = await db.execute<{ id: string; distance: number }>(sql`
+  const { rows } = await executor.execute<{ id: string; distance: number }>(sql`
     SELECT id, (embedding <=> ${literal}::vector) AS distance
     FROM coach_facts
     WHERE user_id = ${userId}
@@ -197,14 +198,16 @@ async function saveFact(
   const modelTag = embeddingModelTag();
   const now = new Date();
 
-  const nearest = await nearestFactId(userId, category, subject, literal);
-  const merged = nearest && nearest.distance <= DEDUP_MAX_DISTANCE ? nearest.id : null;
-  const factId = merged ?? newId();
+  let created = false;
 
   await db.transaction(async (tx) => {
     await tx.execute(
-      sql`SELECT pg_advisory_xact_lock(hashtextextended(${`coach_facts:${userId}:${subject ?? factId}`}, 0))`,
+      sql`SELECT pg_advisory_xact_lock(hashtextextended(${`coach_facts:${userId}`}, 0))`,
     );
+    const nearest = await nearestFactId(tx, userId, category, subject, literal);
+    const merged = nearest && nearest.distance <= DEDUP_MAX_DISTANCE ? nearest.id : null;
+    const factId = merged ?? newId();
+    created = !merged;
     if (subject) {
       await tx.execute(sql`
         UPDATE coach_facts
@@ -236,7 +239,7 @@ async function saveFact(
     `);
   });
 
-  return !merged;
+  return created;
 }
 
 export async function saveImportedFact(

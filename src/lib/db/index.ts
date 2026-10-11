@@ -13,7 +13,12 @@ function init(): DrizzleDb {
   if (!connectionString) {
     throw new Error("DATABASE_URL is not set");
   }
-  const pool = new Pool({ connectionString, max: 5, idleTimeoutMillis: 5_000 });
+  const pool = new Pool({
+    connectionString,
+    max: 5,
+    idleTimeoutMillis: 5_000,
+    connectionTimeoutMillis: 10_000,
+  });
   pool.on("error", (error) => {
     console.error("[db] idle client error", error);
   });

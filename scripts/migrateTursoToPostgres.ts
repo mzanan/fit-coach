@@ -3,7 +3,7 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 config();
 
-import { createClient, type InValue, type Row } from "@libsql/client";
+import { createClient, type InValue, type ResultSet, type Row } from "@libsql/client";
 import { Client } from "pg";
 
 const TABLES = [
@@ -41,7 +41,7 @@ const TABLES = [
 const INSERT_CHUNK = 200;
 const MAX_REPORTED_MISMATCHES = 5;
 
-type ColumnType = "timestamp" | "boolean" | "vector" | "number" | "text";
+type ColumnType = "timestamp" | "boolean" | "vector" | "integer" | "number" | "text";
 
 interface TableReport {
   table: string;
@@ -69,9 +69,8 @@ function columnType(dataType: string, udtName: string): ColumnType {
   if (dataType.startsWith("timestamp")) return "timestamp";
   if (dataType === "boolean") return "boolean";
   if (udtName === "vector") return "vector";
-  if (["integer", "bigint", "double precision", "real", "numeric"].includes(dataType)) {
-    return "number";
-  }
+  if (["integer", "bigint", "smallint"].includes(dataType)) return "integer";
+  if (["double precision", "real", "numeric"].includes(dataType)) return "number";
   return "text";
 }
 
@@ -91,21 +90,44 @@ function blobToFloats(value: unknown): number[] {
   return floats;
 }
 
-function convert(value: unknown, type: ColumnType): unknown {
+const NUMERIC_TEXT = /^-?\d+(\.\d+)?(e[+-]?\d+)?$/i;
+
+function strictNumber(value: unknown, where: string): number {
+  if (typeof value === "number" || typeof value === "bigint") return Number(value);
+  if (typeof value === "string" && NUMERIC_TEXT.test(value)) return Number(value);
+  throw new Error(`${where}: not a number: ${JSON.stringify(value)}`);
+}
+
+function convert(value: unknown, type: ColumnType, where: string): unknown {
   if (value == null) return null;
   switch (type) {
-    case "timestamp":
-      return typeof value === "string" && !/^\d+$/.test(value)
-        ? new Date(value)
-        : new Date(Number(value));
-    case "boolean":
-      return Number(value) === 1;
+    case "timestamp": {
+      const ms = strictNumber(value, where);
+      if (!Number.isInteger(ms)) throw new Error(`${where}: timestamp is not integer ms: ${value}`);
+      return new Date(ms);
+    }
+    case "boolean": {
+      const n = strictNumber(value, where);
+      if (n !== 0 && n !== 1) throw new Error(`${where}: boolean is not 0 or 1: ${value}`);
+      return n === 1;
+    }
     case "vector":
       return `[${blobToFloats(value).join(",")}]`;
+    case "integer": {
+      const n = strictNumber(value, where);
+      if (!Number.isInteger(n)) throw new Error(`${where}: not an integer: ${value}`);
+      return n;
+    }
     case "number":
-      return Number(value);
-    default:
-      return String(value);
+      return strictNumber(value, where);
+    default: {
+      if (typeof value !== "string" && typeof value !== "number") {
+        throw new Error(`${where}: unexpected text value type ${typeof value}`);
+      }
+      const text = String(value);
+      if (text.includes("\u0000")) throw new Error(`${where}: text contains NUL`);
+      return text;
+    }
   }
 }
 
@@ -122,6 +144,7 @@ function normalize(value: unknown, type: ColumnType): string {
         .split(",")
         .map((v) => Math.fround(Number(v)))
         .join(",");
+    case "integer":
     case "number":
       return String(Number(value));
     default:
@@ -147,6 +170,14 @@ async function main() {
 
   const source = createClient({ url: sourceUrl, authToken: process.env.TURSO_AUTH_TOKEN });
   const snapshot = await source.transaction("read");
+  const sourceData = new Map<string, ResultSet>();
+  try {
+    for (const table of TABLES) {
+      sourceData.set(table, await snapshot.execute(`select * from "${table}"`));
+    }
+  } finally {
+    snapshot.close();
+  }
   const target = new Client({ connectionString: targetUrl });
   await target.connect();
 
@@ -198,14 +229,17 @@ async function main() {
       const pk = primaryKeys.get(table);
       if (!targetColumns || !pk) throw new Error(`Target is missing table or primary key: ${table}`);
 
-      const result = await snapshot.execute(`select * from "${table}"`);
+      const result = sourceData.get(table)!;
       const sourceColumns = result.columns;
       const missing = sourceColumns.filter((c) => !targetColumns.has(c));
       if (missing.length) throw new Error(`${table}: target lacks columns ${missing.join(", ")}`);
 
       const converted = result.rows.map((row: Row) =>
         Object.fromEntries(
-          sourceColumns.map((c) => [c, convert(row[c] as InValue, targetColumns.get(c)!)]),
+          sourceColumns.map((c) => [
+            c,
+            convert(row[c] as InValue, targetColumns.get(c)!, `${table}.${c}`),
+          ]),
         ),
       );
 
@@ -278,7 +312,6 @@ async function main() {
     }
     throw error;
   } finally {
-    snapshot.close();
     await target.end();
     source.close();
   }
