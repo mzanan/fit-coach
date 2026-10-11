@@ -1,1 +1,0 @@
-ALTER TABLE `profiles` ADD `summary_rules` text;

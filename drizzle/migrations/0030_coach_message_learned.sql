@@ -1,1 +1,0 @@
-ALTER TABLE `coach_messages` ADD `learned` text;

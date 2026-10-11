@@ -1,1 +1,0 @@
-ALTER TABLE `coach_facts` ADD `subject` text;

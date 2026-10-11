@@ -74,10 +74,10 @@ export function normalizeSubject(value: string | null | undefined): string | nul
 }
 
 async function knownSubjects(userId: string): Promise<string[]> {
-  const rows = await db.all<{ subject: string }>(sql`
+  const { rows } = await db.execute<{ subject: string }>(sql`
     SELECT subject
     FROM coach_facts
-    WHERE user_id = ${userId} AND active = 1 AND subject IS NOT NULL
+    WHERE user_id = ${userId} AND active = true AND subject IS NOT NULL
     GROUP BY subject
     ORDER BY MAX(updated_at) DESC
     LIMIT ${KNOWN_SUBJECT_LIMIT}
@@ -100,15 +100,15 @@ async function semanticMatches(
   query: string,
 ): Promise<RetrievedFact[]> {
   const literal = toVectorLiteral(await embed(query));
-  const rows = await db.all<{
+  const { rows } = await db.execute<{
     content: string;
     category: string;
     distance: number;
   }>(sql`
     SELECT content, category,
-           vector_distance_cos(embedding, vector32(${literal})) AS distance
+           (embedding <=> ${literal}::vector) AS distance
     FROM coach_facts
-    WHERE user_id = ${userId} AND embedding IS NOT NULL AND active = 1
+    WHERE user_id = ${userId} AND embedding IS NOT NULL AND active = true
     ORDER BY distance ASC
     LIMIT ${RETRIEVAL_LIMIT}
   `);
@@ -116,10 +116,10 @@ async function semanticMatches(
 }
 
 async function allCorrections(userId: string): Promise<RetrievedFact[]> {
-  const rows = await db.all<{ content: string; category: string }>(sql`
+  const { rows } = await db.execute<{ content: string; category: string }>(sql`
     SELECT content, category
     FROM coach_facts
-    WHERE user_id = ${userId} AND category = 'correction' AND active = 1
+    WHERE user_id = ${userId} AND category = 'correction' AND active = true
     ORDER BY updated_at DESC
     LIMIT ${CORRECTION_LIMIT}
   `);
@@ -171,14 +171,14 @@ async function nearestFactId(
   subject: string | null,
   literal: string,
 ): Promise<{ id: string; distance: number } | null> {
-  const rows = await db.all<{ id: string; distance: number }>(sql`
-    SELECT id, vector_distance_cos(embedding, vector32(${literal})) AS distance
+  const { rows } = await db.execute<{ id: string; distance: number }>(sql`
+    SELECT id, (embedding <=> ${literal}::vector) AS distance
     FROM coach_facts
     WHERE user_id = ${userId}
       AND category = ${category}
       AND embedding IS NOT NULL
-      AND active = 1
-      AND (subject IS NULL OR subject IS ${subject})
+      AND active = true
+      AND (subject IS NULL OR subject IS NOT DISTINCT FROM ${subject})
     ORDER BY distance ASC
     LIMIT 1
   `);
@@ -195,29 +195,32 @@ async function saveFact(
 ): Promise<boolean> {
   const literal = toVectorLiteral(await embed(content, signal));
   const modelTag = embeddingModelTag();
-  const now = Date.now();
+  const now = new Date();
 
   const nearest = await nearestFactId(userId, category, subject, literal);
   const merged = nearest && nearest.distance <= DEDUP_MAX_DISTANCE ? nearest.id : null;
   const factId = merged ?? newId();
 
   await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtextextended(${`coach_facts:${userId}:${subject ?? factId}`}, 0))`,
+    );
     if (subject) {
-      await tx.run(sql`
+      await tx.execute(sql`
         UPDATE coach_facts
-        SET active = 0, superseded_by = ${factId}, updated_at = ${now}
+        SET active = false, superseded_by = ${factId}, updated_at = ${now}
         WHERE user_id = ${userId}
           AND subject = ${subject}
-          AND active = 1
-          AND id IS NOT ${factId}
+          AND active = true
+          AND id IS DISTINCT FROM ${factId}
       `);
     }
 
     if (merged) {
-      await tx.run(sql`
+      await tx.execute(sql`
         UPDATE coach_facts
         SET content = ${content},
-            embedding = vector32(${literal}),
+            embedding = ${literal}::vector,
             embedding_model = ${modelTag},
             subject = COALESCE(${subject}, subject),
             source = ${source},
@@ -227,9 +230,9 @@ async function saveFact(
       return;
     }
 
-    await tx.run(sql`
+    await tx.execute(sql`
       INSERT INTO coach_facts (id, user_id, content, category, embedding, embedding_model, subject, source, active, superseded_by, created_at, updated_at)
-      VALUES (${factId}, ${userId}, ${content}, ${category}, vector32(${literal}), ${modelTag}, ${subject}, ${source}, 1, NULL, ${now}, ${now})
+      VALUES (${factId}, ${userId}, ${content}, ${category}, ${literal}::vector, ${modelTag}, ${subject}, ${source}, true, NULL, ${now}, ${now})
     `);
   });
 

@@ -104,48 +104,51 @@ export async function importData(payload: BackupPayload) {
     ...("updated_at" in r ? { updated_at: ts(r.updated_at) } : {}),
   });
 
-  await db.batch([
-    db.delete(workout_sets).where(eq(workout_sets.user_id, user.id)),
-    db.delete(workout_exercises).where(eq(workout_exercises.user_id, user.id)),
-    db.delete(workouts).where(eq(workouts.user_id, user.id)),
-    db.delete(meals).where(eq(meals.user_id, user.id)),
-    db
-      .delete(catalog_components)
-      .where(eq(catalog_components.user_id, user.id)),
-    db.delete(catalog_items).where(eq(catalog_items.user_id, user.id)),
-    ...batches<Row>(payload.catalog_items).map((rows) =>
-      db
-        .insert(catalog_items)
-        .values(
-          rows.map(
-            (r) => withTimestamps(r) as typeof catalog_items.$inferInsert,
+  await db.transaction(async (tx) => {
+    const queries = [
+      tx.delete(workout_sets).where(eq(workout_sets.user_id, user.id)),
+      tx.delete(workout_exercises).where(eq(workout_exercises.user_id, user.id)),
+      tx.delete(workouts).where(eq(workouts.user_id, user.id)),
+      tx.delete(meals).where(eq(meals.user_id, user.id)),
+      tx
+        .delete(catalog_components)
+        .where(eq(catalog_components.user_id, user.id)),
+      tx.delete(catalog_items).where(eq(catalog_items.user_id, user.id)),
+      ...batches<Row>(payload.catalog_items).map((rows) =>
+        tx
+          .insert(catalog_items)
+          .values(
+            rows.map(
+              (r) => withTimestamps(r) as typeof catalog_items.$inferInsert,
+            ),
           ),
-        ),
-    ),
-    ...batches<typeof catalog_components.$inferInsert>(
-      payload.catalog_components,
-    ).map((rows) => db.insert(catalog_components).values(rows)),
-    ...batches<Row>(payload.meals).map((rows) =>
-      db
-        .insert(meals)
-        .values(
-          rows.map((r) => withTimestamps(r) as typeof meals.$inferInsert),
-        ),
-    ),
-    ...batches<Row>(payload.workouts).map((rows) =>
-      db
-        .insert(workouts)
-        .values(
-          rows.map((r) => withTimestamps(r) as typeof workouts.$inferInsert),
-        ),
-    ),
-    ...batches<typeof workout_exercises.$inferInsert>(
-      payload.workout_exercises,
-    ).map((rows) => db.insert(workout_exercises).values(rows)),
-    ...batches<typeof workout_sets.$inferInsert>(payload.workout_sets).map(
-      (rows) => db.insert(workout_sets).values(rows),
-    ),
-  ]);
+      ),
+      ...batches<typeof catalog_components.$inferInsert>(
+        payload.catalog_components,
+      ).map((rows) => tx.insert(catalog_components).values(rows)),
+      ...batches<Row>(payload.meals).map((rows) =>
+        tx
+          .insert(meals)
+          .values(
+            rows.map((r) => withTimestamps(r) as typeof meals.$inferInsert),
+          ),
+      ),
+      ...batches<Row>(payload.workouts).map((rows) =>
+        tx
+          .insert(workouts)
+          .values(
+            rows.map((r) => withTimestamps(r) as typeof workouts.$inferInsert),
+          ),
+      ),
+      ...batches<typeof workout_exercises.$inferInsert>(
+        payload.workout_exercises,
+      ).map((rows) => tx.insert(workout_exercises).values(rows)),
+      ...batches<typeof workout_sets.$inferInsert>(payload.workout_sets).map(
+        (rows) => tx.insert(workout_sets).values(rows),
+      ),
+    ];
+    for (const query of queries) await query;
+  });
 
   updateTag("catalog");
   revalidatePath("/");

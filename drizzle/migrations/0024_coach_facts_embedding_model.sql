@@ -1,1 +1,0 @@
-ALTER TABLE `coach_facts` ADD `embedding_model` text DEFAULT 'gemini-embedding-001/768' NOT NULL;

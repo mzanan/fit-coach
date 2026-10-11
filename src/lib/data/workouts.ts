@@ -56,33 +56,35 @@ export async function getOrCreateWorkout(
   day: string,
   label?: string | null,
 ): Promise<GetOrCreateWorkoutResult> {
-  const existing = await executor
+  const storedLabel = label?.trim() || null;
+  const [created] = await executor
+    .insert(workouts)
+    .values({
+      id: newId(),
+      user_id: userId,
+      logical_day: day,
+      label: storedLabel,
+      created_at: new Date(),
+    })
+    .onConflictDoNothing({ target: [workouts.user_id, workouts.logical_day] })
+    .returning({ id: workouts.id });
+  if (created) return { id: created.id, label: storedLabel };
+
+  const [existing] = await executor
     .select()
     .from(workouts)
     .where(and(eq(workouts.user_id, userId), eq(workouts.logical_day, day)))
     .limit(1);
+  if (!existing) throw new Error("Workout not found after conflict");
 
-  if (existing[0]) {
-    if (label && label !== existing[0].label) {
-      await executor
-        .update(workouts)
-        .set({ label })
-        .where(eq(workouts.id, existing[0].id));
-      return { id: existing[0].id, label };
-    }
-    return { id: existing[0].id, label: existing[0].label };
+  if (label && label !== existing.label) {
+    await executor
+      .update(workouts)
+      .set({ label })
+      .where(eq(workouts.id, existing.id));
+    return { id: existing.id, label };
   }
-
-  const id = newId();
-  const storedLabel = label?.trim() || null;
-  await executor.insert(workouts).values({
-    id,
-    user_id: userId,
-    logical_day: day,
-    label: storedLabel,
-    created_at: new Date(),
-  });
-  return { id, label: storedLabel };
+  return { id: existing.id, label: existing.label };
 }
 
 export interface ExerciseFull extends WorkoutExercise {

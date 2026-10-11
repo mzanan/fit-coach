@@ -1,5 +1,5 @@
 {
-  "regions": ["hnd1"],
+  "regions": ["sin1"],
   "functions": {
     "src/app/api/coach/approve/route.ts": { "supportsCancellation": true },
     "src/app/.well-known/workflow/v1/flow/route.js": { "maxDuration": 300 }
