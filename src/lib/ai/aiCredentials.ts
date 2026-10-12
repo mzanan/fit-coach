@@ -251,7 +251,7 @@ async function setActive(
     .update(profiles)
     .set({ ai_provider: provider, updated_at: new Date() })
     .where(eq(profiles.user_id, userId));
-  if (result.rowsAffected === 0) {
+  if (result.rowCount === 0) {
     throw new Error("Profile row missing, cannot set the active AI provider");
   }
 }
@@ -269,7 +269,7 @@ export async function saveAiCredential(
       .update(profiles)
       .set({ ai_provider: provider, updated_at: now })
       .where(eq(profiles.user_id, userId));
-    if (result.rowsAffected === 0) {
+    if (result.rowCount === 0) {
       throw new Error("Profile row missing, cannot save the AI credential");
     }
     await tx

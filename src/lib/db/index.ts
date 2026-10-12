@@ -1,5 +1,6 @@
-import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
+import { attachDatabasePool } from "@vercel/functions";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 
 import * as schema from "./schema";
 
@@ -8,20 +9,21 @@ type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>;
 let cached: DrizzleDb | null = null;
 
 function init(): DrizzleDb {
-  const url = process.env.TURSO_DATABASE_URL;
-  if (!url) {
-    throw new Error("TURSO_DATABASE_URL is not set");
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is not set");
   }
-  const replicaPath = process.env.TURSO_EMBEDDED_REPLICA_PATH;
-  const client = replicaPath
-    ? createClient({
-        url: `file:${replicaPath}`,
-        syncUrl: url,
-        authToken: process.env.TURSO_AUTH_TOKEN,
-        syncInterval: 60,
-      })
-    : createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
-  return drizzle(client, { schema });
+  const pool = new Pool({
+    connectionString,
+    max: 5,
+    idleTimeoutMillis: 5_000,
+    connectionTimeoutMillis: 10_000,
+  });
+  pool.on("error", (error) => {
+    console.error("[db] idle client error", error);
+  });
+  attachDatabasePool(pool);
+  return drizzle(pool, { schema });
 }
 
 export const db = new Proxy({} as DrizzleDb, {

@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { parseISO } from "date-fns";
 
@@ -36,143 +36,160 @@ export async function commitMdImport(payload: unknown) {
     );
   }
 
-  const existing = await db
-    .select({ name: catalog_items.name })
-    .from(catalog_items)
-    .where(eq(catalog_items.user_id, user.id));
-  const existingNames = new Set(existing.map((r) => r.name.trim().toLowerCase()));
-
-  const days = data.days.map((day) => day.day);
-  const loggedMeals = days.length
-    ? await db
-        .select({ day: meals.logical_day, name: meals.name, category: meals.category })
-        .from(meals)
-        .where(
-          and(eq(meals.user_id, user.id), inArray(meals.logical_day, days)),
-        )
-    : [];
-  const loggedCounts = new Map<string, number>();
-  for (const m of loggedMeals) {
-    const key = `${m.day}|${m.category}|${m.name.trim().toLowerCase()}`;
-    loggedCounts.set(key, (loggedCounts.get(key) ?? 0) + 1);
-  }
-  const loggedWorkoutDays = new Set(
-    days.length
-      ? (
-          await db
-            .select({ day: workouts.logical_day })
-            .from(workouts)
-            .where(
-              and(
-                eq(workouts.user_id, user.id),
-                inArray(workouts.logical_day, days),
-              ),
-            )
-        ).map((w) => w.day)
-      : [],
-  );
-
   let mealCount = 0;
   let workoutCount = 0;
   let skipped = 0;
+  let newItems: typeof data.catalog_items = [];
 
-  for (const day of data.days) {
-    const base = parseISO(`${day.day}T12:00:00`).getTime();
+  await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtextextended(${`md_import:${user.id}`}, 0))`,
+    );
+    const existing = await tx
+      .select({ name: catalog_items.name })
+      .from(catalog_items)
+      .where(eq(catalog_items.user_id, user.id));
+    const existingNames = new Set(existing.map((r) => r.name.trim().toLowerCase()));
 
-    const fresh = day.meals.filter((m) => {
-      const key = `${day.day}|${m.category}|${m.name.trim().toLowerCase()}`;
-      const already = loggedCounts.get(key) ?? 0;
-      if (already > 0) {
-        loggedCounts.set(key, already - 1);
-        skipped += 1;
-        return false;
+    const days = data.days.map((day) => day.day);
+    const loggedMeals = days.length
+      ? await tx
+          .select({ day: meals.logical_day, name: meals.name, category: meals.category })
+          .from(meals)
+          .where(
+            and(eq(meals.user_id, user.id), inArray(meals.logical_day, days)),
+          )
+      : [];
+    const loggedCounts = new Map<string, number>();
+    for (const m of loggedMeals) {
+      const key = `${m.day}|${m.category}|${m.name.trim().toLowerCase()}`;
+      loggedCounts.set(key, (loggedCounts.get(key) ?? 0) + 1);
+    }
+    const loggedWorkoutDays = new Set(
+      days.length
+        ? (
+            await tx
+              .select({ day: workouts.logical_day })
+              .from(workouts)
+              .where(
+                and(
+                  eq(workouts.user_id, user.id),
+                  inArray(workouts.logical_day, days),
+                ),
+              )
+          ).map((w) => w.day)
+        : [],
+    );
+
+
+    for (const day of data.days) {
+      const base = parseISO(`${day.day}T12:00:00`).getTime();
+
+      const fresh = day.meals.filter((m) => {
+        const key = `${day.day}|${m.category}|${m.name.trim().toLowerCase()}`;
+        const already = loggedCounts.get(key) ?? 0;
+        if (already > 0) {
+          loggedCounts.set(key, already - 1);
+          skipped += 1;
+          return false;
+        }
+        return true;
+      });
+
+      if (fresh.length) {
+        await tx.insert(meals).values(
+          fresh.map((m, i) => ({
+            id: newId(),
+            user_id: user.id,
+            logical_day: day.day,
+            category: m.category,
+            name: m.name.trim(),
+            place: m.place?.trim() || null,
+            protein_g: m.protein_g,
+            fat_g: m.fat_g,
+            carbs_g: m.carbs_g,
+            fat_quality: m.fat_quality ?? null,
+            catalog_item_id: null,
+            created_at: new Date(base + i * 60_000),
+          })),
+        );
+        mealCount += fresh.length;
       }
-      return true;
-    });
 
-    if (fresh.length) {
-      await db.insert(meals).values(
-        fresh.map((m, i) => ({
+      const created =
+        day.workout && !loggedWorkoutDays.has(day.day)
+          ? (
+              await tx
+                .insert(workouts)
+                .values({
+                  id: newId(),
+                  user_id: user.id,
+                  logical_day: day.day,
+                  label: day.workout.label?.trim() || null,
+                  notes: day.workout.notes?.trim() || null,
+                  created_at: new Date(base),
+                })
+                .onConflictDoNothing({ target: [workouts.user_id, workouts.logical_day] })
+                .returning({ id: workouts.id })
+            )[0]
+          : undefined;
+
+      if (day.workout && created) {
+        const workoutId = created.id;
+        for (const [i, exercise] of day.workout.exercises.entries()) {
+          const exerciseId = newId();
+          await tx.insert(workout_exercises).values({
+            id: exerciseId,
+            workout_id: workoutId,
+            user_id: user.id,
+            name: exercise.name.trim(),
+            sort: i,
+            notes: exercise.notes?.trim() || null,
+          });
+          if (exercise.sets.length) {
+            await tx.insert(workout_sets).values(
+              exercise.sets.map((s, j) => ({
+                id: newId(),
+                exercise_id: exerciseId,
+                user_id: user.id,
+                set_index: j + 1,
+                reps: s.reps ?? null,
+                weight: s.weight ?? null,
+                per_side: s.per_side ?? false,
+              })),
+            );
+          }
+        }
+        loggedWorkoutDays.add(day.day);
+        workoutCount += 1;
+      } else if (day.workout) {
+        skipped += 1;
+      }
+    }
+
+    newItems = data.catalog_items.filter(
+      (item) => !existingNames.has(item.name.trim().toLowerCase()),
+    );
+    if (newItems.length) {
+      const now = new Date();
+      await tx.insert(catalog_items).values(
+        newItems.map((item) => ({
           id: newId(),
           user_id: user.id,
-          logical_day: day.day,
-          category: m.category,
-          name: m.name.trim(),
-          place: m.place?.trim() || null,
-          protein_g: m.protein_g,
-          fat_g: m.fat_g,
-          carbs_g: m.carbs_g,
-          fat_quality: m.fat_quality ?? null,
-          catalog_item_id: null,
-          created_at: new Date(base + i * 60_000),
+          name: item.name.trim(),
+          place: item.place?.trim() || null,
+          protein_g: item.protein_g ?? null,
+          fat_g: item.fat_g ?? null,
+          carbs_g: item.carbs_g ?? null,
+          fat_quality: item.fat_quality ?? null,
+          notes: item.notes?.trim() || null,
+          is_composable: false,
+          created_at: now,
+          updated_at: now,
         })),
       );
-      mealCount += fresh.length;
     }
-
-    if (day.workout && !loggedWorkoutDays.has(day.day)) {
-      const workoutId = newId();
-      await db.insert(workouts).values({
-        id: workoutId,
-        user_id: user.id,
-        logical_day: day.day,
-        label: day.workout.label?.trim() || null,
-        notes: day.workout.notes?.trim() || null,
-        created_at: new Date(base),
-      });
-      for (const [i, exercise] of day.workout.exercises.entries()) {
-        const exerciseId = newId();
-        await db.insert(workout_exercises).values({
-          id: exerciseId,
-          workout_id: workoutId,
-          user_id: user.id,
-          name: exercise.name.trim(),
-          sort: i,
-          notes: exercise.notes?.trim() || null,
-        });
-        if (exercise.sets.length) {
-          await db.insert(workout_sets).values(
-            exercise.sets.map((s, j) => ({
-              id: newId(),
-              exercise_id: exerciseId,
-              user_id: user.id,
-              set_index: j + 1,
-              reps: s.reps ?? null,
-              weight: s.weight ?? null,
-              per_side: s.per_side ?? false,
-            })),
-          );
-        }
-      }
-      loggedWorkoutDays.add(day.day);
-      workoutCount += 1;
-    } else if (day.workout) {
-      skipped += 1;
-    }
-  }
-
-  const newItems = data.catalog_items.filter(
-    (item) => !existingNames.has(item.name.trim().toLowerCase()),
-  );
-  if (newItems.length) {
-    const now = new Date();
-    await db.insert(catalog_items).values(
-      newItems.map((item) => ({
-        id: newId(),
-        user_id: user.id,
-        name: item.name.trim(),
-        place: item.place?.trim() || null,
-        protein_g: item.protein_g ?? null,
-        fat_g: item.fat_g ?? null,
-        carbs_g: item.carbs_g ?? null,
-        fat_quality: item.fat_quality ?? null,
-        notes: item.notes?.trim() || null,
-        is_composable: false,
-        created_at: now,
-        updated_at: now,
-      })),
-    );
-  }
+  });
 
   if (newItems.length) {
     updateTag("catalog");

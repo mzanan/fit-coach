@@ -11,10 +11,10 @@ Built mobile-first: the core loop is logging a meal from a personal catalog in a
 | Layer   | Choice                                                                                |
 | ------- | ------------------------------------------------------------------------------------- |
 | App     | Next.js 16 (App Router), React 19, Tailwind v4, Radix primitives                      |
-| Data    | Turso (libSQL) + Drizzle ORM                                                          |
+| Data    | Postgres on Neon (aws-ap-southeast-1) + Drizzle ORM, pgvector                         |
 | Auth    | Better Auth: Google OAuth                                                             |
 | AI      | Vercel AI SDK v7, per-user BYOK across Groq / OpenRouter / Google / Experiential Labs |
-| Hosting | Vercel (`hnd1`, colocated with the Turso region)                                      |
+| Hosting | Vercel (`sin1`, colocated with the Neon region)                                       |
 | Analytics | PostHog EU behind a first-party proxy, cookie consent with a cookieless fallback; `?notrack=1` excludes a browser |
 
 ## Running locally
@@ -22,7 +22,8 @@ Built mobile-first: the core loop is logging a meal from a personal catalog in a
 ```bash
 npm install
 cp .env.example .env.local     # every variable is documented inline
-npm run db:migrate
+npm run db:migrate             # applies drizzle/migrations to DATABASE_URL_UNPOOLED
+npm run db:backup -- <neon-endpoint>   # manual local pg_dump to ~/Backups/fit-coach
 npm run dev                    # http://localhost:3040
 npm test                       # unit specs (Vitest)
 ```
@@ -70,7 +71,9 @@ Three stores, each solving a different problem:
 | `coach_memory`   | One rolling ~150-word summary per user                    | Cheap always-on context that survives clearing the chat and works without an embeddings key. |
 | `coach_facts`    | Discrete facts, one row each, with a 768-dim embedding    | Durable preferences, constraints, corrections and routines, retrieved by cosine similarity.  |
 
-`coach_facts` retrieval uses libSQL's native `vector_distance_cos` with thresholds calibrated against measured distances (retrieval 0.45, semantic dedup 0.06). It filters by `user_id` and then scans rather than using an ANN index, because libSQL's `vector_top_k` is global and would leak or drop rows across users.
+`coach_facts` retrieval uses pgvector's cosine distance operator (`<=>`) with thresholds calibrated against measured distances (retrieval 0.45, semantic dedup 0.06). It filters by `user_id` and then scans rather than using an HNSW index: at a few hundred facts per user an exact scan is fast, and an approximate index combined with a per-user filter can silently drop results.
+
+The app moved from Turso (libSQL) to Postgres in October 2026; `scripts/migrateTursoToPostgres.ts` copied every table in one transaction and compared every row column by column before committing. The SQLite migration history lives in git.
 
 **Supersession.** A vector store models similarity, not time, so without a time model a correction would be retrieved alongside the belief it replaced. Facts carry a `subject`, a normalized key naming _what the fact is about_ (`salmon`, `training_time`). A new fact deactivates every active fact with the same subject inside a transaction; the old row is kept with a `superseded_by` pointer. _At most one active fact per (user, subject)_ is enforced in code and by a partial unique index.
 

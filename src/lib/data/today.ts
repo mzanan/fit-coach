@@ -31,7 +31,7 @@ export async function getDayData(
       .select()
       .from(meals)
       .where(and(eq(meals.user_id, userId), eq(meals.logical_day, day)))
-      .orderBy(asc(meals.created_at)),
+      .orderBy(asc(meals.created_at), asc(meals.id)),
     db
       .select()
       .from(days)

@@ -1,1 +1,0 @@
-ALTER TABLE `ai_credentials` ADD `reasoning_effort` text DEFAULT 'low' NOT NULL;

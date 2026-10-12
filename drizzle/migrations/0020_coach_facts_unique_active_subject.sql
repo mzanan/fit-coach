@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX `coach_facts_active_subject_idx` ON `coach_facts` (`user_id`,`subject`) WHERE "coach_facts"."active" = 1 AND "coach_facts"."subject" IS NOT NULL;

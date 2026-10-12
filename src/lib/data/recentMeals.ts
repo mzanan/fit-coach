@@ -32,7 +32,7 @@ export async function getRecentMeals(userId: string): Promise<RecentMeal[]> {
     })
     .from(meals)
     .where(eq(meals.user_id, userId))
-    .orderBy(desc(meals.created_at))
+    .orderBy(desc(meals.created_at), desc(meals.id))
     .limit(60);
 
   const seen = new Set<string>();

@@ -1,47 +1,38 @@
 import {
-  customType,
+  boolean,
+  doublePrecision,
   index,
   integer,
+  pgTable,
   primaryKey,
-  real,
-  sqliteTable,
   text,
+  timestamp,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+  vector,
+} from "drizzle-orm/pg-core";
 
 import { sql } from "drizzle-orm";
 
 import { EMBEDDING_DIM } from "@/lib/constants";
 
-const vector = customType<{ data: Buffer; driverData: Buffer }>({
-  dataType() {
-    return `F32_BLOB(${EMBEDDING_DIM})`;
-  },
-});
-
-// ---------------------------------------------------------------------------
-// Better Auth tables. Column names match the Better Auth Drizzle adapter
-// (camelCase). Do not snake_case these.
-// ---------------------------------------------------------------------------
-
-export const user = sqliteTable("user", {
+export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name"),
   email: text("email").notNull().unique(),
-  emailVerified: integer("emailVerified", { mode: "boolean" })
+  emailVerified: boolean("emailVerified")
     .notNull()
     .default(false),
   image: text("image"),
-  createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull(),
-  updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true, mode: "date" }).notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true, mode: "date" }).notNull(),
 });
 
-export const session = sqliteTable("session", {
+export const session = pgTable("session", {
   id: text("id").primaryKey(),
-  expiresAt: integer("expiresAt", { mode: "timestamp_ms" }).notNull(),
+  expiresAt: timestamp("expiresAt", { withTimezone: true, mode: "date" }).notNull(),
   token: text("token").notNull().unique(),
-  createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull(),
-  updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true, mode: "date" }).notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true, mode: "date" }).notNull(),
   ipAddress: text("ipAddress"),
   userAgent: text("userAgent"),
   userId: text("userId")
@@ -49,7 +40,7 @@ export const session = sqliteTable("session", {
     .references(() => user.id, { onDelete: "cascade" }),
 });
 
-export const account = sqliteTable("account", {
+export const account = pgTable("account", {
   id: text("id").primaryKey(),
   accountId: text("accountId").notNull(),
   providerId: text("providerId").notNull(),
@@ -59,58 +50,51 @@ export const account = sqliteTable("account", {
   accessToken: text("accessToken"),
   refreshToken: text("refreshToken"),
   idToken: text("idToken"),
-  accessTokenExpiresAt: integer("accessTokenExpiresAt", { mode: "timestamp_ms" }),
-  refreshTokenExpiresAt: integer("refreshTokenExpiresAt", {
-    mode: "timestamp_ms",
-  }),
+  accessTokenExpiresAt: timestamp("accessTokenExpiresAt", { withTimezone: true, mode: "date" }),
+  refreshTokenExpiresAt: timestamp("refreshTokenExpiresAt", { withTimezone: true, mode: "date" }),
   scope: text("scope"),
   password: text("password"),
-  createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull(),
-  updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true, mode: "date" }).notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true, mode: "date" }).notNull(),
 });
 
-export const verification = sqliteTable("verification", {
+export const verification = pgTable("verification", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
-  expiresAt: integer("expiresAt", { mode: "timestamp_ms" }).notNull(),
-  createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull(),
-  updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+  expiresAt: timestamp("expiresAt", { withTimezone: true, mode: "date" }).notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true, mode: "date" }).notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true, mode: "date" }).notNull(),
 });
 
-// ---------------------------------------------------------------------------
-// App tables. snake_case columns. Every row carries user_id; every query must
-// filter eq(table.user_id, user.id). No RLS backstop.
-// ---------------------------------------------------------------------------
-
-export const profiles = sqliteTable("profiles", {
+export const profiles = pgTable("profiles", {
   user_id: text("user_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
   sex: text("sex").notNull().default("male"),
   birth_year: integer("birth_year"),
-  height_cm: real("height_cm"),
+  height_cm: doublePrecision("height_cm"),
   timezone: text("timezone").notNull().default("Asia/Ho_Chi_Minh"),
   day_cutoff_hour: integer("day_cutoff_hour").notNull().default(4),
-  protein_target: real("protein_target"),
-  fat_min: real("fat_min"),
-  fat_max: real("fat_max"),
-  fat_floor: real("fat_floor"),
-  carbs_gym: real("carbs_gym"),
-  carbs_rest: real("carbs_rest"),
-  calories_target: real("calories_target"),
-  calories_rest: real("calories_rest"),
-  seeded_at: integer("seeded_at", { mode: "timestamp_ms" }),
+  protein_target: doublePrecision("protein_target"),
+  fat_min: doublePrecision("fat_min"),
+  fat_max: doublePrecision("fat_max"),
+  fat_floor: doublePrecision("fat_floor"),
+  carbs_gym: doublePrecision("carbs_gym"),
+  carbs_rest: doublePrecision("carbs_rest"),
+  calories_target: doublePrecision("calories_target"),
+  calories_rest: doublePrecision("calories_rest"),
+  seeded_at: timestamp("seeded_at", { withTimezone: true, mode: "date" }),
   ai_provider: text("ai_provider"),
   coach_rules: text("coach_rules"),
   summary_rules: text("summary_rules"),
   dining_mode: text("dining_mode"),
   chat_language: text("chat_language"),
-  created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-  updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
 });
 
-export const catalog_items = sqliteTable(
+export const catalog_items = pgTable(
   "catalog_items",
   {
     id: text("id").primaryKey(),
@@ -119,30 +103,30 @@ export const catalog_items = sqliteTable(
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     place: text("place"),
-    protein_g: real("protein_g"),
-    fat_g: real("fat_g"),
-    carbs_g: real("carbs_g"),
+    protein_g: doublePrecision("protein_g"),
+    fat_g: doublePrecision("fat_g"),
+    carbs_g: doublePrecision("carbs_g"),
     fat_quality: text("fat_quality"),
     notes: text("notes"),
-    is_composable: integer("is_composable", { mode: "boolean" })
+    is_composable: boolean("is_composable")
       .notNull()
       .default(false),
-    archived: integer("archived", { mode: "boolean" }).notNull().default(false),
-    delivery: integer("delivery", { mode: "boolean" }).notNull().default(false),
-    dinner_only: integer("dinner_only", { mode: "boolean" })
+    archived: boolean("archived").notNull().default(false),
+    delivery: boolean("delivery").notNull().default(false),
+    dinner_only: boolean("dinner_only")
       .notNull()
       .default(false),
     company: text("company"),
     closed_weekdays: text("closed_weekdays"),
     auto_day_type: text("auto_day_type"),
     auto_category: text("auto_category"),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-    updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
   },
   (t) => [index("catalog_items_user_idx").on(t.user_id)],
 );
 
-export const days = sqliteTable(
+export const days = pgTable(
   "days",
   {
     id: text("id").primaryKey(),
@@ -153,15 +137,15 @@ export const days = sqliteTable(
     day_type: text("day_type").notNull(),
     steps: integer("steps"),
     notes: text("notes"),
-    closed_at: integer("closed_at", { mode: "timestamp_ms" }),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    closed_at: timestamp("closed_at", { withTimezone: true, mode: "date" }),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
   },
   (t) => [
     uniqueIndex("days_user_day_idx").on(t.user_id, t.logical_day),
   ],
 );
 
-export const routine_slots = sqliteTable(
+export const routine_slots = pgTable(
   "routine_slots",
   {
     id: text("id").primaryKey(),
@@ -176,7 +160,7 @@ export const routine_slots = sqliteTable(
   ],
 );
 
-export const catalog_components = sqliteTable(
+export const catalog_components = pgTable(
   "catalog_components",
   {
     id: text("id").primaryKey(),
@@ -188,16 +172,16 @@ export const catalog_components = sqliteTable(
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     group_name: text("group_name").notNull().default("other"),
-    protein_g: real("protein_g").notNull().default(0),
-    fat_g: real("fat_g").notNull().default(0),
-    carbs_g: real("carbs_g").notNull().default(0),
+    protein_g: doublePrecision("protein_g").notNull().default(0),
+    fat_g: doublePrecision("fat_g").notNull().default(0),
+    carbs_g: doublePrecision("carbs_g").notNull().default(0),
     fat_quality: text("fat_quality"),
     sort: integer("sort").notNull().default(0),
   },
   (t) => [index("catalog_components_item_idx").on(t.item_id)],
 );
 
-export const meals = sqliteTable(
+export const meals = pgTable(
   "meals",
   {
     id: text("id").primaryKey(),
@@ -208,25 +192,25 @@ export const meals = sqliteTable(
     category: text("category").notNull().default("lunch"),
     name: text("name").notNull(),
     place: text("place"),
-    protein_g: real("protein_g").notNull().default(0),
-    fat_g: real("fat_g").notNull().default(0),
-    carbs_g: real("carbs_g").notNull().default(0),
+    protein_g: doublePrecision("protein_g").notNull().default(0),
+    fat_g: doublePrecision("fat_g").notNull().default(0),
+    carbs_g: doublePrecision("carbs_g").notNull().default(0),
     fat_quality: text("fat_quality"),
     catalog_item_id: text("catalog_item_id"),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
   },
   (t) => [index("meals_user_day_idx").on(t.user_id, t.logical_day)],
 );
 
-export const coach_memory = sqliteTable("coach_memory", {
+export const coach_memory = pgTable("coach_memory", {
   user_id: text("user_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
-  updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
 });
 
-export const push_subscriptions = sqliteTable(
+export const push_subscriptions = pgTable(
   "push_subscriptions",
   {
     id: text("id").primaryKey(),
@@ -236,7 +220,7 @@ export const push_subscriptions = sqliteTable(
     endpoint: text("endpoint").notNull(),
     p256dh: text("p256dh").notNull(),
     auth: text("auth").notNull(),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
   },
   (t) => [
     uniqueIndex("push_subscriptions_user_endpoint_idx").on(
@@ -247,7 +231,7 @@ export const push_subscriptions = sqliteTable(
   ],
 );
 
-export const ai_credentials = sqliteTable(
+export const ai_credentials = pgTable(
   "ai_credentials",
   {
     user_id: text("user_id")
@@ -257,13 +241,13 @@ export const ai_credentials = sqliteTable(
     api_key_enc: text("api_key_enc").notNull(),
     model: text("model").notNull(),
     reasoning_effort: text("reasoning_effort").notNull().default("low"),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-    updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
   },
   (t) => [primaryKey({ columns: [t.user_id, t.provider] })],
 );
 
-export const coach_messages = sqliteTable(
+export const coach_messages = pgTable(
   "coach_messages",
   {
     id: text("id").primaryKey(),
@@ -272,18 +256,18 @@ export const coach_messages = sqliteTable(
       .references(() => user.id, { onDelete: "cascade" }),
     role: text("role").notNull(),
     content: text("content").notNull(),
-    generated: integer("generated", { mode: "boolean" })
+    generated: boolean("generated")
       .notNull()
       .default(true),
     status: text("status").notNull().default("done"),
     day_summary: text("day_summary"),
     learned: text("learned"),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
   },
   (t) => [index("coach_messages_user_idx").on(t.user_id, t.created_at)],
 );
 
-export const coach_pending_writes = sqliteTable("coach_pending_writes", {
+export const coach_pending_writes = pgTable("coach_pending_writes", {
   user_id: text("user_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
@@ -291,10 +275,10 @@ export const coach_pending_writes = sqliteTable("coach_pending_writes", {
   question: text("question"),
   messages: text("messages").notNull(),
   preview: text("preview").notNull(),
-  created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
 });
 
-export const coach_facts = sqliteTable(
+export const coach_facts = pgTable(
   "coach_facts",
   {
     id: text("id").primaryKey(),
@@ -303,26 +287,26 @@ export const coach_facts = sqliteTable(
       .references(() => user.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
     category: text("category").notNull(),
-    embedding: vector("embedding"),
+    embedding: vector("embedding", { dimensions: EMBEDDING_DIM }),
     embedding_model: text("embedding_model")
       .notNull()
       .default("gemini-embedding-001/768"),
     source: text("source"),
     subject: text("subject"),
-    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    active: boolean("active").notNull().default(true),
     superseded_by: text("superseded_by"),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-    updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
   },
   (t) => [
     index("coach_facts_user_idx").on(t.user_id),
     uniqueIndex("coach_facts_active_subject_idx")
       .on(t.user_id, t.subject)
-      .where(sql`${t.active} = 1 AND ${t.subject} IS NOT NULL`),
+      .where(sql`${t.active} = true AND ${t.subject} IS NOT NULL`),
   ],
 );
 
-export const user_rules = sqliteTable(
+export const user_rules = pgTable(
   "user_rules",
   {
     id: text("id").primaryKey(),
@@ -331,18 +315,18 @@ export const user_rules = sqliteTable(
       .references(() => user.id, { onDelete: "cascade" }),
     key: text("key").notNull(),
     value: text("value").notNull(),
-    set_at: integer("set_at", { mode: "timestamp_ms" }).notNull(),
-    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    set_at: timestamp("set_at", { withTimezone: true, mode: "date" }).notNull(),
+    active: boolean("active").notNull().default(true),
   },
   (t) => [
     index("user_rules_user_idx").on(t.user_id),
     uniqueIndex("user_rules_active_key_idx")
       .on(t.user_id, t.key)
-      .where(sql`${t.active} = 1`),
+      .where(sql`${t.active} = true`),
   ],
 );
 
-export const fatigue_logs = sqliteTable(
+export const fatigue_logs = pgTable(
   "fatigue_logs",
   {
     id: text("id").primaryKey(),
@@ -352,9 +336,9 @@ export const fatigue_logs = sqliteTable(
     logical_day: text("logical_day").notNull(),
     time_of_day: text("time_of_day").notNull(),
     score: integer("score"),
-    sleep_hours: real("sleep_hours"),
+    sleep_hours: doublePrecision("sleep_hours"),
     sleep_location: text("sleep_location"),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
   },
   (t) => [
     index("fatigue_logs_user_day_idx").on(t.user_id, t.logical_day),
@@ -366,7 +350,7 @@ export const fatigue_logs = sqliteTable(
   ],
 );
 
-export const ai_events = sqliteTable(
+export const ai_events = pgTable(
   "ai_events",
   {
     id: text("id").primaryKey(),
@@ -377,12 +361,12 @@ export const ai_events = sqliteTable(
     model: text("model"),
     kind: text("kind").notNull(),
     detail: text("detail"),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
   },
   (t) => [index("ai_events_user_idx").on(t.user_id, t.created_at)],
 );
 
-export const workouts = sqliteTable(
+export const workouts = pgTable(
   "workouts",
   {
     id: text("id").primaryKey(),
@@ -392,12 +376,12 @@ export const workouts = sqliteTable(
     logical_day: text("logical_day").notNull(),
     label: text("label"),
     notes: text("notes"),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
   },
-  (t) => [index("workouts_user_day_idx").on(t.user_id, t.logical_day)],
+  (t) => [uniqueIndex("workouts_user_day_idx").on(t.user_id, t.logical_day)],
 );
 
-export const exercise_catalog = sqliteTable("exercise_catalog", {
+export const exercise_catalog = pgTable("exercise_catalog", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   category: text("category"),
@@ -409,7 +393,7 @@ export const exercise_catalog = sqliteTable("exercise_catalog", {
   gif_path: text("gif_path").notNull(),
 });
 
-export const routine_exercises = sqliteTable(
+export const routine_exercises = pgTable(
   "routine_exercises",
   {
     id: text("id").primaryKey(),
@@ -425,17 +409,17 @@ export const routine_exercises = sqliteTable(
     sort: integer("sort").notNull().default(0),
     target_sets: integer("target_sets").notNull().default(3),
     target_reps: integer("target_reps").notNull().default(8),
-    current_weight: real("current_weight"),
-    per_side: integer("per_side", { mode: "boolean" }).notNull().default(false),
-    increment_kg: real("increment_kg").notNull().default(2.5),
-    active: integer("active", { mode: "boolean" }).notNull().default(true),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-    updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    current_weight: doublePrecision("current_weight"),
+    per_side: boolean("per_side").notNull().default(false),
+    increment_kg: doublePrecision("increment_kg").notNull().default(2.5),
+    active: boolean("active").notNull().default(true),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
   },
   (t) => [index("routine_exercises_user_label_idx").on(t.user_id, t.label)],
 );
 
-export const workout_exercises = sqliteTable(
+export const workout_exercises = pgTable(
   "workout_exercises",
   {
     id: text("id").primaryKey(),
@@ -456,7 +440,7 @@ export const workout_exercises = sqliteTable(
   (t) => [index("workout_exercises_workout_idx").on(t.workout_id)],
 );
 
-export const workout_sets = sqliteTable(
+export const workout_sets = pgTable(
   "workout_sets",
   {
     id: text("id").primaryKey(),
@@ -468,65 +452,65 @@ export const workout_sets = sqliteTable(
       .references(() => user.id, { onDelete: "cascade" }),
     set_index: integer("set_index").notNull().default(1),
     reps: integer("reps"),
-    weight: real("weight"),
-    per_side: integer("per_side", { mode: "boolean" }).notNull().default(false),
-    is_pr: integer("is_pr", { mode: "boolean" }).notNull().default(false),
+    weight: doublePrecision("weight"),
+    per_side: boolean("per_side").notNull().default(false),
+    is_pr: boolean("is_pr").notNull().default(false),
   },
   (t) => [index("workout_sets_exercise_idx").on(t.exercise_id)],
 );
 
-export const body_scans = sqliteTable(
+export const body_scans = pgTable(
   "body_scans",
   {
     id: text("id").primaryKey(),
     user_id: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    taken_at: integer("taken_at", { mode: "timestamp_ms" }).notNull(),
-    weight_kg: real("weight_kg"),
-    skeletal_muscle_kg: real("skeletal_muscle_kg"),
-    body_fat_kg: real("body_fat_kg"),
-    body_fat_pct: real("body_fat_pct"),
-    bmi: real("bmi"),
-    visceral_fat_level: real("visceral_fat_level"),
-    total_body_water_l: real("total_body_water_l"),
-    bmr_kcal: real("bmr_kcal"),
-    inbody_score: real("inbody_score"),
+    taken_at: timestamp("taken_at", { withTimezone: true, mode: "date" }).notNull(),
+    weight_kg: doublePrecision("weight_kg"),
+    skeletal_muscle_kg: doublePrecision("skeletal_muscle_kg"),
+    body_fat_kg: doublePrecision("body_fat_kg"),
+    body_fat_pct: doublePrecision("body_fat_pct"),
+    bmi: doublePrecision("bmi"),
+    visceral_fat_level: doublePrecision("visceral_fat_level"),
+    total_body_water_l: doublePrecision("total_body_water_l"),
+    bmr_kcal: doublePrecision("bmr_kcal"),
+    inbody_score: doublePrecision("inbody_score"),
     device: text("device"),
     location: text("location"),
     member_id: text("member_id"),
-    height_cm: real("height_cm"),
-    age: real("age"),
+    height_cm: doublePrecision("height_cm"),
+    age: doublePrecision("age"),
     gender: text("gender"),
     body_balance_upper: text("body_balance_upper"),
     body_balance_lower: text("body_balance_lower"),
     body_balance_upper_lower: text("body_balance_upper_lower"),
-    protein_kg: real("protein_kg"),
-    minerals_kg: real("minerals_kg"),
-    bone_mineral_kg: real("bone_mineral_kg"),
-    soft_lean_mass_kg: real("soft_lean_mass_kg"),
-    fat_free_mass_kg: real("fat_free_mass_kg"),
-    body_cell_mass_kg: real("body_cell_mass_kg"),
-    ecw_ratio: real("ecw_ratio"),
-    phase_angle: real("phase_angle"),
-    smi: real("smi"),
-    visceral_fat_area_cm2: real("visceral_fat_area_cm2"),
-    waist_circumference_cm: real("waist_circumference_cm"),
-    waist_hip_ratio: real("waist_hip_ratio"),
-    obesity_degree_pct: real("obesity_degree_pct"),
-    recommended_kcal: real("recommended_kcal"),
-    target_weight_kg: real("target_weight_kg"),
-    weight_control_kg: real("weight_control_kg"),
-    fat_control_kg: real("fat_control_kg"),
-    muscle_control_kg: real("muscle_control_kg"),
+    protein_kg: doublePrecision("protein_kg"),
+    minerals_kg: doublePrecision("minerals_kg"),
+    bone_mineral_kg: doublePrecision("bone_mineral_kg"),
+    soft_lean_mass_kg: doublePrecision("soft_lean_mass_kg"),
+    fat_free_mass_kg: doublePrecision("fat_free_mass_kg"),
+    body_cell_mass_kg: doublePrecision("body_cell_mass_kg"),
+    ecw_ratio: doublePrecision("ecw_ratio"),
+    phase_angle: doublePrecision("phase_angle"),
+    smi: doublePrecision("smi"),
+    visceral_fat_area_cm2: doublePrecision("visceral_fat_area_cm2"),
+    waist_circumference_cm: doublePrecision("waist_circumference_cm"),
+    waist_hip_ratio: doublePrecision("waist_hip_ratio"),
+    obesity_degree_pct: doublePrecision("obesity_degree_pct"),
+    recommended_kcal: doublePrecision("recommended_kcal"),
+    target_weight_kg: doublePrecision("target_weight_kg"),
+    weight_control_kg: doublePrecision("weight_control_kg"),
+    fat_control_kg: doublePrecision("fat_control_kg"),
+    muscle_control_kg: doublePrecision("muscle_control_kg"),
     segmental: text("segmental"),
     notes: text("notes"),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
   },
   (t) => [index("body_scans_user_taken_idx").on(t.user_id, t.taken_at)],
 );
 
-export const body_measurements = sqliteTable(
+export const body_measurements = pgTable(
   "body_measurements",
   {
     id: text("id").primaryKey(),
@@ -534,9 +518,9 @@ export const body_measurements = sqliteTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
-    value: real("value"),
+    value: doublePrecision("value"),
     logical_day: text("logical_day").notNull(),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
   },
   (t) => [
     index("body_measurements_user_type_day_idx").on(
@@ -547,19 +531,19 @@ export const body_measurements = sqliteTable(
   ],
 );
 
-export const import_runs = sqliteTable(
+export const import_runs = pgTable(
   "import_runs",
   {
     run_id: text("run_id").primaryKey(),
     user_id: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
   },
   (t) => [index("import_runs_user_idx").on(t.user_id)],
 );
 
-export const import_files = sqliteTable(
+export const import_files = pgTable(
   "import_files",
   {
     id: text("id").primaryKey(),
@@ -575,9 +559,9 @@ export const import_files = sqliteTable(
     error: text("error"),
     text_hash: text("text_hash"),
     result: text("result"),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-    started_at: integer("started_at", { mode: "timestamp_ms" }).notNull(),
-    updated_at: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
+    started_at: timestamp("started_at", { withTimezone: true, mode: "date" }).notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
   },
   (t) => [
     index("import_files_user_idx").on(t.user_id),
@@ -585,7 +569,7 @@ export const import_files = sqliteTable(
   ],
 );
 
-export const import_chunks = sqliteTable(
+export const import_chunks = pgTable(
   "import_chunks",
   {
     id: text("id").primaryKey(),
@@ -594,7 +578,7 @@ export const import_chunks = sqliteTable(
       .references(() => user.id, { onDelete: "cascade" }),
     chunk_hash: text("chunk_hash").notNull(),
     result: text("result").notNull(),
-    created_at: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
   },
   (t) => [
     uniqueIndex("import_chunks_user_hash_idx").on(t.user_id, t.chunk_hash),

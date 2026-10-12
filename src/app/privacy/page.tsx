@@ -59,7 +59,7 @@ export default function PrivacyPage() {
 
           <LegalSection title="Processors we share with">
             <p>
-              Vercel (hosting), Turso (database), Google (sign-in), the AI
+              Vercel (hosting), Neon (database), Google (sign-in), the AI
               provider you choose (OpenRouter, Groq, Google or Experiential
               Labs) for coach replies and memory, our own Google credentials
               for search over your notes, our configured vision provider for

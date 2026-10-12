@@ -1,1 +1,0 @@
-ALTER TABLE `ai_settings` ADD `provider` text DEFAULT 'openrouter' NOT NULL;

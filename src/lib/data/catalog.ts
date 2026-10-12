@@ -24,7 +24,7 @@ const getCachedCatalog = unstable_cache(
             eq(catalog_items.archived, false),
           ),
         )
-        .orderBy(asc(catalog_items.name)),
+        .orderBy(asc(catalog_items.name), asc(catalog_items.id)),
       db
         .select()
         .from(catalog_components)

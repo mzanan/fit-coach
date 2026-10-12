@@ -118,18 +118,18 @@ export async function searchExerciseCatalog({
       .where(where)
       .orderBy(
         q === ""
-          ? sql`${exercise_catalog.name} asc`
+          ? sql`${exercise_catalog.name} asc, ${exercise_catalog.id} asc`
           : sql`case
               when lower(${exercise_catalog.name}) like ${`${escaped}%`} escape '\\' then 0
               when lower(${exercise_catalog.name}) like ${`% ${escaped}%`} escape '\\' then 1
               when lower(${exercise_catalog.name}) like ${`%${escaped}%`} escape '\\' then 2
               else 3
-            end, ${exercise_catalog.name} asc`,
+            end, ${exercise_catalog.name} asc, ${exercise_catalog.id} asc`,
       )
       .limit(EXERCISE_SEARCH_PAGE_SIZE + 1)
       .offset(offset),
     db
-      .select({ value: sql<number>`count(*)` })
+      .select({ value: sql<number>`count(*)`.mapWith(Number) })
       .from(exercise_catalog)
       .where(where),
   ]);

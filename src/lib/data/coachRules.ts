@@ -52,17 +52,20 @@ export async function saveRule(
   key: string,
   value: string,
 ): Promise<void> {
-  const now = Date.now();
+  const now = new Date();
   const id = newId();
   await db.transaction(async (tx) => {
-    await tx.run(sql`
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtextextended(${`user_rules:${userId}:${key}`}, 0))`,
+    );
+    await tx.execute(sql`
       UPDATE user_rules
-      SET active = 0
-      WHERE user_id = ${userId} AND key = ${key} AND active = 1
+      SET active = false
+      WHERE user_id = ${userId} AND key = ${key} AND active = true
     `);
-    await tx.run(sql`
+    await tx.execute(sql`
       INSERT INTO user_rules (id, user_id, key, value, set_at, active)
-      VALUES (${id}, ${userId}, ${key}, ${value}, ${now}, 1)
+      VALUES (${id}, ${userId}, ${key}, ${value}, ${now}, true)
     `);
   });
 }
