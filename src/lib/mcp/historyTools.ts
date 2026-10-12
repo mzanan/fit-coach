@@ -38,7 +38,7 @@ export function registerHistoryTools(
     "get_day",
     {
       description:
-        "Read any past or present day: its day type, every meal with its id, macro totals, the targets of the plan that applied that day, and the gym session with notes and PR flags. Read a day before correcting it.",
+        "Read any past or present day: its day type, steps, notes and whether it is closed, every meal with its id, macro totals, the targets of the plan that applied that day, and the gym session with notes and PR flags. Read a day before correcting it.",
       inputSchema: getDayInput,
     },
     async ({ day }) => {
@@ -50,6 +50,9 @@ export function registerHistoryTools(
       return toolTextContent({
         day,
         day_type: data.dayRow?.day_type ?? data.dayType,
+        steps: data.dayRow?.steps ?? null,
+        notes: data.dayRow?.notes ?? null,
+        closed: Boolean(data.dayRow?.closed_at),
         meals: data.meals.map(toMealDto),
         totals: data.totals,
         plan: plan ? { phase: plan.phase, effective_from: plan.effective_from } : null,
