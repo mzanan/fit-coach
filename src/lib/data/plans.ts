@@ -146,15 +146,10 @@ export async function applyDuePlansFor(userId: string, today: string): Promise<b
   });
 }
 
-export async function applyDuePlans(): Promise<number> {
-  const users = await db.selectDistinct({ userId: plans.user_id }).from(plans);
-  let applied = 0;
-  for (const { userId } of users) {
-    const [profile] = await db.select().from(profiles).where(eq(profiles.user_id, userId)).limit(1);
-    if (!profile) continue;
-    if (await applyDuePlansFor(userId, todayLogicalDay(dayConfig(profile)))) applied += 1;
-  }
-  return applied;
+export async function applyDuePlansForUser(userId: string): Promise<boolean> {
+  const [profile] = await db.select().from(profiles).where(eq(profiles.user_id, userId)).limit(1);
+  if (!profile) return false;
+  return applyDuePlansFor(userId, todayLogicalDay(dayConfig(profile)));
 }
 
 export async function deletePlan(

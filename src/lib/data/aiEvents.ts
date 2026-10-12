@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import { desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, lt } from "drizzle-orm";
 
 import { db, schema } from "@/lib/db";
 import { newId } from "@/lib/utils";
@@ -139,12 +139,12 @@ export async function recentAiEvents(userId: string): Promise<AiEvent[]> {
 const RETENTION_DAYS = 30;
 const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
-export async function pruneAiEvents(): Promise<{ deleted: number }> {
+export async function pruneAiEvents(userId: string): Promise<{ deleted: number }> {
   const cutoff = new Date(Date.now() - RETENTION_MS);
   try {
     const deleted = await db
       .delete(ai_events)
-      .where(lt(ai_events.created_at, cutoff))
+      .where(and(eq(ai_events.user_id, userId), lt(ai_events.created_at, cutoff)))
       .returning({ id: ai_events.id });
     return { deleted: deleted.length };
   } catch (err) {
