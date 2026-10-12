@@ -15,6 +15,7 @@ import {
 } from "@/lib/ai/coach";
 import { writeReceipts } from "@/lib/ai/coachReceipts";
 import { exchangeOf, leadWith } from "@/lib/ai/coachReplyText";
+import { withCoachLedger } from "@/lib/ai/coachLedger";
 import { buildCoachTools, previewApproval } from "@/lib/ai/coachTools";
 import {
   approvalResponseMessage,
@@ -209,18 +210,21 @@ export async function resolvePendingWrite(
         userId,
         instructions: setup.instructions,
         messages: [...setup.messages, ...answered],
-        tools: buildCoachTools(
+        tools: withCoachLedger(
+          buildCoachTools(
+            userId,
+            profile,
+            day,
+            allowWrite,
+            chosen && mealPreview
+              ? {
+                  toolCallId: mealPreview.toolCallId,
+                  itemId: chosen.id,
+                  itemName: chosen.name,
+                }
+              : undefined,
+          ),
           userId,
-          profile,
-          day,
-          allowWrite,
-          chosen && mealPreview
-            ? {
-                toolCallId: mealPreview.toolCallId,
-                itemId: chosen.id,
-                itemName: chosen.name,
-              }
-            : undefined,
         ),
         approvalFor: CARD_WRITE_TOOLS,
         writeTools: WRITE_TOOLS,

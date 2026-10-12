@@ -2,6 +2,7 @@ import { attachDatabasePool } from "@vercel/functions";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
+import { applyDbContext } from "./contextPool";
 import * as schema from "./schema";
 
 type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>;
@@ -23,7 +24,7 @@ function init(): DrizzleDb {
     console.error("[db] idle client error", error);
   });
   attachDatabasePool(pool);
-  return drizzle(pool, { schema });
+  return drizzle(applyDbContext(pool), { schema });
 }
 
 export const db = new Proxy({} as DrizzleDb, {

@@ -36,6 +36,13 @@
       "when": 1791796861512,
       "tag": "0004_add-routine-exercise-details",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791813393925,
+      "tag": "0005_add-write-ledger",
+      "breakpoints": true
     }
   ]
 }

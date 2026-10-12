@@ -6,6 +6,7 @@ import type { ToolSet } from "ai";
 import { buildCoachTools } from "@/lib/ai/coachTools";
 import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import { registerHistoryTools } from "@/lib/mcp/historyTools";
+import { withWriteLedger } from "@/lib/mcp/ledger";
 import { registerManageTools } from "@/lib/mcp/manageTools";
 import { applyDuePlansFor } from "@/lib/data/plans";
 import { MCP_INSTRUCTIONS } from "@/lib/mcp/instructions";
@@ -21,9 +22,9 @@ export async function buildFitCoachServer(userId: string): Promise<McpServer> {
   const today = todayLogicalDay(dayConfig(profile));
   await applyDuePlansFor(userId, today);
   const tools = buildCoachTools(userId, profile, today, true);
-  const server = new McpServer(
-    { name: "fit-coach", version: "1.0.0" },
-    { instructions: MCP_INSTRUCTIONS },
+  const server = withWriteLedger(
+    new McpServer({ name: "fit-coach", version: "1.0.0" }, { instructions: MCP_INSTRUCTIONS }),
+    userId,
   );
 
   for (const [name, entry] of Object.entries(tools)) {

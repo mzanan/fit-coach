@@ -1,0 +1,96 @@
+import type { Pool, PoolClient, QueryConfig, QueryResult } from "pg";
+
+import { contextSettings, currentDbContext, SET_CONTEXT_SQL, type DbContext } from "./context";
+
+type QueryInput = string | QueryConfig;
+type ConnectCallback = (error: Error | undefined, client: PoolClient | undefined, done: (release?: unknown) => void) => void;
+type RawQuery = (input: QueryInput, values?: unknown[]) => Promise<QueryResult>;
+
+const SAFE_SETTING = /^[A-Za-z0-9_:-]*$/;
+
+function queryText(input: QueryInput): string {
+  return typeof input === "string" ? input : input.text;
+}
+
+function isBegin(input: QueryInput): boolean {
+  return /^\s*begin\b/i.test(queryText(input));
+}
+
+function beginWithContext(context: DbContext): string {
+  const [userId, source, ledgerId] = contextSettings(context);
+  for (const value of [userId, source, ledgerId]) {
+    if (!SAFE_SETTING.test(value)) throw new Error("Invalid database context value");
+  }
+  return `begin; select set_config('app.user_id', '${userId}', true), set_config('app.source', '${source}', true), set_config('app.ledger_id', '${ledgerId}', true)`;
+}
+
+function bindContext(client: PoolClient, context: DbContext): PoolClient {
+  const query = client.query.bind(client) as RawQuery;
+  return new Proxy(client, {
+    get(target, prop, receiver) {
+      if (prop !== "query") return Reflect.get(target, prop, receiver);
+      return async (input: QueryInput, values?: unknown[]) => {
+        const result = await query(input, values);
+        if (!isBegin(input)) return result;
+        try {
+          await query(SET_CONTEXT_SQL, contextSettings(context));
+        } catch (error) {
+          await query("rollback").catch(() => undefined);
+          target.release(error instanceof Error ? error : true);
+          throw error;
+        }
+        return result;
+      };
+    },
+  });
+}
+
+async function queryInContext(
+  connect: () => Promise<PoolClient>,
+  context: DbContext,
+  input: QueryInput,
+  values?: unknown[],
+) {
+  const preamble = beginWithContext(context);
+  const client = await connect();
+  let broken: Error | undefined;
+  const onError = (error: Error) => {
+    broken = error;
+  };
+  client.on("error", onError);
+  try {
+    await client.query(preamble);
+    const result = await client.query(input as QueryConfig, values);
+    await client.query("commit");
+    return result;
+  } catch (error) {
+    await client.query("rollback").catch((rollbackError: Error) => {
+      broken = rollbackError;
+    });
+    throw error;
+  } finally {
+    client.off("error", onError);
+    client.release(broken);
+  }
+}
+
+export function applyDbContext(pool: Pool): Pool {
+  const baseQuery = pool.query.bind(pool) as RawQuery;
+  const baseConnect = pool.connect.bind(pool) as (callback?: ConnectCallback) => Promise<PoolClient> | void;
+
+  pool.query = ((input: QueryInput, values?: unknown[]) => {
+    const context = currentDbContext();
+    return context
+      ? queryInContext(() => baseConnect() as Promise<PoolClient>, context, input, values)
+      : baseQuery(input, values);
+  }) as unknown as Pool["query"];
+
+  pool.connect = ((callback?: ConnectCallback) => {
+    if (callback) return baseConnect(callback);
+    const context = currentDbContext();
+    const connecting = baseConnect() as Promise<PoolClient>;
+    return context ? connecting.then((client) => bindContext(client, context)) : connecting;
+  }) as unknown as Pool["connect"];
+
+  return pool;
+}

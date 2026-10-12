@@ -1,4 +1,5 @@
 import {
+  bigserial,
   boolean,
   doublePrecision,
   index,
@@ -9,6 +10,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  uuid,
   vector,
 } from "drizzle-orm/pg-core";
 
@@ -813,6 +815,49 @@ export const import_chunks = pgTable(
   },
   (t) => [
     uniqueIndex("import_chunks_user_hash_idx").on(t.user_id, t.chunk_hash),
+  ],
+);
+
+export const write_ledger = pgTable(
+  "write_ledger",
+  {
+    id: uuid("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    tool: text("tool").notNull(),
+    idempotency_key: text("idempotency_key"),
+    input: jsonb("input"),
+    receipt: jsonb("receipt"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    completed_at: timestamp("completed_at", { withTimezone: true, mode: "date" }),
+  },
+  (t) => [
+    uniqueIndex("write_ledger_user_key_idx").on(t.user_id, t.idempotency_key),
+    index("write_ledger_user_created_idx").on(t.user_id, t.created_at),
+  ],
+);
+
+export const write_changes = pgTable(
+  "write_changes",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    ledger_id: uuid("ledger_id"),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    table_name: text("table_name").notNull(),
+    op: text("op").notNull(),
+    row_id: text("row_id"),
+    before: jsonb("before"),
+    after: jsonb("after"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("write_changes_ledger_idx").on(t.ledger_id),
+    index("write_changes_user_created_idx").on(t.user_id, t.created_at),
   ],
 );
 

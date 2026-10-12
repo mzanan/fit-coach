@@ -20,6 +20,7 @@ import {
 import { bufferedOnEvent, watchForStop } from "@/lib/ai/coachStreamControl";
 import { writeReceipts } from "@/lib/ai/coachReceipts";
 import { offCatalogWarning } from "@/lib/ai/coachSuggestionGate";
+import { withCoachLedger } from "@/lib/ai/coachLedger";
 import { buildCoachTools, previewApproval } from "@/lib/ai/coachTools";
 import {
   COACH_FRAME,
@@ -293,7 +294,7 @@ async function toolReply(
       userId,
       instructions: setup.instructions,
       messages: setup.messages,
-      tools: buildCoachTools(userId, profile, setup.today, allowWrite),
+      tools: withCoachLedger(buildCoachTools(userId, profile, setup.today, allowWrite), userId),
       approvalFor: CARD_WRITE_TOOLS,
       writeTools: WRITE_TOOLS,
       onEvent: onEvent ?? (() => {}),

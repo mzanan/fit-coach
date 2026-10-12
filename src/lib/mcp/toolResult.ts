@@ -17,3 +17,21 @@ export function mcpToolDescription(description: unknown): string | undefined {
   if (typeof description !== "string") return undefined;
   return description.replace(IN_APP_CONFIRMATION, "").trim();
 }
+
+function payloadOf(result: { content?: { type: string; text?: string }[] }): unknown {
+  const text = result.content?.find((part) => part.type === "text")?.text;
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+export function isFailedToolResult(result: { isError?: boolean; content?: { type: string; text?: string }[] }): boolean {
+  if (result.isError) return true;
+  const payload = payloadOf(result);
+  if (!payload || typeof payload !== "object") return false;
+  const fields = payload as Record<string, unknown>;
+  return "error" in fields || fields.logged === false || fields.saved === false;
+}
