@@ -14,9 +14,14 @@ export const metadata: Metadata = {
   alternates: { canonical: "/login" },
 };
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await getUser();
-  if (user) redirect("/");
+  const resumingAuthorization = Boolean((await searchParams).sig);
+  if (user && !resumingAuthorization) redirect("/");
 
   const googleEnabled = Boolean(process.env.GOOGLE_CLIENT_ID);
   const signupsDisabled = process.env.AUTH_DISABLE_SIGNUPS === "true";
