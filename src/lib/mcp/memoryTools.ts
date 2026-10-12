@@ -131,7 +131,7 @@ export function registerMemoryTools(server: McpServer, userId: string, profile: 
     "manage_pending_item",
     {
       description:
-        "Open items the user wants kept: shopping list, to-dos and appointments. They are not notifications: they come in get_coach_memory and raise the relevant ones yourself. action add: kind, text, optional due_on. action update: id and the fields to change. action done: id (keeps the first done day). action reopen: id. action delete: id, only for a wrong entry. action list: open ones, include_done for history.",
+        "Open items the user wants kept: shopping list, to-dos and appointments. They are not notifications: get_coach_memory returns the open ones, and you raise the relevant ones yourself. action add: kind, text, optional due_on. action update: id and the fields to change. action done: id (keeps the first done day). action reopen: id. action delete: id, only for a wrong entry. action list: open ones, include_done for history.",
       inputSchema: managePendingItemInput,
     },
     async (input) => {

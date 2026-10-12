@@ -5,11 +5,10 @@ import baseConfig from "./vitest.config";
 
 config({ path: ".env.local" });
 
-export default mergeConfig(
+const merged = mergeConfig(
   baseConfig,
   defineConfig({
     test: {
-      include: ["src/**/*.dbtest.ts"],
       fileParallelism: false,
       testTimeout: 60_000,
       hookTimeout: 60_000,
@@ -21,3 +20,7 @@ export default mergeConfig(
     },
   }),
 );
+
+const dbConfig = { ...merged, test: { ...merged.test, include: ["src/**/*.dbtest.ts"] } };
+
+export default dbConfig;
