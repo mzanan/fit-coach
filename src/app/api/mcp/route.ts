@@ -2,6 +2,7 @@ import { requireMcpAuth } from "@better-auth/mcp";
 import { createMcpHandler } from "@modelcontextprotocol/server";
 
 import { auth } from "@/lib/auth";
+import { runWithDbContext } from "@/lib/db/context";
 import { getUserEmail } from "@/lib/data/mcpUser";
 import { parseAllowedEmails } from "@/lib/mcp/access";
 import { MCP_CHALLENGE_SCOPES, MCP_REQUIRED_SCOPES, MCP_RESOURCE } from "@/lib/mcp/config";
@@ -25,7 +26,7 @@ export const POST = requireMcpAuth(
       );
     }
     const handler = createMcpHandler(() => buildFitCoachServer(userId), { legacy: "stateless" });
-    return handler.fetch(request);
+    return runWithDbContext({ userId, source: "mcp" }, () => handler.fetch(request));
   },
   {
     resource: MCP_RESOURCE,

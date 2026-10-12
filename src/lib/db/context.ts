@@ -8,10 +8,24 @@ export interface DbContext {
   ledgerId?: string;
 }
 
-const storage = new AsyncLocalStorage<DbContext>();
+type UserResolver = () => Promise<string | null>;
 
-export function runWithDbContext<T>(context: DbContext, fn: () => T): T {
-  return storage.run(context, fn);
+const storage = new AsyncLocalStorage<DbContext>();
+let resolveUser: UserResolver | null = null;
+
+export function setDbUserResolver(resolver: UserResolver) {
+  resolveUser = resolver;
+}
+
+export async function resolveDbContext(): Promise<DbContext | undefined> {
+  const context = storage.getStore();
+  if (context || !resolveUser) return context;
+  const userId = await resolveUser();
+  return userId ? { userId, source: "app" } : undefined;
+}
+
+export function runWithDbContext<T>(context: DbContext, fn: () => T | PromiseLike<T>): Promise<T> {
+  return storage.run(context, async () => await fn());
 }
 
 export function currentDbContext(): DbContext | undefined {

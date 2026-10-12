@@ -6,6 +6,7 @@ import {
   pruneEvents,
 } from "@/lib/ai/maintenance";
 import { applyDuePlans } from "@/lib/data/plans";
+import { listUserIds } from "@/lib/data/mcpUser";
 import { runWithDbContext } from "@/lib/db/context";
 
 export const runtime = "nodejs";
@@ -19,11 +20,25 @@ export async function GET(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  return runWithDbContext({ source: "cron" }, async () => {
-    const facts = await expireStaleFacts();
-    const memory = await consolidateMemories();
-    const events = await pruneEvents();
-    const plans = await applyDuePlans();
-    return NextResponse.json({ facts, memory, events, plans });
-  });
+  const users = await listUserIds();
+  const totals = { facts: 0, consolidated: 0, skipped: 0, events: 0, plans: 0, failed: 0 };
+  for (const userId of users) {
+    try {
+      await runWithDbContext({ userId, source: "cron" }, async () => {
+        const facts = await expireStaleFacts();
+        const memory = await consolidateMemories();
+        const events = await pruneEvents();
+        const plans = await applyDuePlans();
+        totals.facts += facts.deactivated;
+        totals.consolidated += memory.consolidated;
+        totals.skipped += memory.skipped;
+        totals.events += events.deleted;
+        totals.plans += plans;
+      });
+    } catch (error) {
+      totals.failed += 1;
+      console.error("maintenance: user run failed", userId, error instanceof Error ? error.message : error);
+    }
+  }
+  return NextResponse.json({ users: users.length, ...totals });
 }

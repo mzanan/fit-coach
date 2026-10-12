@@ -11,7 +11,7 @@ import { fetchClientMetadataResource } from "@better-auth/cimd/node";
 import { mcp } from "@better-auth/mcp";
 
 import { AUTH_COOKIE_PREFIX } from "@/lib/authCookies";
-import { db, schema } from "@/lib/db";
+import { authDb, schema } from "@/lib/db";
 import { captureServerEvent } from "@/lib/analytics";
 import { hasAnalyticsConsent } from "@/lib/consentCookie";
 import { MCP_RESOURCE, MCP_SCOPES } from "@/lib/mcp/config";
@@ -19,7 +19,7 @@ import { MCP_RESOURCE, MCP_SCOPES } from "@/lib/mcp/config";
 const disableSignUp = process.env.AUTH_DISABLE_SIGNUPS === "true";
 
 export const auth = betterAuth({
-  database: drizzleAdapter(db, {
+  database: drizzleAdapter(authDb, {
     provider: "pg",
     schema: {
       user: schema.user,

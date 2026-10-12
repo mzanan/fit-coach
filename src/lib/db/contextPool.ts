@@ -1,6 +1,6 @@
 import type { Pool, PoolClient, QueryConfig, QueryResult } from "pg";
 
-import { contextSettings, currentDbContext, SET_CONTEXT_SQL, type DbContext } from "./context";
+import { contextSettings, resolveDbContext, SET_CONTEXT_SQL, type DbContext } from "./context";
 
 type QueryInput = string | QueryConfig;
 type ConnectCallback = (error: Error | undefined, client: PoolClient | undefined, done: (release?: unknown) => void) => void;
@@ -78,8 +78,8 @@ export function applyDbContext(pool: Pool): Pool {
   const baseQuery = pool.query.bind(pool) as RawQuery;
   const baseConnect = pool.connect.bind(pool) as (callback?: ConnectCallback) => Promise<PoolClient> | void;
 
-  pool.query = ((input: QueryInput, values?: unknown[]) => {
-    const context = currentDbContext();
+  pool.query = (async (input: QueryInput, values?: unknown[]) => {
+    const context = await resolveDbContext();
     return context
       ? queryInContext(() => baseConnect() as Promise<PoolClient>, context, input, values)
       : baseQuery(input, values);
@@ -87,9 +87,10 @@ export function applyDbContext(pool: Pool): Pool {
 
   pool.connect = ((callback?: ConnectCallback) => {
     if (callback) return baseConnect(callback);
-    const context = currentDbContext();
-    const connecting = baseConnect() as Promise<PoolClient>;
-    return context ? connecting.then((client) => bindContext(client, context)) : connecting;
+    return resolveDbContext().then(async (context) => {
+      const client = await (baseConnect() as Promise<PoolClient>);
+      return context ? bindContext(client, context) : client;
+    });
   }) as unknown as Pool["connect"];
 
   return pool;

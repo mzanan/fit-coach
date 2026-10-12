@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { stopExchange } from "@/lib/data/coachMessages";
+import { runWithDbContext } from "@/lib/db/context";
 import { requireApiUser } from "@/lib/session";
 
 const bodySchema = z.object({
@@ -11,18 +12,19 @@ const bodySchema = z.object({
 export async function POST(request: Request) {
   const user = await requireApiUser();
   if (user instanceof NextResponse) return user;
+  return runWithDbContext({ userId: user.id, source: "app" }, async () => {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      body = null;
+    }
+    const parsed = bodySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Bad request" }, { status: 400 });
+    }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    body = null;
-  }
-  const parsed = bodySchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Bad request" }, { status: 400 });
-  }
-
-  const stopped = await stopExchange(user.id, parsed.data.ids);
-  return NextResponse.json({ stopped });
+    const stopped = await stopExchange(user.id, parsed.data.ids);
+    return NextResponse.json({ stopped });
+  });
 }

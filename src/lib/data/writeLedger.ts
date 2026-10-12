@@ -83,10 +83,18 @@ async function recordIfChanged(call: LedgerCall, ledgerId: string, receipt: unkn
   `);
 }
 
-export async function runLedgered<T>(
+export function runLedgered<T>(
   call: LedgerCall,
   fn: () => Promise<T>,
   isFailure: (result: T) => boolean = () => false,
+): Promise<LedgerOutcome<T>> {
+  return runWithDbContext({ userId: call.userId, source: call.source }, () => ledgered(call, fn, isFailure));
+}
+
+async function ledgered<T>(
+  call: LedgerCall,
+  fn: () => Promise<T>,
+  isFailure: (result: T) => boolean,
 ): Promise<LedgerOutcome<T>> {
   const ledgerId = crypto.randomUUID();
   const key = call.idempotencyKey;
