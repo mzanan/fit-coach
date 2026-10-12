@@ -29,6 +29,13 @@
       "when": 1791790753212,
       "tag": "0003_add-plans-and-routine-versions",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791796861512,
+      "tag": "0004_add-routine-exercise-details",
+      "breakpoints": true
     }
   ]
 }

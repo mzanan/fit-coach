@@ -147,7 +147,7 @@ export function registerHistoryTools(
     "set_routine",
     {
       description:
-        "Replace the training routine with a new version starting today: weekly slots and every exercise. Omit current_weight to keep the weight the current routine has for the same exercise. The routine being replaced is archived with its final state, never lost. Call it on the day the new routine starts; pass the reason and, for a time-boxed experiment, review_on.",
+        "Replace the training routine with a new version starting today: weekly slots and every exercise. Omit current_weight, reps_max, target_seconds, rest_seconds, target_rir or notes to keep what the current routine has for the same exercise; pass null to clear one. The routine being replaced is archived with its final state, never lost. Call it on the day the new routine starts; pass the reason and, for a time-boxed experiment, review_on.",
       inputSchema: routineInput,
     },
     async (input) => {

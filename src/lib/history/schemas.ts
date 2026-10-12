@@ -47,6 +47,11 @@ const routineExercise = z.object({
     .describe("Omit to keep the weight the current routine has for an exercise with the same name"),
   per_side: z.boolean().default(false),
   increment_kg: z.number().min(0.25).max(100).default(2.5),
+  reps_max: z.number().int().min(1).max(100).nullable().optional().describe("Top of the rep range; target_reps is the bottom"),
+  target_seconds: z.number().int().min(1).max(3600).nullable().optional().describe("Seconds per set for timed exercises such as planks"),
+  rest_seconds: z.number().int().min(0).max(1800).nullable().optional(),
+  target_rir: z.number().int().min(0).max(10).nullable().optional().describe("Reps in reserve to aim for"),
+  notes: z.string().trim().max(300).nullable().optional().describe("Setup or execution details: seat, grip, tempo"),
 });
 
 export const routineInput = z

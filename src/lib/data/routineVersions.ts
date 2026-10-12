@@ -40,6 +40,11 @@ async function liveRoutine(
       current_weight: routine_exercises.current_weight,
       per_side: routine_exercises.per_side,
       increment_kg: routine_exercises.increment_kg,
+      reps_max: routine_exercises.reps_max,
+      target_seconds: routine_exercises.target_seconds,
+      rest_seconds: routine_exercises.rest_seconds,
+      target_rir: routine_exercises.target_rir,
+      notes: routine_exercises.notes,
       active: routine_exercises.active,
       updated_at: routine_exercises.updated_at,
     })
@@ -112,6 +117,12 @@ export async function replaceRoutine(
       const previous = findLiveExercise(live.exercises, exercise.label, exercise.name, occurrence);
       return {
         ...exercise,
+        reps_max: exercise.reps_max === undefined ? (previous?.reps_max ?? null) : exercise.reps_max,
+        target_seconds:
+          exercise.target_seconds === undefined ? (previous?.target_seconds ?? null) : exercise.target_seconds,
+        rest_seconds: exercise.rest_seconds === undefined ? (previous?.rest_seconds ?? null) : exercise.rest_seconds,
+        target_rir: exercise.target_rir === undefined ? (previous?.target_rir ?? null) : exercise.target_rir,
+        notes: exercise.notes === undefined ? (previous?.notes ?? null) : exercise.notes,
         current_weight:
           exercise.current_weight === undefined ? (previous?.current_weight ?? null) : exercise.current_weight,
         updated_at: previous && exercise.current_weight === undefined ? previous.updated_at : now,
@@ -157,6 +168,11 @@ export async function replaceRoutine(
           current_weight: exercise.current_weight,
           per_side: exercise.per_side,
           increment_kg: exercise.increment_kg,
+          reps_max: exercise.reps_max ?? null,
+          target_seconds: exercise.target_seconds ?? null,
+          rest_seconds: exercise.rest_seconds ?? null,
+          target_rir: exercise.target_rir ?? null,
+          notes: exercise.notes ?? null,
           active: true,
           created_at: now,
           updated_at: exercise.updated_at,

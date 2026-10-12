@@ -209,6 +209,11 @@ export interface RoutineExerciseView {
   name: string;
   target_sets: number;
   target_reps: number;
+  reps_max: number | null;
+  target_seconds: number | null;
+  rest_seconds: number | null;
+  target_rir: number | null;
+  notes: string | null;
   current_weight: number | null;
   per_side: boolean;
   prescribed_weight: number | null;
@@ -245,6 +250,11 @@ export async function getTodaysRoutine(
         name: exercise.name,
         target_sets: exercise.target_sets,
         target_reps: exercise.target_reps,
+        reps_max: exercise.reps_max,
+        target_seconds: exercise.target_seconds,
+        rest_seconds: exercise.rest_seconds,
+        target_rir: exercise.target_rir,
+        notes: exercise.notes,
         current_weight: exercise.current_weight,
         per_side: exercise.per_side,
         prescribed_weight: result.weight,
