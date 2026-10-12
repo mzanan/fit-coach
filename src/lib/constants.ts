@@ -301,6 +301,8 @@ export const TOOL_GATE_ESCALATABLE: ReadonlySet<string> = new Set(
   DIRECT_WRITE_TOOLS.filter((name) => name !== ESTIMATE_TOOL),
 );
 
+export const DINING_MODES = ["delivery", "cooks"] as const;
+
 export const FATIGUE_TIMES_OF_DAY = [
   { key: "morning", label: "Morning" },
   { key: "post_lunch", label: "Post-lunch" },

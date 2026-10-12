@@ -16,6 +16,7 @@ import {
 import { kcalOf } from "@/lib/macros";
 import { targetsOf } from "@/lib/targets";
 import { newId } from "@/lib/utils";
+import type { ScanFields } from "@/lib/history/manageSchemas";
 
 const { body_scans, meals, workouts } = schema;
 
@@ -264,4 +265,57 @@ export async function recentScans(userId: string, limit: number): Promise<BodySc
     .where(eq(body_scans.user_id, userId))
     .orderBy(desc(body_scans.taken_at))
     .limit(limit);
+}
+
+export async function createScan(
+  userId: string,
+  takenOn: string,
+  fields: ScanFields,
+): Promise<BodyScan> {
+  const [row] = await db
+    .insert(body_scans)
+    .values({
+      id: newId(),
+      user_id: userId,
+      taken_at: parseISO(`${takenOn}T12:00:00`),
+      ...fields,
+      created_at: new Date(),
+    })
+    .returning();
+  return row;
+}
+
+export async function updateScan(
+  userId: string,
+  id: string,
+  fields: ScanFields,
+  takenOn?: string,
+): Promise<BodyScan | null> {
+  const [row] = await db
+    .update(body_scans)
+    .set({ ...fields, ...(takenOn ? { taken_at: parseISO(`${takenOn}T12:00:00`) } : {}) })
+    .where(and(eq(body_scans.user_id, userId), eq(body_scans.id, id)))
+    .returning();
+  return row ?? null;
+}
+
+export async function deleteScan(userId: string, id: string): Promise<boolean> {
+  const deleted = await db
+    .delete(body_scans)
+    .where(and(eq(body_scans.user_id, userId), eq(body_scans.id, id)))
+    .returning({ id: body_scans.id });
+  return deleted.length > 0;
+}
+
+export async function scanDayTaken(
+  userId: string,
+  day: string,
+  cfg: DayConfig,
+  exceptId?: string,
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: body_scans.id, taken_at: body_scans.taken_at })
+    .from(body_scans)
+    .where(eq(body_scans.user_id, userId));
+  return rows.some((row) => row.id !== exceptId && logicalDayOf(row.taken_at, cfg) === day);
 }

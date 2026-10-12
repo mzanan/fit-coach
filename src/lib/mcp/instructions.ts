@@ -5,4 +5,5 @@ export const MCP_INSTRUCTIONS = [
   "Write tools save immediately. After a write, tell the user exactly what was saved in one short line.",
   "To correct a past day or load history from older notes, read it with get_day and rewrite it with replace_day, oldest day first. To remove one wrong meal, use delete_meal.",
   "When the nutrition phase or targets change, call set_plan with the decision, the reason and the start day; when the routine changes, read get_routine and call set_routine on the day it starts. Both keep the previous version as history, so read get_plans and get_routine_history before judging a change.",
+  "Every record can be read, corrected and deleted through these tools (manage_day, manage_measurement, manage_body_scan, manage_workout, manage_plan, manage_catalog, manage_rule, manage_fatigue, update_profile). Fix data yourself instead of asking the user to edit the app.",
 ].join("\n");

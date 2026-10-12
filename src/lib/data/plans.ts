@@ -5,7 +5,7 @@ import { and, asc, desc, eq, lte } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import type { Plan } from "@/lib/db/schema";
 import type { WorkoutExecutor as DbExecutor } from "@/lib/data/workouts";
-import { dayConfig, logicalDayOf, todayLogicalDay } from "@/lib/dates";
+import { dayConfig, shiftDay, todayLogicalDay } from "@/lib/dates";
 import type { PlanInput } from "@/lib/history/schemas";
 import { pickTargets, sameTargets } from "@/lib/planTargets";
 import type { Targets } from "@/lib/targets";
@@ -44,14 +44,14 @@ async function hasPlans(executor: DbExecutor, userId: string): Promise<boolean> 
   return rows.length > 0;
 }
 
-async function insertBaselinePlan(executor: DbExecutor, userId: string): Promise<void> {
+async function insertBaselinePlan(executor: DbExecutor, userId: string, effectiveFrom: string): Promise<void> {
   const [profile] = await executor.select().from(profiles).where(eq(profiles.user_id, userId)).limit(1);
   const targets = profile ? pickTargets(profile) : null;
   if (!profile || !targets) return;
   await executor.insert(plans).values({
     id: newId(),
     user_id: userId,
-    effective_from: logicalDayOf(profile.updated_at, dayConfig(profile)),
+    effective_from: effectiveFrom,
     phase: "before plan tracking",
     kcal_delta: null,
     ...targets,
@@ -86,13 +86,16 @@ export async function savePlan(
   input: PlanInput,
 ): Promise<{ plan: Plan; currentPlanId: string | null; appliedToCurrentTargets: boolean }> {
   return db.transaction(async (tx) => {
-    if (!(await hasPlans(tx, userId))) await insertBaselinePlan(tx, userId);
+    const effectiveFrom = input.effective_from ?? today;
+    if (!(await hasPlans(tx, userId))) {
+      await insertBaselinePlan(tx, userId, effectiveFrom > today ? today : shiftDay(effectiveFrom, -1));
+    }
     const [plan] = await tx
       .insert(plans)
       .values({
         id: newId(),
         user_id: userId,
-        effective_from: input.effective_from ?? today,
+        effective_from: effectiveFrom,
         phase: input.phase,
         kcal_delta: input.kcal_delta ?? null,
         ...input.targets,
@@ -152,4 +155,37 @@ export async function applyDuePlans(): Promise<number> {
     if (await applyDuePlansFor(userId, todayLogicalDay(dayConfig(profile)))) applied += 1;
   }
   return applied;
+}
+
+export async function deletePlan(
+  userId: string,
+  id: string,
+  today: string,
+): Promise<{ deleted: boolean; currentPlanId: string | null }> {
+  return db.transaction(async (tx) => {
+    const deleted = await tx
+      .delete(plans)
+      .where(and(eq(plans.user_id, userId), eq(plans.id, id)))
+      .returning({ id: plans.id });
+    const current = deleted.length ? await syncCurrentTargets(tx, userId, today) : null;
+    return { deleted: deleted.length > 0, currentPlanId: current?.id ?? null };
+  });
+}
+
+export async function updatePlan(
+  userId: string,
+  id: string,
+  today: string,
+  fields: Partial<PlanInput>,
+): Promise<{ plan: Plan | null; currentPlanId: string | null }> {
+  return db.transaction(async (tx) => {
+    const { targets, ...rest } = fields;
+    const [row] = await tx
+      .update(plans)
+      .set({ ...rest, ...(targets ?? {}) })
+      .where(and(eq(plans.user_id, userId), eq(plans.id, id)))
+      .returning();
+    const current = row ? await syncCurrentTargets(tx, userId, today) : null;
+    return { plan: row ?? null, currentPlanId: current?.id ?? null };
+  });
 }

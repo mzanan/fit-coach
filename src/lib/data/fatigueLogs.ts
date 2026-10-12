@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 
 import { db, schema } from "@/lib/db";
 import { newId } from "@/lib/utils";
@@ -88,4 +88,53 @@ export async function recentFatigueAverage(
   if (!scored.length) return null;
   const sum = scored.reduce((acc, r) => acc + r.score, 0);
   return { average: sum / scored.length, count: scored.length };
+}
+
+export async function deleteFatigueLog(
+  userId: string,
+  day: string,
+  timeOfDay: string,
+): Promise<boolean> {
+  const deleted = await db
+    .delete(fatigue_logs)
+    .where(
+      and(
+        eq(fatigue_logs.user_id, userId),
+        eq(fatigue_logs.logical_day, day),
+        eq(fatigue_logs.time_of_day, timeOfDay),
+      ),
+    )
+    .returning({ id: fatigue_logs.id });
+  return deleted.length > 0;
+}
+
+export async function listFatigueLogs(userId: string, limit: number): Promise<FatigueLogRow[]> {
+  return db
+    .select({
+      logical_day: fatigue_logs.logical_day,
+      time_of_day: fatigue_logs.time_of_day,
+      score: fatigue_logs.score,
+      sleep_hours: fatigue_logs.sleep_hours,
+      sleep_location: fatigue_logs.sleep_location,
+    })
+    .from(fatigue_logs)
+    .where(eq(fatigue_logs.user_id, userId))
+    .orderBy(desc(fatigue_logs.logical_day))
+    .limit(limit);
+}
+
+export async function writeFatigueLog(userId: string, input: FatigueLogInput): Promise<void> {
+  const now = new Date();
+  await db
+    .insert(fatigue_logs)
+    .values({ id: newId(), user_id: userId, ...input, created_at: now })
+    .onConflictDoUpdate({
+      target: [fatigue_logs.user_id, fatigue_logs.logical_day, fatigue_logs.time_of_day],
+      set: {
+        score: input.score,
+        sleep_hours: input.sleep_hours,
+        sleep_location: input.sleep_location,
+        created_at: now,
+      },
+    });
 }

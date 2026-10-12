@@ -6,6 +6,7 @@ import type { ToolSet } from "ai";
 import { buildCoachTools } from "@/lib/ai/coachTools";
 import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import { registerHistoryTools } from "@/lib/mcp/historyTools";
+import { registerManageTools } from "@/lib/mcp/manageTools";
 import { applyDuePlansFor } from "@/lib/data/plans";
 import { MCP_INSTRUCTIONS } from "@/lib/mcp/instructions";
 import { mcpToolDescription, toolTextContent } from "@/lib/mcp/toolResult";
@@ -46,6 +47,7 @@ export async function buildFitCoachServer(userId: string): Promise<McpServer> {
   }
 
   registerHistoryTools(server, userId, profile, today);
+  registerManageTools(server, userId, profile, today);
 
   return server;
 }

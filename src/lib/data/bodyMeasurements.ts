@@ -81,3 +81,11 @@ export async function listMeasurements(
     .orderBy(desc(body_measurements.logical_day), desc(body_measurements.created_at))
     .limit(limit);
 }
+
+export async function deleteMeasurement(userId: string, id: string): Promise<boolean> {
+  const deleted = await db
+    .delete(body_measurements)
+    .where(and(eq(body_measurements.user_id, userId), eq(body_measurements.id, id)))
+    .returning({ id: body_measurements.id });
+  return deleted.length > 0;
+}
