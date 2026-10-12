@@ -15,6 +15,11 @@ export interface RoutineSnapshotExercise {
   current_weight: number | null;
   per_side: boolean;
   increment_kg: number;
+  reps_max: number | null;
+  target_seconds: number | null;
+  rest_seconds: number | null;
+  target_rir: number | null;
+  notes: string | null;
   active: boolean;
 }
 
@@ -27,7 +32,13 @@ export interface LiveRoutineExercise extends RoutineSnapshotExercise {
   updated_at: Date;
 }
 
-export function toSnapshotExercise(exercise: RoutineSnapshotExercise): RoutineSnapshotExercise {
+type DetailKey = "reps_max" | "target_seconds" | "rest_seconds" | "target_rir" | "notes";
+
+type SnapshotSource = Omit<RoutineSnapshotExercise, DetailKey> & {
+  [K in DetailKey]?: RoutineSnapshotExercise[K] | undefined;
+};
+
+export function toSnapshotExercise(exercise: SnapshotSource): RoutineSnapshotExercise {
   return {
     label: exercise.label,
     name: exercise.name,
@@ -38,6 +49,11 @@ export function toSnapshotExercise(exercise: RoutineSnapshotExercise): RoutineSn
     current_weight: exercise.current_weight,
     per_side: exercise.per_side,
     increment_kg: exercise.increment_kg,
+    reps_max: exercise.reps_max ?? null,
+    target_seconds: exercise.target_seconds ?? null,
+    rest_seconds: exercise.rest_seconds ?? null,
+    target_rir: exercise.target_rir ?? null,
+    notes: exercise.notes ?? null,
     active: exercise.active,
   };
 }

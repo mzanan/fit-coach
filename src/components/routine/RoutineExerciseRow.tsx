@@ -5,13 +5,7 @@ import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Surface } from "@/components/ui/Surface";
 import type { RoutineExercise } from "@/lib/db/schema";
-
-function summaryOf(exercise: RoutineExercise): string {
-  const weight =
-    exercise.current_weight == null ? "BW" : `${exercise.current_weight} kg`;
-  const side = exercise.per_side ? "/side" : "";
-  return `${exercise.target_sets} x ${exercise.target_reps} · ${weight}${side} · +${exercise.increment_kg}kg`;
-}
+import { routineExerciseSummary } from "@/lib/routineSummary";
 
 export function RoutineExerciseRow({
   exercise,
@@ -36,9 +30,12 @@ export function RoutineExerciseRow({
         className="min-w-0 flex-1 rounded-control-inset px-2 py-2 text-left"
       >
         <p className="truncate text-body">{exercise.name}</p>
-        <p className="truncate text-meta text-muted-foreground">
-          {summaryOf(exercise)}
+        <p className="text-meta text-muted-foreground">
+          {routineExerciseSummary(exercise)}
         </p>
+        {exercise.notes ? (
+          <p className="break-words text-meta text-muted-foreground">{exercise.notes}</p>
+        ) : null}
       </button>
       <Button
         variant="ghost"

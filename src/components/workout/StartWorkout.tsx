@@ -11,6 +11,7 @@ import { ensureWorkout } from "@/lib/actions/workouts";
 import { DEFAULT_SPLIT } from "@/lib/constants";
 import type { TodaysRoutine } from "@/lib/data/routine";
 import { useAction } from "@/hooks/useAction";
+import { routinePrescription } from "@/lib/routineSummary";
 
 export function StartWorkout({
   day,
@@ -58,8 +59,11 @@ export function StartWorkout({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-body">{exercise.name}</p>
                 <p className="text-meta text-muted-foreground">
-                  {exercise.target_sets} x {exercise.target_reps}
+                  {routinePrescription(exercise)}
                 </p>
+                {exercise.notes ? (
+                  <p className="break-words text-meta text-muted-foreground">{exercise.notes}</p>
+                ) : null}
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="num text-body">
