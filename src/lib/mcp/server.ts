@@ -8,6 +8,7 @@ import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import { registerHistoryTools } from "@/lib/mcp/historyTools";
 import { withWriteLedger } from "@/lib/mcp/ledger";
 import { registerManageTools } from "@/lib/mcp/manageTools";
+import { registerMemoryTools } from "@/lib/mcp/memoryTools";
 import { applyDuePlansFor } from "@/lib/data/plans";
 import { MCP_INSTRUCTIONS } from "@/lib/mcp/instructions";
 import { mcpToolDescription, toolTextContent } from "@/lib/mcp/toolResult";
@@ -49,6 +50,7 @@ export async function buildFitCoachServer(userId: string): Promise<McpServer> {
 
   registerHistoryTools(server, userId, profile, today);
   registerManageTools(server, userId, profile, today);
+  registerMemoryTools(server, userId, profile, today);
 
   return server;
 }

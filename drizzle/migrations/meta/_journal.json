@@ -43,6 +43,13 @@
       "when": 1791813393925,
       "tag": "0005_add-write-ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791815244693,
+      "tag": "0006_add-facts-health-reminders",
+      "breakpoints": true
     }
   ]
 }

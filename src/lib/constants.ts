@@ -355,3 +355,10 @@ export const IMPORT_MAX_BYTES = 4_000_000;
 export const IMPORT_TOO_LARGE = "These files are too large to import at once (4 MB max). Import them in smaller batches.";
 
 export const IMPORT_ALREADY_RUNNING = "An import is already running. Wait for it to finish or cancel it first.";
+
+export const FACT_DOMAINS = ["diet", "restaurants", "training", "measurements", "health", "lifestyle", "context"] as const;
+export const HEALTH_EVENT_KINDS = ["problem", "digestion", "illness", "injury", "checkup"] as const;
+export const REMINDER_KINDS = ["shopping", "todo", "appointment"] as const;
+export const FACT_CONTENT_MAX = 600;
+export const COACH_PROMPT_FACTS_MAX = 150;
+export const COACH_PROMPT_ITEMS_MAX = 20;
