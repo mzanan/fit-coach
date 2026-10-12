@@ -15,6 +15,13 @@
       "when": 1791733556951,
       "tag": "0001_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791785220746,
+      "tag": "0002_add-mcp-oauth",
+      "breakpoints": true
     }
   ]
 }
