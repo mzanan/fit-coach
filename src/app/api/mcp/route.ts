@@ -4,7 +4,7 @@ import { createMcpHandler } from "@modelcontextprotocol/server";
 import { auth } from "@/lib/auth";
 import { getUserEmail } from "@/lib/data/mcpUser";
 import { parseAllowedEmails } from "@/lib/mcp/access";
-import { MCP_REQUIRED_SCOPES, MCP_RESOURCE } from "@/lib/mcp/config";
+import { MCP_CHALLENGE_SCOPES, MCP_REQUIRED_SCOPES, MCP_RESOURCE } from "@/lib/mcp/config";
 import { buildFitCoachServer } from "@/lib/mcp/server";
 
 export const runtime = "nodejs";
@@ -27,5 +27,9 @@ export const POST = requireMcpAuth(
     const handler = createMcpHandler(() => buildFitCoachServer(userId), { legacy: "stateless" });
     return handler.fetch(request);
   },
-  { resource: MCP_RESOURCE, requiredScopes: [...MCP_REQUIRED_SCOPES] },
+  {
+    resource: MCP_RESOURCE,
+    requiredScopes: [...MCP_REQUIRED_SCOPES],
+    challengeScopes: [...MCP_CHALLENGE_SCOPES],
+  },
 );

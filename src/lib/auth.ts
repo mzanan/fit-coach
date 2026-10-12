@@ -68,7 +68,7 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    jwt(),
+    jwt({ disableSettingJwtHeader: true }),
     mcp({
       loginPage: "/login",
       consentPage: "/consent",

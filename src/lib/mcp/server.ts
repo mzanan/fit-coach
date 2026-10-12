@@ -6,7 +6,7 @@ import type { ToolSet } from "ai";
 import { buildCoachTools } from "@/lib/ai/coachTools";
 import { dayConfig, todayLogicalDay } from "@/lib/dates";
 import { MCP_INSTRUCTIONS } from "@/lib/mcp/instructions";
-import { toolResultText } from "@/lib/mcp/toolResult";
+import { mcpToolDescription, toolResultText } from "@/lib/mcp/toolResult";
 import { ensureProfile } from "@/lib/profile";
 
 type CoachTool = ToolSet[string] & {
@@ -29,7 +29,7 @@ export async function buildFitCoachServer(userId: string): Promise<McpServer> {
     server.registerTool(
       name,
       {
-        description: typeof tool.description === "string" ? tool.description : undefined,
+        description: mcpToolDescription(tool.description),
         inputSchema: tool.inputSchema as never,
       },
       (async (input: unknown) => {
