@@ -89,12 +89,13 @@ import {
 import { db, schema } from "@/lib/db";
 import type { CatalogItem, Profile } from "@/lib/db/schema";
 import { round } from "@/lib/utils";
-import { measurementValue } from "@/lib/validation";
+import { measurementValue, workoutSessionInput } from "@/lib/validation";
 import {
   evaluateProgression,
   PROGRESSION_SESSIONS_REQUIRED,
 } from "@/lib/workoutHistory";
 import { getUpcomingReminders } from "@/lib/reminders";
+import { toMealDto } from "@/lib/mealDto";
 
 const { meals, workouts } = schema;
 
@@ -327,23 +328,7 @@ export async function previewLogFatigue(
   };
 }
 
-const workoutSetInput = z.object({
-  reps: z.number().int().min(0).max(1000).nullable(),
-  weight: z.number().min(0).max(2000).nullable(),
-  per_side: z.boolean().default(false),
-});
-
-const workoutExerciseInput = z.object({
-  name: z.string().trim().min(1),
-  exercise_catalog_id: z.string().min(1).optional().nullable(),
-  sets: z.array(workoutSetInput).min(1).max(20),
-  notes: z.string().trim().max(300).optional(),
-});
-
-const logWorkoutSessionInput = z.object({
-  session_type: z.string().trim().min(1).max(60),
-  exercises: z.array(workoutExerciseInput).min(1).max(15),
-});
+const logWorkoutSessionInput = workoutSessionInput;
 
 export async function previewLogWorkoutSession(
   userId: string,
@@ -651,14 +636,7 @@ export function buildCoachTools(
                 kcal: round(remaining.kcal),
               }
             : null,
-          meals: day.meals.map((meal) => ({
-            category: meal.category,
-            name: meal.name,
-            protein_g: meal.protein_g,
-            fat_g: meal.fat_g,
-            carbs_g: meal.carbs_g,
-            fat_quality: meal.fat_quality,
-          })),
+          meals: day.meals.map(toMealDto),
         };
       }),
     }),

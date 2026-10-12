@@ -33,6 +33,8 @@ export interface BackupPayload {
   workouts: unknown[];
   workout_exercises: unknown[];
   workout_sets: unknown[];
+  plans?: unknown[];
+  routine_versions?: unknown[];
 }
 
 export async function exportData(): Promise<BackupPayload> {
@@ -47,6 +49,8 @@ export async function exportData(): Promise<BackupPayload> {
     workoutRows,
     exerciseRows,
     setRows,
+    planRows,
+    routineVersionRows,
   ] = await Promise.all([
     db.select().from(profiles).where(eq(profiles.user_id, user.id)),
     db.select().from(catalog_items).where(where),
@@ -61,6 +65,11 @@ export async function exportData(): Promise<BackupPayload> {
       .from(workout_exercises)
       .where(eq(workout_exercises.user_id, user.id)),
     db.select().from(workout_sets).where(eq(workout_sets.user_id, user.id)),
+    db.select().from(schema.plans).where(eq(schema.plans.user_id, user.id)),
+    db
+      .select()
+      .from(schema.routine_versions)
+      .where(eq(schema.routine_versions.user_id, user.id)),
   ]);
 
   return {
@@ -73,6 +82,8 @@ export async function exportData(): Promise<BackupPayload> {
     workouts: workoutRows,
     workout_exercises: exerciseRows,
     workout_sets: setRows,
+    plans: planRows,
+    routine_versions: routineVersionRows,
   };
 }
 

@@ -5,6 +5,14 @@ export function toolResultText(result: unknown): string {
   return typeof result === "string" ? result : JSON.stringify(result);
 }
 
+export function toolTextContent(result: unknown) {
+  return { content: [{ type: "text" as const, text: toolResultText(result) }] };
+}
+
+export function toolError(message: string) {
+  return { ...toolTextContent({ error: message }), isError: true };
+}
+
 export function mcpToolDescription(description: unknown): string | undefined {
   if (typeof description !== "string") return undefined;
   return description.replace(IN_APP_CONFIRMATION, "").trim();
