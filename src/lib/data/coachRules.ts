@@ -69,3 +69,12 @@ export async function saveRule(
     `);
   });
 }
+
+export async function deactivateRule(userId: string, key: string): Promise<boolean> {
+  const updated = await db
+    .update(user_rules)
+    .set({ active: false })
+    .where(and(eq(user_rules.user_id, userId), eq(user_rules.key, key), eq(user_rules.active, true)))
+    .returning({ id: user_rules.id });
+  return updated.length > 0;
+}

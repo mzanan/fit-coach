@@ -10,6 +10,7 @@ import { isValidTimezone } from "@/lib/dates";
 import { saveTargets } from "@/lib/data/targets";
 import { requireUser } from "@/lib/session";
 import { targetsSchema } from "@/lib/targets";
+import { DINING_MODES } from "@/lib/constants";
 
 const { profiles } = schema;
 
@@ -79,7 +80,6 @@ export async function updateChatLanguage(input: unknown) {
   revalidatePath("/settings/coach");
 }
 
-const DINING_MODES = ["delivery", "cooks"] as const;
 
 const diningModeSchema = z.object({
   mode: z.enum(DINING_MODES),

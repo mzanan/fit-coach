@@ -451,3 +451,11 @@ export async function getExerciseSessions(
     })),
   }));
 }
+
+export async function deleteWorkoutForDay(userId: string, day: string): Promise<boolean> {
+  const deleted = await db
+    .delete(workouts)
+    .where(and(eq(workouts.user_id, userId), eq(workouts.logical_day, day)))
+    .returning({ id: workouts.id });
+  return deleted.length > 0;
+}
