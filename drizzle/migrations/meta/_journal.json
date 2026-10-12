@@ -22,6 +22,13 @@
       "when": 1791785220746,
       "tag": "0002_add-mcp-oauth",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791790753212,
+      "tag": "0003_add-plans-and-routine-versions",
+      "breakpoints": true
     }
   ]
 }

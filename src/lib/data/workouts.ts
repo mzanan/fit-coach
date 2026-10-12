@@ -288,6 +288,7 @@ export interface WorkoutSessionSetInput {
   reps: number | null;
   weight: number | null;
   per_side: boolean;
+  is_pr?: boolean;
 }
 
 export interface WorkoutSessionExerciseInput {
@@ -300,6 +301,7 @@ export interface WorkoutSessionExerciseInput {
 export interface WorkoutSessionInput {
   session_type: string;
   exercises: WorkoutSessionExerciseInput[];
+  notes?: string;
 }
 
 export interface ResolvedWorkoutExercise {
@@ -311,6 +313,7 @@ export interface ResolvedWorkoutExercise {
 
 export interface ResolvedWorkoutSession {
   label: string;
+  notes?: string | null;
   exercises: ResolvedWorkoutExercise[];
 }
 
@@ -331,16 +334,23 @@ export async function resolveWorkoutSession(
       };
     }),
   );
-  return { label: input.session_type.trim(), exercises };
+  return { label: input.session_type.trim(), notes: input.notes?.trim() || null, exercises };
 }
 
 export async function insertWorkoutSession(
   userId: string,
   day: string,
   session: ResolvedWorkoutSession,
+  executor?: WorkoutExecutor,
 ): Promise<string> {
-  return db.transaction(async (tx) => {
+  const write = async (tx: WorkoutExecutor) => {
     const workout = await getOrCreateWorkout(tx, userId, day, session.label);
+    if (session.notes) {
+      await tx
+        .update(workouts)
+        .set({ notes: session.notes })
+        .where(and(eq(workouts.id, workout.id), eq(workouts.user_id, userId)));
+    }
 
     const existingCount = await tx
       .select({ id: workout_exercises.id })
@@ -368,6 +378,7 @@ export async function insertWorkoutSession(
         reps: set.reps,
         weight: set.weight,
         per_side: set.per_side,
+        is_pr: set.is_pr ?? false,
       })),
     );
     if (setRows.length) {
@@ -375,7 +386,8 @@ export async function insertWorkoutSession(
     }
 
     return workout.id;
-  });
+  };
+  return executor ? write(executor) : db.transaction(write);
 }
 
 export interface ExerciseSessionSets {

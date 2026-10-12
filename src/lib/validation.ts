@@ -13,6 +13,26 @@ import {
 } from "@/lib/constants";
 
 export const dayString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+export const calendarDay = dayString.refine((value) => {
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}, "Not a real calendar day (YYYY-MM-DD)");
+export const workoutSetInput = z.object({
+  reps: z.number().int().min(0).max(1000).nullable(),
+  weight: z.number().min(0).max(2000).nullable(),
+  per_side: z.boolean().default(false),
+  is_pr: z.boolean().optional(),
+});
+export const workoutExerciseInput = z.object({
+  name: z.string().trim().min(1).max(120),
+  exercise_catalog_id: z.string().min(1).optional().nullable(),
+  sets: z.array(workoutSetInput).min(1).max(20),
+  notes: z.string().trim().max(300).optional(),
+});
+export const workoutSessionInput = z.object({
+  session_type: z.string().trim().min(1).max(60),
+  exercises: z.array(workoutExerciseInput).min(1).max(15),
+});
 export const fatQuality = z.enum(["clean", "oily"]).nullable();
 export const macroNumber = z.number().min(0).max(2000);
 export const measurementValue = z.number().positive().max(MEASUREMENT_VALUE_MAX);

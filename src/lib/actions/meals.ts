@@ -11,6 +11,7 @@ import { db, schema } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { dayString, fatQuality, macroFields } from "@/lib/validation";
 import { newId } from "@/lib/utils";
+import { deleteMealForUser } from "@/lib/data/meals";
 
 const { meals, catalog_items, catalog_components } = schema;
 
@@ -210,8 +211,6 @@ export async function repeatMeal(input: unknown): Promise<string> {
 
 export async function deleteMeal(id: string) {
   const user = await requireUser();
-  await db
-    .delete(meals)
-    .where(and(eq(meals.id, id), eq(meals.user_id, user.id)));
+  await deleteMealForUser(user.id, id);
   revalidatePath("/");
 }

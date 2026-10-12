@@ -574,6 +574,51 @@ export const exercise_catalog = pgTable("exercise_catalog", {
   gif_path: text("gif_path").notNull(),
 });
 
+export const plans = pgTable(
+  "plans",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    effective_from: text("effective_from").notNull(),
+    phase: text("phase").notNull(),
+    kcal_delta: integer("kcal_delta"),
+    protein_target: doublePrecision("protein_target").notNull(),
+    fat_min: doublePrecision("fat_min").notNull(),
+    fat_max: doublePrecision("fat_max").notNull(),
+    fat_floor: doublePrecision("fat_floor").notNull(),
+    carbs_gym: doublePrecision("carbs_gym").notNull(),
+    carbs_rest: doublePrecision("carbs_rest").notNull(),
+    calories_target: doublePrecision("calories_target").notNull(),
+    calories_rest: doublePrecision("calories_rest").notNull(),
+    decision: text("decision").notNull(),
+    reason: text("reason").notNull(),
+    review_on: text("review_on"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
+  },
+  (t) => [index("plans_user_from_idx").on(t.user_id, t.effective_from)],
+);
+
+export const routine_versions = pgTable(
+  "routine_versions",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    effective_from: text("effective_from"),
+    ended_on: text("ended_on"),
+    name: text("name").notNull(),
+    reason: text("reason"),
+    review_on: text("review_on"),
+    routine: jsonb("routine").notNull(),
+    final_routine: jsonb("final_routine"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
+  },
+  (t) => [index("routine_versions_user_from_idx").on(t.user_id, t.effective_from)],
+);
+
 export const routine_exercises = pgTable(
   "routine_exercises",
   {
@@ -786,3 +831,6 @@ export type RoutineSlot = typeof routine_slots.$inferSelect;
 export type RoutineExercise = typeof routine_exercises.$inferSelect;
 export type ImportRun = typeof import_runs.$inferSelect;
 export type ImportFile = typeof import_files.$inferSelect;
+
+export type Plan = typeof plans.$inferSelect;
+export type RoutineVersion = typeof routine_versions.$inferSelect;
