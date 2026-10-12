@@ -5,7 +5,7 @@ import { resolvePendingWrite } from "@/lib/ai/coachApproval";
 import { coachNdjsonResponse } from "@/lib/coachStream";
 import { ensureProfile } from "@/lib/profile";
 import { notifyGeneratedReply } from "@/lib/push";
-import { requireApiUser } from "@/lib/session";
+import { withApiUser } from "@/lib/session";
 
 const bodySchema = z.object({
   approvalId: z.string().min(1),
@@ -13,10 +13,7 @@ const bodySchema = z.object({
   itemId: z.string().min(1).optional(),
 });
 
-export async function POST(request: Request) {
-  const user = await requireApiUser();
-  if (user instanceof NextResponse) return user;
-
+export const POST = withApiUser(async (user, request: Request) => {
   let body: unknown;
   try {
     body = await request.json();
@@ -43,4 +40,4 @@ export async function POST(request: Request) {
       ),
     (result) => notifyGeneratedReply(user.id, result),
   );
-}
+});

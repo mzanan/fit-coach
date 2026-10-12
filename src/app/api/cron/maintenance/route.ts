@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 
-import {
-  consolidateMemories,
-  expireStaleFacts,
-  pruneEvents,
-} from "@/lib/ai/maintenance";
-import { applyDuePlans } from "@/lib/data/plans";
+import { runMaintenanceForAllUsers } from "@/lib/ai/maintenance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,9 +13,5 @@ export async function GET(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const facts = await expireStaleFacts();
-  const memory = await consolidateMemories();
-  const events = await pruneEvents();
-  const plans = await applyDuePlans();
-  return NextResponse.json({ facts, memory, events, plans });
+  return NextResponse.json(await runMaintenanceForAllUsers());
 }

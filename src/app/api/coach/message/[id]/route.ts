@@ -2,17 +2,11 @@ import { NextResponse } from "next/server";
 
 import { COACH_MAX_DURATION_SECONDS } from "@/lib/constants";
 import { expireStaleMessage, getMessage } from "@/lib/data/coachMessages";
-import { requireApiUser } from "@/lib/session";
+import { withApiUser } from "@/lib/session";
 
 const MAX_STREAM_AGE_MS = (COACH_MAX_DURATION_SECONDS + 30) * 1000;
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const user = await requireApiUser();
-  if (user instanceof NextResponse) return user;
-
+export const GET = withApiUser(async (user, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
   const message = await getMessage(user.id, id);
   if (!message) {
@@ -31,4 +25,4 @@ export async function GET(
     daySummary: message.daySummary ?? null,
     learned: message.learned ?? null,
   });
-}
+});

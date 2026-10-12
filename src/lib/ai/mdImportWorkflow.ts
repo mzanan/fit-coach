@@ -10,6 +10,7 @@ import {
 } from "workflow";
 
 import { userModelRef } from "@/lib/ai/aiCredentials";
+import { runAsUser } from "@/lib/db/context";
 import {
   chunkMarkdown,
   mdExtraction,
@@ -181,9 +182,11 @@ export async function importChunkSizeStep(
 ): Promise<number | null> {
   "use step";
 
-  const ref = await userModelRef(userId);
-  if (!ref) throw new FatalError(NO_CREDENTIAL);
-  return importChunkSize(ref) ?? null;
+  return runAsUser(userId, "workflow", async () => {
+    const ref = await userModelRef(userId);
+    if (!ref) throw new FatalError(NO_CREDENTIAL);
+    return importChunkSize(ref) ?? null;
+  });
 }
 
 export async function writeImportEventStep(
@@ -207,77 +210,79 @@ export async function extractChunkStep(
 ): Promise<MdExtraction> {
   "use step";
 
-  const cached = await readCachedChunk(userId, chunkText);
-  if (cached) return cached;
+  return runAsUser(userId, "workflow", async () => {
+    const cached = await readCachedChunk(userId, chunkText);
+    if (cached) return cached;
 
-  const { attempt } = getStepMetadata();
-  console.log(`md import: part ${index + 1}/${total}, attempt ${attempt}`);
-  await touchImportFile(userId, fileName).catch((error) =>
-    console.error("md import: could not touch file status", error),
-  );
-
-  const ref = await userModelRef(userId);
-  if (!ref) throw new FatalError(NO_CREDENTIAL);
-
-  try {
-    const result = await extractChunk(
-      ref,
-      chunkText,
-      index,
-      total,
-      AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    const { attempt } = getStepMetadata();
+    console.log(`md import: part ${index + 1}/${total}, attempt ${attempt}`);
+    await touchImportFile(userId, fileName).catch((error) =>
+      console.error("md import: could not touch file status", error),
     );
-    await saveImportChunk(
-      userId,
-      extractionCacheKey(chunkText),
-      JSON.stringify(result),
-    ).catch(
-      (error) => console.error("md import: could not save part", error),
-    );
-    return result;
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      console.error(`md import: part ${index + 1} did not match the schema`);
-      return skippedPart(
+
+    const ref = await userModelRef(userId);
+    if (!ref) throw new FatalError(NO_CREDENTIAL);
+
+    try {
+      const result = await extractChunk(
+        ref,
+        chunkText,
         index,
-        `Part ${index + 1} could not be parsed and was skipped.`,
+        total,
+        AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       );
-    }
-
-    const retry = async (reason: string, wait: number): Promise<never> => {
-      await noteImportFileRetry(
+      await saveImportChunk(
         userId,
-        fileName,
-        `${reason}. Retry ${attempt + 1} in ${Math.round(wait / 1000)}s`,
-      ).catch((e) => console.error("md import: could not note retry", e));
-      throw new RetryableError(reason, { retryAfter: wait });
-    };
-
-    if (isConnectionError(error)) {
-      return retry(
-        `Could not reach ${ref.provider}/${ref.model}`,
-        backoffMs(attempt),
+        extractionCacheKey(chunkText),
+        JSON.stringify(result),
+      ).catch(
+        (error) => console.error("md import: could not save part", error),
       );
-    }
-    if (isTimeoutError(error)) {
-      return retry(
-        `${ref.provider}/${ref.model} did not respond within ${REQUEST_TIMEOUT_MS / 1000}s`,
-        backoffMs(attempt),
-      );
-    }
-    if (APICallError.isInstance(error)) {
-      const status = error.statusCode ?? 0;
-      if (status === 429 || status >= 500) {
-        return retry(
-          error.message,
-          retryAfterMs(error.responseHeaders?.["retry-after"]),
+      return result;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.error(`md import: part ${index + 1} did not match the schema`);
+        return skippedPart(
+          index,
+          `Part ${index + 1} could not be parsed and was skipped.`,
         );
       }
+
+      const retry = async (reason: string, wait: number): Promise<never> => {
+        await noteImportFileRetry(
+          userId,
+          fileName,
+          `${reason}. Retry ${attempt + 1} in ${Math.round(wait / 1000)}s`,
+        ).catch((e) => console.error("md import: could not note retry", e));
+        throw new RetryableError(reason, { retryAfter: wait });
+      };
+
+      if (isConnectionError(error)) {
+        return retry(
+          `Could not reach ${ref.provider}/${ref.model}`,
+          backoffMs(attempt),
+        );
+      }
+      if (isTimeoutError(error)) {
+        return retry(
+          `${ref.provider}/${ref.model} did not respond within ${REQUEST_TIMEOUT_MS / 1000}s`,
+          backoffMs(attempt),
+        );
+      }
+      if (APICallError.isInstance(error)) {
+        const status = error.statusCode ?? 0;
+        if (status === 429 || status >= 500) {
+          return retry(
+            error.message,
+            retryAfterMs(error.responseHeaders?.["retry-after"]),
+          );
+        }
+      }
+      const reason = error instanceof Error ? error.message : "unknown error";
+      console.error(`md import: part ${index + 1} rejected by the model`, reason);
+      return skippedPart(index, `Part ${index + 1} was rejected and skipped: ${reason}`);
     }
-    const reason = error instanceof Error ? error.message : "unknown error";
-    console.error(`md import: part ${index + 1} rejected by the model`, reason);
-    return skippedPart(index, `Part ${index + 1} was rejected and skipped: ${reason}`);
-  }
+  });
 }
 extractChunkStep.maxRetries = 6;
 
@@ -319,14 +324,16 @@ export async function cachedImportFileStep(
 ): Promise<MdExtraction | null> {
   "use step";
 
-  const stored = await cachedImportFile(userId, name, extractionCacheKey(text));
-  if (!stored) return null;
-  try {
-    return JSON.parse(stored) as MdExtraction;
-  } catch (error) {
-    console.error("md import: stored result is not valid JSON", error);
-    return null;
-  }
+  return runAsUser(userId, "workflow", async () => {
+    const stored = await cachedImportFile(userId, name, extractionCacheKey(text));
+    if (!stored) return null;
+    try {
+      return JSON.parse(stored) as MdExtraction;
+    } catch (error) {
+      console.error("md import: stored result is not valid JSON", error);
+      return null;
+    }
+  });
 }
 
 export async function startImportFileStep(
@@ -337,7 +344,9 @@ export async function startImportFileStep(
 ): Promise<void> {
   "use step";
 
-  await startImportFile(userId, name, chunkTotal, extractionCacheKey(text));
+  return runAsUser(userId, "workflow", async () => {
+    await startImportFile(userId, name, chunkTotal, extractionCacheKey(text));
+  });
 }
 
 export async function progressImportFileStep(
@@ -347,7 +356,9 @@ export async function progressImportFileStep(
 ): Promise<void> {
   "use step";
 
-  await progressImportFile(userId, name, chunkIndex);
+  return runAsUser(userId, "workflow", async () => {
+    await progressImportFile(userId, name, chunkIndex);
+  });
 }
 
 export async function finishImportFileStep(
@@ -358,7 +369,9 @@ export async function finishImportFileStep(
 ): Promise<void> {
   "use step";
 
-  await finishImportFile(userId, name, error, result);
+  return runAsUser(userId, "workflow", async () => {
+    await finishImportFile(userId, name, error, result);
+  });
 }
 
 async function persistImportFileResult(

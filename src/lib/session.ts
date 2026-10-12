@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { cache } from "react";
 
 import { auth } from "@/lib/auth";
+import { runAsUser } from "@/lib/db/context";
 
 export interface SessionUser {
   id: string;
@@ -35,4 +36,14 @@ export async function requireApiUser(): Promise<SessionUser | NextResponse> {
   const user = await getUser();
   if (user) return user;
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
+
+export function withApiUser<Args extends unknown[]>(
+  handler: (user: SessionUser, ...args: Args) => Promise<Response>,
+): (...args: Args) => Promise<Response> {
+  return async (...args) => {
+    const user = await requireApiUser();
+    if (user instanceof NextResponse) return user;
+    return runAsUser(user.id, "app", () => handler(user, ...args));
+  };
 }

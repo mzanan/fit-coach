@@ -36,6 +36,27 @@
       "when": 1791796861512,
       "tag": "0004_add-routine-exercise-details",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791813393925,
+      "tag": "0005_add-write-ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791815244693,
+      "tag": "0006_add-facts-health-reminders",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791815972253,
+      "tag": "0007_enable-rls",
+      "breakpoints": true
     }
   ]
 }

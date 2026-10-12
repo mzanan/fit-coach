@@ -25,6 +25,7 @@ import {
 
 export type { AiProvider, ReasoningEffort };
 import { db, schema } from "@/lib/db";
+import { runAsUser } from "@/lib/db/context";
 import { decryptSecret, encryptSecret } from "@/lib/integrations/crypto";
 
 const { ai_credentials, profiles } = schema;
@@ -215,7 +216,7 @@ const getCachedModelsForUser = unstable_cache(
     userId: string,
     provider: KeyedProvider,
   ): Promise<ProviderModelsResult | null> => {
-    const apiKey = await providerApiKey(userId, provider);
+    const apiKey = await runAsUser(userId, "app", () => providerApiKey(userId, provider));
     if (!apiKey) return null;
     const result =
       provider === "groq"

@@ -19,7 +19,7 @@ import {
   routineInput,
 } from "@/lib/history/schemas";
 import { toMealDto } from "@/lib/mealDto";
-import { toolError, toolTextContent } from "@/lib/mcp/toolResult";
+import { futureDayError, toolTextContent } from "@/lib/mcp/toolResult";
 import { pickTargets } from "@/lib/planTargets";
 
 const APP_PATHS = ["/", "/workout", "/routine", "/body", "/coach", "/settings", "/settings/targets"];
@@ -86,7 +86,8 @@ export function registerHistoryTools(
       inputSchema: replaceDayInput,
     },
     async (input) => {
-      if (input.day > today) return toolError(`${input.day} is in the future; today is ${today}.`);
+      const future = futureDayError(input.day, today);
+      if (future) return future;
       const result = await replaceDay(userId, input);
       refreshApp();
       return toolTextContent({ saved: true, day: input.day, ...result });

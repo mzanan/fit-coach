@@ -5,14 +5,11 @@ import { coachNdjsonResponse } from "@/lib/coachStream";
 import { COACH_REQUEST_MAX_BYTES } from "@/lib/constants";
 import { ensureProfile } from "@/lib/profile";
 import { notifyGeneratedReply } from "@/lib/push";
-import { requireApiUser } from "@/lib/session";
+import { withApiUser } from "@/lib/session";
 
 export const maxDuration = 300;
 
-export async function POST(request: Request) {
-  const user = await requireApiUser();
-  if (user instanceof NextResponse) return user;
-
+export const POST = withApiUser(async (user, request: Request) => {
   const raw = await request.text();
   if (new Blob([raw]).size > COACH_REQUEST_MAX_BYTES) {
     return NextResponse.json({ error: "Question too long" }, { status: 413 });
@@ -37,4 +34,4 @@ export async function POST(request: Request) {
     (send) => coachReply(user.id, profile, question, send, summary),
     (result) => notifyGeneratedReply(user.id, result),
   );
-}
+});

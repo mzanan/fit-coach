@@ -32,7 +32,7 @@ import {
   manageWorkoutInput,
   updateProfileInput,
 } from "@/lib/history/manageSchemas";
-import { toolError, toolTextContent } from "@/lib/mcp/toolResult";
+import { futureDayError, toolError, toolTextContent } from "@/lib/mcp/toolResult";
 
 const APP_PATHS = ["/", "/workout", "/routine", "/body", "/catalog", "/coach", "/settings", "/settings/targets", "/settings/profile"];
 
@@ -45,10 +45,6 @@ function refreshCatalog() {
   refreshApp();
 }
 
-function futureDay(day: string, today: string) {
-  return day > today ? toolError(`${day} is in the future; today is ${today}.`) : null;
-}
-
 export function registerManageTools(server: McpServer, userId: string, profile: Profile, today: string) {
   const cfg = dayConfig(profile);
   server.registerTool(
@@ -59,7 +55,7 @@ export function registerManageTools(server: McpServer, userId: string, profile: 
       inputSchema: manageDayInput,
     },
     async (input) => {
-      const future = futureDay(input.day, today);
+      const future = futureDayError(input.day, today);
       if (future) return future;
       const day = await setDayFields(userId, profile, today, input);
       refreshApp();
@@ -87,7 +83,7 @@ export function registerManageTools(server: McpServer, userId: string, profile: 
       if (!input.type || !input.day) return toolError("log needs type and day.");
       const isPhoto = input.type === "photo";
       if (!isPhoto && input.value == null) return toolError(`log ${input.type} needs a positive value.`);
-      const future = futureDay(input.day, today);
+      const future = futureDayError(input.day, today);
       if (future) return future;
       const value = isPhoto ? null : (input.value ?? null);
       await saveMeasurement(userId, { type: input.type, value, logical_day: input.day });
@@ -113,7 +109,7 @@ export function registerManageTools(server: McpServer, userId: string, profile: 
       }
       if (input.action === "create") {
         if (!input.taken_on || !input.fields) return toolError("create needs taken_on and fields.");
-        const future = futureDay(input.taken_on, today);
+        const future = futureDayError(input.taken_on, today);
         if (future) return future;
         if (await scanDayTaken(userId, input.taken_on, cfg)) {
           return toolError(`A scan already exists on ${input.taken_on}; update it instead.`);
@@ -125,7 +121,7 @@ export function registerManageTools(server: McpServer, userId: string, profile: 
       if (!input.id || !input.fields) return toolError("update needs id and fields.");
       if (!Object.keys(input.fields).length && !input.taken_on) return toolError("update needs at least one field.");
       if (input.taken_on) {
-        const future = futureDay(input.taken_on, today);
+        const future = futureDayError(input.taken_on, today);
         if (future) return future;
         if (await scanDayTaken(userId, input.taken_on, cfg, input.id)) {
           return toolError(`Another scan already exists on ${input.taken_on}.`);
@@ -253,7 +249,7 @@ export function registerManageTools(server: McpServer, userId: string, profile: 
         refreshApp();
         return toolTextContent({ deleted, day: input.day, time_of_day: input.time_of_day });
       }
-      const future = futureDay(input.day, today);
+      const future = futureDayError(input.day, today);
       if (future) return future;
       await writeFatigueLog(userId, {
         logical_day: input.day,

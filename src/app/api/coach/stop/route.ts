@@ -2,16 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { stopExchange } from "@/lib/data/coachMessages";
-import { requireApiUser } from "@/lib/session";
+import { withApiUser } from "@/lib/session";
 
 const bodySchema = z.object({
   ids: z.array(z.string().min(1).max(64)).min(1).max(2),
 });
 
-export async function POST(request: Request) {
-  const user = await requireApiUser();
-  if (user instanceof NextResponse) return user;
-
+export const POST = withApiUser(async (user, request: Request) => {
   let body: unknown;
   try {
     body = await request.json();
@@ -25,4 +22,4 @@ export async function POST(request: Request) {
 
   const stopped = await stopExchange(user.id, parsed.data.ids);
   return NextResponse.json({ stopped });
-}
+});

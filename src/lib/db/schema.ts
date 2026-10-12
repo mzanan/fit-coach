@@ -1,4 +1,5 @@
 import {
+  bigserial,
   boolean,
   doublePrecision,
   index,
@@ -9,6 +10,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  uuid,
   vector,
 } from "drizzle-orm/pg-core";
 
@@ -816,6 +818,103 @@ export const import_chunks = pgTable(
   ],
 );
 
+export const user_facts = pgTable(
+  "user_facts",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    domain: text("domain").notNull(),
+    subject: text("subject").notNull(),
+    content: text("content").notNull(),
+    scope: text("scope"),
+    review_on: text("review_on"),
+    source: text("source").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
+  },
+  (t) => [uniqueIndex("user_facts_user_domain_subject_idx").on(t.user_id, t.domain, t.subject)],
+);
+
+export const health_events = pgTable(
+  "health_events",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    title: text("title").notNull(),
+    details: text("details"),
+    started_on: text("started_on").notNull(),
+    resolved_on: text("resolved_on"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
+  },
+  (t) => [index("health_events_user_started_idx").on(t.user_id, t.started_on)],
+);
+
+export const pending_items = pgTable(
+  "pending_items",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    text: text("text").notNull(),
+    due_on: text("due_on"),
+    done_on: text("done_on"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
+  },
+  (t) => [index("pending_items_user_done_idx").on(t.user_id, t.done_on)],
+);
+
+export const write_ledger = pgTable(
+  "write_ledger",
+  {
+    id: uuid("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    tool: text("tool").notNull(),
+    idempotency_key: text("idempotency_key"),
+    input: jsonb("input"),
+    receipt: jsonb("receipt"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    completed_at: timestamp("completed_at", { withTimezone: true, mode: "date" }),
+  },
+  (t) => [
+    uniqueIndex("write_ledger_user_key_idx").on(t.user_id, t.idempotency_key),
+    index("write_ledger_user_created_idx").on(t.user_id, t.created_at),
+  ],
+);
+
+export const write_changes = pgTable(
+  "write_changes",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    ledger_id: uuid("ledger_id"),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    table_name: text("table_name").notNull(),
+    op: text("op").notNull(),
+    row_id: text("row_id"),
+    before: jsonb("before"),
+    after: jsonb("after"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("write_changes_ledger_idx").on(t.ledger_id),
+    index("write_changes_user_created_idx").on(t.user_id, t.created_at),
+  ],
+);
+
 export type Profile = typeof profiles.$inferSelect;
 export type CatalogItem = typeof catalog_items.$inferSelect;
 export type CatalogComponent = typeof catalog_components.$inferSelect;
@@ -839,3 +938,6 @@ export type ImportFile = typeof import_files.$inferSelect;
 
 export type Plan = typeof plans.$inferSelect;
 export type RoutineVersion = typeof routine_versions.$inferSelect;
+export type UserFact = typeof user_facts.$inferSelect;
+export type HealthEvent = typeof health_events.$inferSelect;
+export type PendingItem = typeof pending_items.$inferSelect;

@@ -13,6 +13,7 @@
     "db:seed-exercises": "tsx scripts/importExerciseCatalog.ts",
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
+    "test:db": "DB_TESTS=1 vitest run --config vitest.db.config.ts",
     "db:backup": "bash scripts/backupDatabase.sh"
   },
   "dependencies": {

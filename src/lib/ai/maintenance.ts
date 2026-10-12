@@ -7,7 +7,10 @@ import { listActiveFacts } from "@/lib/ai/facts";
 import { consolidateMemory, getCoachMemory } from "@/lib/ai/memory";
 import { userModelRef } from "@/lib/ai/aiCredentials";
 import { logAiEvent, pruneAiEvents } from "@/lib/data/aiEvents";
+import { applyDuePlansForUser } from "@/lib/data/plans";
+import { listUserIds } from "@/lib/data/users";
 import { db, schema } from "@/lib/db";
+import { runAsUser } from "@/lib/db/context";
 
 const { coach_facts, profiles } = schema;
 
@@ -15,7 +18,7 @@ const STALE_FACT_DAYS = 30;
 const STALE_FACT_MS = STALE_FACT_DAYS * 24 * 60 * 60 * 1000;
 const CONSOLIDATE_TIMEOUT_MS = 60_000;
 
-export async function expireStaleFacts(): Promise<{ deactivated: number }> {
+export async function expireStaleFacts(userId: string): Promise<{ deactivated: number }> {
   const cutoff = new Date(Date.now() - STALE_FACT_MS);
   const now = new Date();
 
@@ -25,6 +28,7 @@ export async function expireStaleFacts(): Promise<{ deactivated: number }> {
       .set({ active: false, updated_at: now })
       .where(
         and(
+          eq(coach_facts.user_id, userId),
           eq(coach_facts.active, true),
           lt(coach_facts.updated_at, cutoff),
           ne(coach_facts.category, "correction"),
@@ -42,11 +46,11 @@ export async function expireStaleFacts(): Promise<{ deactivated: number }> {
   }
 }
 
-export async function consolidateMemories(): Promise<{
+export async function consolidateMemories(userId: string): Promise<{
   consolidated: number;
   skipped: number;
 }> {
-  const rows = await db.select().from(profiles);
+  const rows = await db.select().from(profiles).where(eq(profiles.user_id, userId));
   let consolidated = 0;
   let skipped = 0;
 
@@ -96,6 +100,29 @@ export async function consolidateMemories(): Promise<{
   return { consolidated, skipped };
 }
 
-export async function pruneEvents(): Promise<{ deleted: number }> {
-  return pruneAiEvents();
+export async function pruneEvents(userId: string): Promise<{ deleted: number }> {
+  return pruneAiEvents(userId);
+}
+
+export async function runMaintenanceForAllUsers() {
+  const users = await listUserIds();
+  const totals = { users: users.length, facts: 0, consolidated: 0, skipped: 0, events: 0, plans: 0, failed: 0 };
+  for (const userId of users) {
+    try {
+      await runAsUser(userId, "cron", async () => {
+        const facts = await expireStaleFacts(userId);
+        const memory = await consolidateMemories(userId);
+        const events = await pruneEvents(userId);
+        if (await applyDuePlansForUser(userId)) totals.plans += 1;
+        totals.facts += facts.deactivated;
+        totals.consolidated += memory.consolidated;
+        totals.skipped += memory.skipped;
+        totals.events += events.deleted;
+      });
+    } catch (error) {
+      totals.failed += 1;
+      console.error("maintenance: user run failed", userId, error instanceof Error ? error.message : error);
+    }
+  }
+  return totals;
 }
