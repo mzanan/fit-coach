@@ -5,50 +5,38 @@ import { z } from "zod";
 
 import { listActiveRules } from "@/lib/data/coachRules";
 import { deleteHealthEvent, getHealthEvent, listHealthEvents, logHealthEvent, updateHealthEvent } from "@/lib/data/healthEvents";
-import { addReminder, deleteReminder, listReminders, markReminderDone, updateReminder } from "@/lib/data/reminderList";
+import { addPendingItem, deletePendingItem, listPendingItems, markPendingItemDone, updatePendingItem } from "@/lib/data/pendingItems";
 import { deleteFact, listFacts, retireScope, saveFact } from "@/lib/data/userFacts";
 import type { Profile } from "@/lib/db/schema";
-import { groupFactsByDomain } from "@/lib/factGroups";
-import { factScope, factSubject } from "@/lib/factKeys";
-import { manageHealthEventInput, manageReminderInput, rememberFactInput } from "@/lib/history/memorySchemas";
-import { toolError, toolTextContent } from "@/lib/mcp/toolResult";
+import { MEMORY_DETAILS_MAX, MEMORY_HEALTH_EVENTS_MAX, MEMORY_PENDING_ITEMS_MAX } from "@/lib/constants";
+import { manageHealthEventInput, managePendingItemInput, rememberFactInput } from "@/lib/history/memorySchemas";
+import { futureDayError, toolError, toolTextContent } from "@/lib/mcp/toolResult";
+import { clipText, endsBeforeStart, factScope, factSubject, groupFactsByDomain, hasAnyField } from "@/lib/userMemory";
 
-const MEMORY_DETAILS_MAX = 300;
-
-function clip(text: string | null): string | null {
-  return text && text.length > MEMORY_DETAILS_MAX ? `${text.slice(0, MEMORY_DETAILS_MAX)}...` : text;
-}
-
-function hasAny(fields: Record<string, unknown>): boolean {
-  return Object.values(fields).some((value) => value !== undefined);
-}
-
-function futureDay(day: string | null | undefined, today: string) {
-  return day && day > today ? toolError(`${day} is in the future; today is ${today}.`) : null;
-}
+const RANGE_ERROR = "resolved_on cannot be before started_on.";
 
 export function registerMemoryTools(server: McpServer, userId: string, profile: Profile, today: string) {
   server.registerTool(
     "get_coach_memory",
     {
       description:
-        "Read everything the coach must know before answering: the coaching method the user wrote, every current fact about the user grouped by domain, standing rules, open reminders (shopping, to-dos, appointments) and open health events. Call it at the start of every conversation.",
+        "Read everything the coach must know before answering: the coaching method the user wrote, every current fact about the user grouped by domain, standing rules, open pending items (shopping, to-dos, appointments) and open health events. Call it at the start of every conversation.",
       inputSchema: z.object({}),
     },
     async () => {
-      const [facts, rules, openReminders, openHealth] = await Promise.all([
+      const [facts, rules, pendingItems, openHealth] = await Promise.all([
         listFacts(userId),
         listActiveRules(userId),
-        listReminders(userId, false, 50),
-        listHealthEvents(userId, false, 20),
+        listPendingItems(userId, false, MEMORY_PENDING_ITEMS_MAX),
+        listHealthEvents(userId, false, MEMORY_HEALTH_EVENTS_MAX),
       ]);
       return toolTextContent({
         today,
         method: profile.coach_rules ?? null,
         facts: groupFactsByDomain(facts),
         standing_rules: rules,
-        open_reminders: openReminders,
-        open_health_events: openHealth.map((event) => ({ ...event, details: clip(event.details) })),
+        pending_items: pendingItems,
+        open_health_events: openHealth.map((event) => ({ ...event, details: clipText(event.details, MEMORY_DETAILS_MAX) })),
       });
     },
   );
@@ -111,24 +99,22 @@ export function registerMemoryTools(server: McpServer, userId: string, profile: 
         if (!input.id) return toolError("delete needs id.");
         return toolTextContent({ deleted: await deleteHealthEvent(userId, input.id), id: input.id });
       }
-      const future = futureDay(input.started_on, today) ?? futureDay(input.resolved_on, today);
+      const future = futureDayError(input.started_on, today) ?? futureDayError(input.resolved_on, today);
       if (future) return future;
       if (input.action === "update") {
         if (!input.id) return toolError("update needs id.");
         const { kind, title, details, started_on, resolved_on } = input;
         const patch = { kind, title, details, started_on, resolved_on };
-        if (!hasAny(patch)) return toolError("update needs at least one field to change.");
+        if (!hasAnyField(patch)) return toolError("update needs at least one field to change.");
         const current = await getHealthEvent(userId, input.id);
         if (!current) return toolError(`No health event ${input.id}.`);
         const start = started_on ?? current.started_on;
         const end = resolved_on === undefined ? current.resolved_on : resolved_on;
-        if (end && end < start) return toolError("resolved_on cannot be before started_on.");
+        if (endsBeforeStart(start, end)) return toolError(RANGE_ERROR);
         const event = await updateHealthEvent(userId, input.id, patch);
         return event ? toolTextContent({ saved: true, event }) : toolError(`No health event ${input.id}.`);
       }
-      if (input.resolved_on && input.started_on && input.resolved_on < input.started_on) {
-        return toolError("resolved_on cannot be before started_on.");
-      }
+      if (input.started_on && endsBeforeStart(input.started_on, input.resolved_on)) return toolError(RANGE_ERROR);
       if (!input.kind || !input.title || !input.started_on) return toolError("log needs kind, title and started_on.");
       const event = await logHealthEvent(userId, {
         kind: input.kind,
@@ -142,34 +128,34 @@ export function registerMemoryTools(server: McpServer, userId: string, profile: 
   );
 
   server.registerTool(
-    "manage_reminder",
+    "manage_pending_item",
     {
       description:
-        "Open items the user wants kept: shopping list, to-dos and appointments. They are not notifications: read them with get_coach_memory and raise the relevant ones yourself. action add: kind, text, optional due_on. action update: id and the fields to change. action done: id (keeps the first done day). action reopen: id. action delete: id, only for a wrong entry. action list: open ones, include_done for history.",
-      inputSchema: manageReminderInput,
+        "Open items the user wants kept: shopping list, to-dos and appointments. They are not notifications: they come in get_coach_memory and raise the relevant ones yourself. action add: kind, text, optional due_on. action update: id and the fields to change. action done: id (keeps the first done day). action reopen: id. action delete: id, only for a wrong entry. action list: open ones, include_done for history.",
+      inputSchema: managePendingItemInput,
     },
     async (input) => {
       if (input.action === "list") {
-        return toolTextContent({ reminders: await listReminders(userId, input.include_done, input.limit) });
+        return toolTextContent({ pending_items: await listPendingItems(userId, input.include_done, input.limit) });
       }
       if (input.action === "add") {
         if (!input.kind || !input.text) return toolError("add needs kind and text.");
-        const reminder = await addReminder(userId, { kind: input.kind, text: input.text, due_on: input.due_on ?? null });
-        return toolTextContent({ saved: true, reminder });
+        const item = await addPendingItem(userId, { kind: input.kind, text: input.text, due_on: input.due_on ?? null });
+        return toolTextContent({ saved: true, item });
       }
       if (!input.id) return toolError(`${input.action} needs id.`);
       if (input.action === "delete") {
-        return toolTextContent({ deleted: await deleteReminder(userId, input.id), id: input.id });
+        return toolTextContent({ deleted: await deletePendingItem(userId, input.id), id: input.id });
       }
       if (input.action === "done") {
-        const reminder = await markReminderDone(userId, input.id, today);
-        return reminder ? toolTextContent({ saved: true, reminder }) : toolError(`No reminder ${input.id}.`);
+        const item = await markPendingItemDone(userId, input.id, today);
+        return item ? toolTextContent({ saved: true, item }) : toolError(`No pending item ${input.id}.`);
       }
       const patch =
         input.action === "reopen" ? { done_on: null } : { kind: input.kind, text: input.text, due_on: input.due_on };
-      if (!hasAny(patch)) return toolError("update needs at least one field to change.");
-      const reminder = await updateReminder(userId, input.id, patch);
-      return reminder ? toolTextContent({ saved: true, reminder }) : toolError(`No reminder ${input.id}.`);
+      if (!hasAnyField(patch)) return toolError("update needs at least one field to change.");
+      const item = await updatePendingItem(userId, input.id, patch);
+      return item ? toolTextContent({ saved: true, item }) : toolError(`No pending item ${input.id}.`);
     },
   );
 }

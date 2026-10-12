@@ -12,8 +12,3 @@ export async function getUserEmail(userId: string): Promise<string | null> {
     .limit(1);
   return row?.email ?? null;
 }
-
-export async function listUserIds(): Promise<string[]> {
-  const rows = await authDb.select({ id: schema.user.id }).from(schema.user);
-  return rows.map((row) => row.id);
-}

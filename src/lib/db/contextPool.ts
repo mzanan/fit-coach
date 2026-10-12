@@ -1,12 +1,10 @@
 import type { Pool, PoolClient, QueryConfig, QueryResult } from "pg";
 
-import { contextSettings, resolveDbContext, SET_CONTEXT_SQL, type DbContext } from "./context";
+import { contextSettings, resolveDbContext, SET_CONTEXT_SQL, setContextLiteralSql, type DbContext } from "./context";
 
 type QueryInput = string | QueryConfig;
 type ConnectCallback = (error: Error | undefined, client: PoolClient | undefined, done: (release?: unknown) => void) => void;
 type RawQuery = (input: QueryInput, values?: unknown[]) => Promise<QueryResult>;
-
-const SAFE_SETTING = /^[A-Za-z0-9_:-]*$/;
 
 function queryText(input: QueryInput): string {
   return typeof input === "string" ? input : input.text;
@@ -17,11 +15,7 @@ function isBegin(input: QueryInput): boolean {
 }
 
 function beginWithContext(context: DbContext): string {
-  const [userId, source, ledgerId] = contextSettings(context);
-  for (const value of [userId, source, ledgerId]) {
-    if (!SAFE_SETTING.test(value)) throw new Error("Invalid database context value");
-  }
-  return `begin; select set_config('app.user_id', '${userId}', true), set_config('app.source', '${source}', true), set_config('app.ledger_id', '${ledgerId}', true)`;
+  return `begin; ${setContextLiteralSql(context)}`;
 }
 
 function bindContext(client: PoolClient, context: DbContext): PoolClient {

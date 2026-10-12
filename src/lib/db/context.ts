@@ -28,13 +28,30 @@ export function runWithDbContext<T>(context: DbContext, fn: () => T | PromiseLik
   return storage.run(context, async () => await fn());
 }
 
-export function currentDbContext(): DbContext | undefined {
-  return storage.getStore();
+export function runAsUser<T>(userId: string, source: WriteSource, fn: () => T | PromiseLike<T>): Promise<T> {
+  return runWithDbContext({ userId, source }, fn);
 }
 
-export function contextSettings(context: DbContext): [string, string, string] {
-  return [context.userId ?? "", context.source, context.ledgerId ?? ""];
+const CONTEXT_SETTINGS = [
+  ["app.user_id", (context: DbContext) => context.userId ?? ""],
+  ["app.source", (context: DbContext) => context.source],
+  ["app.ledger_id", (context: DbContext) => context.ledgerId ?? ""],
+] as const;
+
+export function contextSettings(context: DbContext): string[] {
+  return CONTEXT_SETTINGS.map(([, read]) => read(context));
 }
 
-export const SET_CONTEXT_SQL =
-  "select set_config('app.user_id', $1, true), set_config('app.source', $2, true), set_config('app.ledger_id', $3, true)";
+function setConfigSql(values: string[]): string {
+  return `select ${CONTEXT_SETTINGS.map(([name], index) => `set_config('${name}', ${values[index]}, true)`).join(", ")}`;
+}
+
+export const SET_CONTEXT_SQL = setConfigSql(CONTEXT_SETTINGS.map((_, index) => `$${index + 1}`));
+
+const SAFE_SETTING = /^[A-Za-z0-9_:-]*$/;
+
+export function setContextLiteralSql(context: DbContext): string {
+  const values = contextSettings(context);
+  if (!values.every((value) => SAFE_SETTING.test(value))) throw new Error("Invalid database context value");
+  return setConfigSql(values.map((value) => `'${value}'`));
+}

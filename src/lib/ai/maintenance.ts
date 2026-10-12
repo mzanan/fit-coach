@@ -7,7 +7,10 @@ import { listActiveFacts } from "@/lib/ai/facts";
 import { consolidateMemory, getCoachMemory } from "@/lib/ai/memory";
 import { userModelRef } from "@/lib/ai/aiCredentials";
 import { logAiEvent, pruneAiEvents } from "@/lib/data/aiEvents";
+import { applyDuePlans } from "@/lib/data/plans";
+import { listUserIds } from "@/lib/data/users";
 import { db, schema } from "@/lib/db";
+import { runAsUser } from "@/lib/db/context";
 
 const { coach_facts, profiles } = schema;
 
@@ -98,4 +101,27 @@ export async function consolidateMemories(): Promise<{
 
 export async function pruneEvents(): Promise<{ deleted: number }> {
   return pruneAiEvents();
+}
+
+export async function runMaintenanceForAllUsers() {
+  const users = await listUserIds();
+  const totals = { users: users.length, facts: 0, consolidated: 0, skipped: 0, events: 0, plans: 0, failed: 0 };
+  for (const userId of users) {
+    try {
+      await runAsUser(userId, "cron", async () => {
+        const facts = await expireStaleFacts();
+        const memory = await consolidateMemories();
+        const events = await pruneEvents();
+        totals.plans += await applyDuePlans();
+        totals.facts += facts.deactivated;
+        totals.consolidated += memory.consolidated;
+        totals.skipped += memory.skipped;
+        totals.events += events.deleted;
+      });
+    } catch (error) {
+      totals.failed += 1;
+      console.error("maintenance: user run failed", userId, error instanceof Error ? error.message : error);
+    }
+  }
+  return totals;
 }

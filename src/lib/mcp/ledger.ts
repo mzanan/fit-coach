@@ -3,11 +3,10 @@ import "server-only";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
-import { LedgerKeyError, runLedgered } from "@/lib/data/writeLedger";
+import { LedgerKeyError, ledgerValue, runLedgered } from "@/lib/ledger/runLedgered";
 import { isWriteTool } from "@/lib/toolKinds";
-import { isFailedToolResult, toolError } from "@/lib/mcp/toolResult";
+import { isFailedToolResult, toolError, type ToolResult } from "@/lib/mcp/toolResult";
 
-type ToolResult = { isError?: boolean; content?: { type: string; text?: string }[] };
 type ToolHandler = (input: unknown, extra: unknown) => Promise<ToolResult>;
 type ToolConfig = { inputSchema?: unknown } & Record<string, unknown>;
 
@@ -48,7 +47,7 @@ export function withWriteLedger(server: McpServer, userId: string): McpServer {
           () => handler(rest, extra),
           isFailedToolResult,
         );
-        return (outcome.replayed ? outcome.receipt : outcome.result) as ToolResult;
+        return ledgerValue(outcome) as ToolResult;
       } catch (error) {
         if (error instanceof LedgerKeyError) return toolError(error.message);
         throw error;

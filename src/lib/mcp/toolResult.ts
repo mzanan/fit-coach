@@ -18,7 +18,16 @@ export function mcpToolDescription(description: unknown): string | undefined {
   return description.replace(IN_APP_CONFIRMATION, "").trim();
 }
 
-function payloadOf(result: { content?: { type: string; text?: string }[] }): unknown {
+export interface ToolResult {
+  isError?: boolean;
+  content?: { type: string; text?: string }[];
+}
+
+export function futureDayError(day: string | null | undefined, today: string) {
+  return day && day > today ? toolError(`${day} is in the future; today is ${today}.`) : null;
+}
+
+function payloadOf(result: ToolResult): unknown {
   const text = result.content?.find((part) => part.type === "text")?.text;
   if (!text) return null;
   try {
@@ -28,7 +37,7 @@ function payloadOf(result: { content?: { type: string; text?: string }[] }): unk
   }
 }
 
-export function isFailedToolResult(result: { isError?: boolean; content?: { type: string; text?: string }[] }): boolean {
+export function isFailedToolResult(result: ToolResult): boolean {
   if (result.isError) return true;
   const payload = payloadOf(result);
   if (!payload || typeof payload !== "object") return false;

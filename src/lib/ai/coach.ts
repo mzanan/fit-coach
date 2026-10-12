@@ -45,9 +45,9 @@ import {
 import { learnFromMessage, retrieveFacts } from "@/lib/ai/facts";
 import { getCoachMemory, refreshCoachMemory } from "@/lib/ai/memory";
 import { listHealthEvents } from "@/lib/data/healthEvents";
-import { listReminders } from "@/lib/data/reminderList";
+import { listPendingItems } from "@/lib/data/pendingItems";
 import { listFacts } from "@/lib/data/userFacts";
-import { factPromptLines } from "@/lib/factGroups";
+import { factPromptLines, openItemPromptLines } from "@/lib/userMemory";
 import { canWriteMeals } from "@/lib/ai/capabilities";
 import { listActiveRules } from "@/lib/data/coachRules";
 import {
@@ -131,7 +131,7 @@ async function memoryFactsAndRules(
     getCoachMemory(userId),
     retrieveFacts(userId, question?.trim() ?? ""),
     listFacts(userId, undefined, COACH_PROMPT_FACTS_MAX).catch(() => []),
-    listReminders(userId, false, COACH_PROMPT_ITEMS_MAX).catch(() => []),
+    listPendingItems(userId, false, COACH_PROMPT_ITEMS_MAX).catch(() => []),
     listHealthEvents(userId, false, COACH_PROMPT_ITEMS_MAX).catch(() => []),
     listActiveRules(userId),
     buildReminderLines(userId, dayConfig(profile), today),
@@ -161,8 +161,7 @@ async function memoryFactsAndRules(
   const openItemLines = openItems.length || openHealth.length
     ? [
         "Open health events and pending items the user keeps. Take the health events into account when you plan training or food, and raise a pending item only when it is relevant or due:",
-        ...openHealth.map((event) => `- health (${event.kind}, since ${event.started_on}): ${event.title}`),
-        ...openItems.map((item) => `- ${item.kind}${item.due_on ? ` (due ${item.due_on})` : ""}: ${item.text}`),
+        ...openItemPromptLines(openHealth, openItems),
       ]
     : [];
 

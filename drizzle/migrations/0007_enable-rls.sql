@@ -27,7 +27,7 @@ BEGIN
 		'catalog_items', 'coach_facts', 'coach_memory', 'coach_messages', 'coach_pending_writes',
 		'days', 'fatigue_logs', 'health_events', 'import_chunks', 'import_files',
 		'import_runs', 'meals', 'plans', 'profiles', 'push_subscriptions',
-		'reminders', 'routine_exercises', 'routine_slots', 'routine_versions', 'user_facts',
+		'pending_items', 'routine_exercises', 'routine_slots', 'routine_versions', 'user_facts',
 		'user_rules', 'workout_exercises', 'workout_sets', 'workouts', 'write_changes',
 		'write_ledger'
 	] LOOP

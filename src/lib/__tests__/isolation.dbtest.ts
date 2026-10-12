@@ -2,10 +2,10 @@ import { count, sql } from "drizzle-orm";
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { addReminder, listReminders, markReminderDone } from "@/lib/data/reminderList";
+import { addPendingItem, listPendingItems, markPendingItemDone } from "@/lib/data/pendingItems";
 import { logHealthEvent } from "@/lib/data/healthEvents";
 import { deleteFact, saveFact } from "@/lib/data/userFacts";
-import { LedgerKeyError, runLedgered } from "@/lib/data/writeLedger";
+import { LedgerKeyError, runLedgered } from "@/lib/ledger/runLedgered";
 import { saveMeasurement } from "@/lib/data/bodyMeasurements";
 import { db, schema } from "@/lib/db";
 import { runWithDbContext } from "@/lib/db/context";
@@ -41,7 +41,7 @@ async function userTables(): Promise<string[]> {
 
 async function seed(userId: string) {
   await asUser(userId, async () => {
-    await addReminder(userId, { kind: "todo", text: `seed ${userId}`, due_on: null });
+    await addPendingItem(userId, { kind: "todo", text: `seed ${userId}`, due_on: null });
     await logHealthEvent(userId, { kind: "problem", title: "seed", details: null, started_on: "2026-10-01", resolved_on: null });
     await saveFact(userId, { domain: "diet", subject: "seed", content: "seed", source: "test" });
     await saveMeasurement(userId, { type: "waist", value: 80, logical_day: "2026-10-01" });
@@ -114,21 +114,21 @@ describe("cross-user leakage", () => {
   });
 
   it("sees the user's own seeded rows", async () => {
-    const own = await asUser(userA, () => db.select({ n: count() }).from(schema.reminders));
+    const own = await asUser(userA, () => db.select({ n: count() }).from(schema.pending_items));
     expect(own[0].n).toBe(1);
   });
 
   it("returns nothing without a user", async () => {
-    const none = await runWithDbContext({ source: "cron" }, () => db.select({ n: count() }).from(schema.reminders));
+    const none = await runWithDbContext({ source: "cron" }, () => db.select({ n: count() }).from(schema.pending_items));
     expect(none[0].n).toBe(0);
   });
 
   it("cannot write rows for another user or touch theirs by id", async () => {
-    await expect(asUser(userA, () => addReminder(userB, { kind: "todo", text: "x", due_on: null }))).rejects.toThrow();
-    const [foreign] = await asUser(userB, () => listReminders(userB, true, 1));
-    expect(await asUser(userA, () => markReminderDone(userA, foreign.id, "2026-10-12"))).toBeNull();
+    await expect(asUser(userA, () => addPendingItem(userB, { kind: "todo", text: "x", due_on: null }))).rejects.toThrow();
+    const [foreign] = await asUser(userB, () => listPendingItems(userB, true, 1));
+    expect(await asUser(userA, () => markPendingItemDone(userA, foreign.id, "2026-10-12"))).toBeNull();
     expect(await asUser(userA, () => deleteFact(userA, foreign.id))).toBe(false);
-    const [still] = await asUser(userB, () => listReminders(userB, true, 1));
+    const [still] = await asUser(userB, () => listPendingItems(userB, true, 1));
     expect(still.done_on).toBeNull();
   });
 
@@ -143,25 +143,25 @@ describe("cross-user leakage", () => {
 
 describe("idempotency", () => {
   it("writes once and replays the receipt for the same key", async () => {
-    const call = { userId: userA, source: "mcp" as const, tool: "manage_reminder", input: { text: "once" }, idempotencyKey: "dbtest:once" };
-    const write = () => addReminder(userA, { kind: "todo", text: "once", due_on: null });
+    const call = { userId: userA, source: "mcp" as const, tool: "manage_pending_item", input: { text: "once" }, idempotencyKey: "dbtest:once" };
+    const write = () => addPendingItem(userA, { kind: "todo", text: "once", due_on: null });
     const first = await runLedgered(call, write);
     const second = await runLedgered(call, write);
     expect(first.replayed).toBe(false);
     expect(second.replayed).toBe(true);
     if (!first.replayed && second.replayed) expect(second.receipt).toEqual(JSON.parse(JSON.stringify(first.result)));
-    const rows = await asUser(userA, () => listReminders(userA, true, 50));
+    const rows = await asUser(userA, () => listPendingItems(userA, true, 50));
     expect(rows.filter((row) => row.text === "once")).toHaveLength(1);
   });
 
   it("rejects the same key with different data", async () => {
-    const call = { userId: userA, source: "mcp" as const, tool: "manage_reminder", input: { text: "other" }, idempotencyKey: "dbtest:once" };
+    const call = { userId: userA, source: "mcp" as const, tool: "manage_pending_item", input: { text: "other" }, idempotencyKey: "dbtest:once" };
     await expect(runLedgered(call, async () => null)).rejects.toBeInstanceOf(LedgerKeyError);
   });
 
   it("records before and after images for a ledgered write", async () => {
-    const outcome = await runLedgered({ userId: userA, source: "mcp", tool: "manage_reminder", input: { text: "audit" } }, () =>
-      addReminder(userA, { kind: "todo", text: "audit", due_on: null }),
+    const outcome = await runLedgered({ userId: userA, source: "mcp", tool: "manage_pending_item", input: { text: "audit" } }, () =>
+      addPendingItem(userA, { kind: "todo", text: "audit", due_on: null }),
     );
     if (outcome.replayed) throw new Error("unexpected replay");
     const changes = await asUser(userA, () =>

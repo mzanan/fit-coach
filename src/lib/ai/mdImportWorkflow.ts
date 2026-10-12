@@ -10,7 +10,7 @@ import {
 } from "workflow";
 
 import { userModelRef } from "@/lib/ai/aiCredentials";
-import { runWithDbContext } from "@/lib/db/context";
+import { runAsUser } from "@/lib/db/context";
 import {
   chunkMarkdown,
   mdExtraction,
@@ -182,7 +182,7 @@ export async function importChunkSizeStep(
 ): Promise<number | null> {
   "use step";
 
-  return runWithDbContext({ userId, source: "workflow" }, async () => {
+  return runAsUser(userId, "workflow", async () => {
     const ref = await userModelRef(userId);
     if (!ref) throw new FatalError(NO_CREDENTIAL);
     return importChunkSize(ref) ?? null;
@@ -210,7 +210,7 @@ export async function extractChunkStep(
 ): Promise<MdExtraction> {
   "use step";
 
-  return runWithDbContext({ userId, source: "workflow" }, async () => {
+  return runAsUser(userId, "workflow", async () => {
     const cached = await readCachedChunk(userId, chunkText);
     if (cached) return cached;
 
@@ -324,7 +324,7 @@ export async function cachedImportFileStep(
 ): Promise<MdExtraction | null> {
   "use step";
 
-  return runWithDbContext({ userId, source: "workflow" }, async () => {
+  return runAsUser(userId, "workflow", async () => {
     const stored = await cachedImportFile(userId, name, extractionCacheKey(text));
     if (!stored) return null;
     try {
@@ -344,7 +344,7 @@ export async function startImportFileStep(
 ): Promise<void> {
   "use step";
 
-  return runWithDbContext({ userId, source: "workflow" }, async () => {
+  return runAsUser(userId, "workflow", async () => {
     await startImportFile(userId, name, chunkTotal, extractionCacheKey(text));
   });
 }
@@ -356,7 +356,7 @@ export async function progressImportFileStep(
 ): Promise<void> {
   "use step";
 
-  return runWithDbContext({ userId, source: "workflow" }, async () => {
+  return runAsUser(userId, "workflow", async () => {
     await progressImportFile(userId, name, chunkIndex);
   });
 }
@@ -369,7 +369,7 @@ export async function finishImportFileStep(
 ): Promise<void> {
   "use step";
 
-  return runWithDbContext({ userId, source: "workflow" }, async () => {
+  return runAsUser(userId, "workflow", async () => {
     await finishImportFile(userId, name, error, result);
   });
 }

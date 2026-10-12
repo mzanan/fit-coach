@@ -855,8 +855,8 @@ export const health_events = pgTable(
   (t) => [index("health_events_user_started_idx").on(t.user_id, t.started_on)],
 );
 
-export const reminders = pgTable(
-  "reminders",
+export const pending_items = pgTable(
+  "pending_items",
   {
     id: text("id").primaryKey(),
     user_id: text("user_id")
@@ -869,7 +869,7 @@ export const reminders = pgTable(
     created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
   },
-  (t) => [index("reminders_user_done_idx").on(t.user_id, t.done_on)],
+  (t) => [index("pending_items_user_done_idx").on(t.user_id, t.done_on)],
 );
 
 export const write_ledger = pgTable(
@@ -940,4 +940,4 @@ export type Plan = typeof plans.$inferSelect;
 export type RoutineVersion = typeof routine_versions.$inferSelect;
 export type UserFact = typeof user_facts.$inferSelect;
 export type HealthEvent = typeof health_events.$inferSelect;
-export type Reminder = typeof reminders.$inferSelect;
+export type PendingItem = typeof pending_items.$inferSelect;

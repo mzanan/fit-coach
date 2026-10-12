@@ -358,7 +358,16 @@ export const IMPORT_ALREADY_RUNNING = "An import is already running. Wait for it
 
 export const FACT_DOMAINS = ["diet", "restaurants", "training", "measurements", "health", "lifestyle", "context"] as const;
 export const HEALTH_EVENT_KINDS = ["problem", "digestion", "illness", "injury", "checkup"] as const;
-export const REMINDER_KINDS = ["shopping", "todo", "appointment"] as const;
+export const PENDING_ITEM_KINDS = ["shopping", "todo", "appointment"] as const;
 export const FACT_CONTENT_MAX = 600;
 export const COACH_PROMPT_FACTS_MAX = 150;
 export const COACH_PROMPT_ITEMS_MAX = 20;
+export const FACT_SUBJECT_MAX = 60;
+export const FACT_SCOPE_MAX = 80;
+export const HEALTH_TITLE_MAX = 200;
+export const HEALTH_DETAILS_MAX = 2000;
+export const PENDING_ITEM_TEXT_MAX = 500;
+export const MEMORY_PENDING_ITEMS_MAX = 50;
+export const MEMORY_HEALTH_EVENTS_MAX = 20;
+export const MEMORY_DETAILS_MAX = 300;
+export const READ_TOOL_PREFIXES = ["get_", "search_", "suggest_", "check_"] as const;

@@ -5,7 +5,7 @@ import { Pool } from "pg";
 import { setDbUserResolver } from "./context";
 import { applyDbContext } from "./contextPool";
 import * as schema from "./schema";
-import { sessionUserId } from "./sessionUser";
+import { sessionUserId } from "@/lib/sessionUser";
 
 type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>;
 

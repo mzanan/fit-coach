@@ -4,7 +4,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
 import { db, schema } from "@/lib/db";
-import { runWithDbContext } from "@/lib/db/context";
+import { runAsUser } from "@/lib/db/context";
 import type { CatalogComponent, CatalogItem } from "@/lib/db/schema";
 
 const { catalog_items, catalog_components } = schema;
@@ -47,7 +47,7 @@ async function loadCatalog(userId: string): Promise<CatalogItemFull[]> {
 
 const getCachedCatalog = unstable_cache(
   async (userId: string): Promise<CatalogItemFull[]> =>
-    runWithDbContext({ userId, source: "app" }, () => loadCatalog(userId)),
+    runAsUser(userId, "app", () => loadCatalog(userId)),
   ["catalog"],
   { tags: ["catalog"], revalidate: 300 },
 );

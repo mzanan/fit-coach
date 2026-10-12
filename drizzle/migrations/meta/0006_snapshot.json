@@ -3669,8 +3669,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.reminders": {
-      "name": "reminders",
+    "public.pending_items": {
+      "name": "pending_items",
       "schema": "",
       "columns": {
         "id": {
@@ -3723,8 +3723,8 @@
         }
       },
       "indexes": {
-        "reminders_user_done_idx": {
-          "name": "reminders_user_done_idx",
+        "pending_items_user_done_idx": {
+          "name": "pending_items_user_done_idx",
           "columns": [
             {
               "expression": "user_id",
@@ -3746,9 +3746,9 @@
         }
       },
       "foreignKeys": {
-        "reminders_user_id_user_id_fk": {
-          "name": "reminders_user_id_user_id_fk",
-          "tableFrom": "reminders",
+        "pending_items_user_id_user_id_fk": {
+          "name": "pending_items_user_id_user_id_fk",
+          "tableFrom": "pending_items",
           "tableTo": "user",
           "columnsFrom": [
             "user_id"
