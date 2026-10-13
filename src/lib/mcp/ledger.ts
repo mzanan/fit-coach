@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { LedgerKeyError, ledgerValue, runLedgered } from "@/lib/ledger/runLedgered";
 import { isWriteTool } from "@/lib/toolKinds";
-import { isFailedToolResult, toolError, type ToolResult } from "@/lib/mcp/toolResult";
+import { isFailedToolResult, toolError, toolTextContent, type ToolResult } from "@/lib/mcp/toolResult";
 
 type ToolHandler = (input: unknown, extra: unknown) => Promise<ToolResult>;
 type ToolConfig = { inputSchema?: unknown } & Record<string, unknown>;
@@ -16,7 +16,7 @@ const idempotencyKey = z
   .max(200)
   .optional()
   .describe(
-    "Optional. A key unique to this write (for example md:2026-09-23:lunch:1). Repeating a call with the same key returns the first result instead of writing twice.",
+    "Optional. A key unique to this write (for example md:2026-09-23:lunch:1). Repeating a call with the same key within 24 hours returns the first result instead of writing twice; after that the key writes again.",
   );
 
 function withKey(schema: unknown): unknown {
@@ -47,6 +47,12 @@ export function withWriteLedger(server: McpServer, userId: string): McpServer {
           () => handler(rest, extra),
           isFailedToolResult,
         );
+        if (outcome.replayed && outcome.receiptLost) {
+          return toolTextContent({
+            already_written: true,
+            note: "A previous call with this idempotency key wrote data, maybe partially, and its result was lost. Read the records; if something is missing, write it with a new idempotency key.",
+          });
+        }
         return ledgerValue(outcome) as ToolResult;
       } catch (error) {
         if (error instanceof LedgerKeyError) return toolError(error.message);

@@ -12,12 +12,24 @@ type UserResolver = () => Promise<string | null>;
 
 const storage = new AsyncLocalStorage<DbContext>();
 let resolveUser: UserResolver | null = null;
+let blockedReason: string | null = null;
+let gate: Promise<void> | null = null;
+
+export function blockDbQueries(reason: string) {
+  blockedReason = reason;
+}
+
+export function gateDbQueries(check: Promise<void>) {
+  gate = check;
+}
 
 export function setDbUserResolver(resolver: UserResolver) {
   resolveUser = resolver;
 }
 
 export async function resolveDbContext(): Promise<DbContext | undefined> {
+  if (gate) await gate;
+  if (blockedReason) throw new Error(blockedReason);
   const context = storage.getStore();
   if (context || !resolveUser) return context;
   const userId = await resolveUser();

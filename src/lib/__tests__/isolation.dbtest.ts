@@ -88,7 +88,10 @@ describe("registry fitness", () => {
        where n.nspname = 'public' and c.relname = any($1)`,
       [tables],
     );
-    const unprotected = rows.filter((row) => !row.enabled || !row.forced || !row.policy).map((row) => row.relname);
+    const ownerWritten = new Set(["write_changes"]);
+    const unprotected = rows
+      .filter((row) => !row.enabled || !row.policy || (!row.forced && !ownerWritten.has(row.relname)))
+      .map((row) => row.relname);
     expect(unprotected).toEqual([]);
     expect(rows).toHaveLength(tables.length);
   });
@@ -157,6 +160,53 @@ describe("idempotency", () => {
   it("rejects the same key with different data", async () => {
     const call = { userId: userA, source: "mcp" as const, tool: "manage_pending_item", input: { text: "other" }, idempotencyKey: "dbtest:once" };
     await expect(runLedgered(call, async () => null)).rejects.toBeInstanceOf(LedgerKeyError);
+  });
+
+  it("never re-runs a keyed write that saved data before failing", async () => {
+    const call = { userId: userA, source: "mcp" as const, tool: "manage_pending_item", input: { text: "partial" }, idempotencyKey: "dbtest:partial" };
+    const failing = async () => {
+      await addPendingItem(userA, { kind: "todo", text: "partial", due_on: null });
+      throw new Error("crashed after writing");
+    };
+    await expect(runLedgered(call, failing)).rejects.toThrow("crashed after writing");
+    const retry = await runLedgered(call, failing);
+    expect(retry).toMatchObject({ replayed: true, receiptLost: true });
+    const rows = await asUser(userA, () => listPendingItems(userA, true, 50));
+    expect(rows.filter((row) => row.text === "partial")).toHaveLength(1);
+  });
+
+  it("reports a failure result after a write as already written", async () => {
+    const call = { userId: userA, source: "mcp" as const, tool: "manage_pending_item", input: { text: "half" }, idempotencyKey: "dbtest:half" };
+    const writesThenFails = async () => {
+      await addPendingItem(userA, { kind: "todo", text: "half", due_on: null });
+      return { error: "temporarily unavailable" };
+    };
+    const isFailure = (result: { error?: string }) => Boolean(result.error);
+    await runLedgered(call, writesThenFails, isFailure);
+    const retry = await runLedgered(call, writesThenFails, isFailure);
+    expect(retry).toMatchObject({ replayed: true, receiptLost: true });
+    const rows = await asUser(userA, () => listPendingItems(userA, true, 50));
+    expect(rows.filter((row) => row.text === "half")).toHaveLength(1);
+  });
+
+  it("frees a completed key after 24 hours and keeps the old ledger row", async () => {
+    const key = "dbtest:expiring";
+    const first = { userId: userA, source: "mcp" as const, tool: "manage_pending_item", input: { text: "old" }, idempotencyKey: key };
+    await runLedgered(first, () => addPendingItem(userA, { kind: "todo", text: "old", due_on: null }));
+    await owner.query(
+      "update write_ledger set completed_at = now() - interval '25 hours' where user_id = $1 and idempotency_key = $2",
+      [userA, key],
+    );
+    const second = await runLedgered({ ...first, input: { text: "new" } }, () =>
+      addPendingItem(userA, { kind: "todo", text: "new", due_on: null }),
+    );
+    expect(second.replayed).toBe(false);
+    const { rows } = await owner.query<{ keyed: number; total: number }>(
+      "select count(*) filter (where idempotency_key = $2)::int as keyed, count(*)::int as total from write_ledger where user_id = $1 and tool = 'manage_pending_item' and (idempotency_key = $2 or idempotency_key is null)",
+      [userA, key],
+    );
+    expect(rows[0].keyed).toBe(1);
+    expect(rows[0].total).toBeGreaterThanOrEqual(2);
   });
 
   it("records before and after images for a ledgered write", async () => {
