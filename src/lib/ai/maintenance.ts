@@ -9,6 +9,8 @@ import { userModelRef } from "@/lib/ai/aiCredentials";
 import { logAiEvent, pruneAiEvents } from "@/lib/data/aiEvents";
 import { applyDuePlansForUser } from "@/lib/data/plans";
 import { listUserIds } from "@/lib/data/users";
+import { pruneWriteHistory } from "@/lib/data/writeLedger";
+import { WRITE_HISTORY_DAYS } from "@/lib/constants";
 import { db, schema } from "@/lib/db";
 import { runAsUser } from "@/lib/db/context";
 
@@ -106,7 +108,7 @@ export async function pruneEvents(userId: string): Promise<{ deleted: number }> 
 
 export async function runMaintenanceForAllUsers() {
   const users = await listUserIds();
-  const totals = { users: users.length, facts: 0, consolidated: 0, skipped: 0, events: 0, plans: 0, failed: 0 };
+  const totals = { users: users.length, facts: 0, consolidated: 0, skipped: 0, events: 0, plans: 0, history: 0, failed: 0 };
   for (const userId of users) {
     try {
       await runAsUser(userId, "cron", async () => {
@@ -114,6 +116,7 @@ export async function runMaintenanceForAllUsers() {
         const memory = await consolidateMemories(userId);
         const events = await pruneEvents(userId);
         if (await applyDuePlansForUser(userId)) totals.plans += 1;
+        totals.history += await pruneWriteHistory(userId, WRITE_HISTORY_DAYS);
         totals.facts += facts.deactivated;
         totals.consolidated += memory.consolidated;
         totals.skipped += memory.skipped;

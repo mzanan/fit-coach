@@ -7,6 +7,8 @@ import {
   findLedgerByKey,
   insertLedgerClaim,
   insertLedgerIfChanged,
+  ledgerHasChanges,
+  retireLedgerKey,
   type LedgerRowInput,
 } from "@/lib/data/writeLedger";
 import { runAsUser, runWithDbContext, type WriteSource } from "@/lib/db/context";
@@ -19,11 +21,14 @@ export interface LedgerCall {
   idempotencyKey?: string;
 }
 
-export type LedgerOutcome<T> = { replayed: true; receipt: unknown } | { replayed: false; result: T };
+export type LedgerOutcome<T> =
+  | { replayed: true; receipt: unknown; receiptLost?: boolean }
+  | { replayed: false; result: T };
 
 export class LedgerKeyError extends Error {}
 
 const STALE_CLAIM_MS = 120_000;
+const COMPLETED_KEY_TTL_MS = 24 * 60 * 60 * 1000;
 
 function logLedgerFailure(step: string, error: unknown) {
   console.error(`[write-ledger] ${step} failed`, error);
@@ -38,18 +43,36 @@ async function claimKey(row: LedgerRowInput, key: string): Promise<LedgerOutcome
 
   const existing = await findLedgerByKey(row.userId, key);
   if (!existing) throw new LedgerKeyError(`Could not claim idempotency key ${key}; retry the call.`);
+  const expired =
+    existing.completed_at !== null && Date.now() - existing.completed_at.getTime() >= COMPLETED_KEY_TTL_MS;
+  if (expired) {
+    await retireLedgerKey(existing.id);
+    if (await insertLedgerClaim(row, key)) return null;
+    throw new LedgerKeyError(`Could not claim idempotency key ${key}; retry the call.`);
+  }
   if (existing.tool !== row.tool || canonicalJson(existing.input) !== canonicalJson(row.input)) {
     throw new LedgerKeyError(
       `Idempotency key ${key} was already used for a different write; use a new key for new or corrected data.`,
     );
   }
-  if (existing.completed_at) return { replayed: true, receipt: existing.receipt };
+  if (existing.completed_at) {
+    return { replayed: true, receipt: existing.receipt, receiptLost: existing.receipt === null };
+  }
   if (Date.now() - existing.created_at.getTime() < STALE_CLAIM_MS) {
     throw new LedgerKeyError(`A call with idempotency key ${key} is still running; read the data before retrying.`);
+  }
+  if (await ledgerHasChanges(existing.id)) {
+    await completeLedgerRow(existing.id, null);
+    return { replayed: true, receipt: null, receiptLost: true };
   }
   await deleteLedgerRow(existing.id);
   if (await insertLedgerClaim(row, key)) return null;
   throw new LedgerKeyError(`Could not claim idempotency key ${key}; retry the call.`);
+}
+
+async function settleClaim(ledgerId: string) {
+  if (await ledgerHasChanges(ledgerId)) await completeLedgerRow(ledgerId, null);
+  else await deleteLedgerRow(ledgerId);
 }
 
 async function ledgered<T>(
@@ -74,13 +97,13 @@ async function ledgered<T>(
   try {
     result = await runWithDbContext({ userId: call.userId, source: call.source, ledgerId: row.id }, fn);
   } catch (error) {
-    if (key) await deleteLedgerRow(row.id).catch((releaseError) => logLedgerFailure("release", releaseError));
+    if (key) await settleClaim(row.id).catch((releaseError) => logLedgerFailure("release", releaseError));
     throw error;
   }
 
   try {
     if (key) {
-      if (isFailure(result)) await deleteLedgerRow(row.id);
+      if (isFailure(result)) await settleClaim(row.id);
       else await completeLedgerRow(row.id, result);
     } else {
       await insertLedgerIfChanged(row, result);

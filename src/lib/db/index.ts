@@ -2,7 +2,7 @@ import { attachDatabasePool } from "@vercel/functions";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-import { setDbUserResolver } from "./context";
+import { blockDbQueries, gateDbQueries, setDbUserResolver } from "./context";
 import { applyDbContext } from "./contextPool";
 import * as schema from "./schema";
 import { sessionUserId } from "@/lib/sessionUser";
@@ -30,21 +30,26 @@ function createPool(max: number): Pool {
   return pool;
 }
 
-function warnIfRlsBypassed(pool: Pool) {
-  pool
+function guardRuntimeRole(pool: Pool): Promise<void> {
+  return pool
     .query<{ role: string; bypass: boolean }>(
-      "select current_user as role, rolbypassrls as bypass from pg_roles where rolname = current_user",
+      "select current_user as role, (rolbypassrls or rolsuper) as bypass from pg_roles where rolname = current_user",
     )
     .then(({ rows }) => {
-      if (rows[0]?.bypass) console.error(`[db] runtime role ${rows[0].role} bypasses row level security; use app_rw`);
+      if (!rows[0]?.bypass) return;
+      const reason = `[db] runtime role ${rows[0].role} bypasses row level security; DATABASE_URL must use app_rw`;
+      console.error(reason);
+      if (process.env.VERCEL_ENV === "production") blockDbQueries(reason);
     })
-    .catch(() => undefined);
+    .catch((error) => {
+      console.error("[db] runtime role check failed", error);
+    });
 }
 
 function initApp(): DrizzleDb {
   setDbUserResolver(sessionUserId);
   const pool = createPool(5);
-  warnIfRlsBypassed(pool);
+  gateDbQueries(guardRuntimeRole(pool));
   return drizzle(applyDbContext(pool), { schema });
 }
 

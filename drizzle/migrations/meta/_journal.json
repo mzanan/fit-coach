@@ -57,6 +57,13 @@
       "when": 1791815972253,
       "tag": "0007_enable-rls",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791865858959,
+      "tag": "0008_harden-write-history",
+      "breakpoints": true
     }
   ]
 }

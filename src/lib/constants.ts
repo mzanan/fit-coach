@@ -371,3 +371,4 @@ export const MEMORY_PENDING_ITEMS_MAX = 50;
 export const MEMORY_HEALTH_EVENTS_MAX = 20;
 export const MEMORY_DETAILS_MAX = 300;
 export const READ_TOOL_PREFIXES = ["get_", "search_", "suggest_", "check_"] as const;
+export const WRITE_HISTORY_DAYS = 180;

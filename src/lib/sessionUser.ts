@@ -1,4 +1,11 @@
 const resolved = new WeakMap<object, Promise<string | null>>();
+let warnedOutsideRequest = false;
+
+function warnOutsideRequest(error: unknown) {
+  if (warnedOutsideRequest) return;
+  warnedOutsideRequest = true;
+  console.warn("[db] query outside a request and without a user context; it reads nothing under row level security", error);
+}
 
 async function requestHeaders(): Promise<object | null> {
   try {
@@ -7,6 +14,7 @@ async function requestHeaders(): Promise<object | null> {
   } catch (error) {
     const { unstable_rethrow } = await import("next/navigation");
     unstable_rethrow(error);
+    warnOutsideRequest(error);
     return null;
   }
 }

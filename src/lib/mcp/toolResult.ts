@@ -42,5 +42,5 @@ export function isFailedToolResult(result: ToolResult): boolean {
   const payload = payloadOf(result);
   if (!payload || typeof payload !== "object") return false;
   const fields = payload as Record<string, unknown>;
-  return "error" in fields || fields.logged === false || fields.saved === false;
+  return fields.error != null || fields.logged === false || fields.saved === false;
 }
