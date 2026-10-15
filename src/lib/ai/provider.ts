@@ -704,7 +704,7 @@ export async function chatJson<T>(
       : undefined;
   let routeOnly: string[] | null | undefined;
   try {
-    routeOnly = await structuredRouting(ref.provider, ref.model);
+    routeOnly = await structuredRouting(ref);
   } catch {
     throw new Error(
       `Could not verify structured output support for ${ref.model}. Try again.`,

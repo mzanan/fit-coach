@@ -140,7 +140,7 @@ export async function resolvePendingWrite(
       };
     }
 
-    const allowWrite = await canWriteMeals(ref.provider, ref.model);
+    const allowWrite = await canWriteMeals(ref);
     if (!allowWrite) {
       console.error(
         `coach: pending write approved but the now-active model cannot write, user=${userId} model=${ref.provider}/${ref.model}`,
@@ -156,7 +156,7 @@ export async function resolvePendingWrite(
 
     let toolPin: string[] | null | undefined = null;
     try {
-      toolPin = await toolsRouting(ref.provider, ref.model);
+      toolPin = await toolsRouting(ref);
     } catch {
       toolPin = null;
     }

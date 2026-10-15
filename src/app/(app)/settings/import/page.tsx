@@ -4,7 +4,7 @@ import { MdImportFlow } from "@/components/import/MdImportFlow";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Page } from "@/components/ui/Page";
-import { getAiSettings } from "@/lib/ai/aiCredentials";
+import { userModelRef } from "@/lib/ai/aiCredentials";
 import { canStructured } from "@/lib/ai/capabilities";
 import { PROVIDER_LABEL } from "@/lib/ai/options";
 import { dayConfig, todayLogicalDay } from "@/lib/dates";
@@ -15,13 +15,13 @@ export default async function MdImportPage() {
   const user = await requireUser();
   const [profile, ai] = await Promise.all([
     ensureProfile(user.id),
-    getAiSettings(user.id),
+    userModelRef(user.id),
   ]);
   const today = todayLogicalDay(dayConfig(profile));
   let structuredOk: boolean | null = false;
   if (ai) {
     try {
-      structuredOk = await canStructured(ai.provider, ai.model);
+      structuredOk = await canStructured(ai);
     } catch {
       structuredOk = null;
     }
