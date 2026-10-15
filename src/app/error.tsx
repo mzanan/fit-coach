@@ -3,10 +3,10 @@
 import { ErrorScreen } from "@/components/ui/ErrorScreen";
 
 export default function ErrorPage({
-  unstable_retry,
+  retry,
 }: {
   error: Error & { digest?: string };
-  unstable_retry: () => void;
+  retry: () => void;
 }) {
-  return <ErrorScreen onRetry={unstable_retry} />;
+  return <ErrorScreen onRetry={retry} />;
 }

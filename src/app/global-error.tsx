@@ -5,15 +5,15 @@ import { ErrorScreen } from "@/components/ui/ErrorScreen";
 import "./globals.css";
 
 export default function GlobalError({
-  unstable_retry,
+  retry,
 }: {
   error: Error & { digest?: string };
-  unstable_retry: () => void;
+  retry: () => void;
 }) {
   return (
     <html lang="en">
       <body>
-        <ErrorScreen onRetry={unstable_retry} />
+        <ErrorScreen onRetry={retry} />
       </body>
     </html>
   );
