@@ -1,12 +1,11 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
-
 import { unstable_cache } from "next/cache";
 
-import type { ModelRef } from "@/lib/ai/aiCredentials";
+import type { AiProvider } from "@/lib/ai/options";
 import { isWriteBlocked } from "@/lib/ai/writeGate";
 import { FETCH_TIMEOUT_MS } from "@/lib/constants";
+import { sha256 } from "@/lib/hash";
 
 export const OPENROUTER_API = "https://openrouter.ai/api/v1";
 const GROQ_MODELS_URL = "https://api.groq.com/openai/v1/models";
@@ -261,7 +260,6 @@ export async function googleModels(
 interface ExplabsModel {
   id?: string;
   supports_tools?: boolean | null;
-  supports_structured_output?: boolean | null;
 }
 
 export async function explabsModels(
@@ -288,7 +286,7 @@ export async function explabsModels(
         name: model.id,
         free: model.id.endsWith("-free"),
         tools: model.supports_tools === true,
-        structured: model.supports_structured_output === true,
+        structured: model.supports_tools === true,
       }))
       .sort((a, b) => a.id.localeCompare(b.id));
     return { status: "ok", models };
@@ -297,34 +295,53 @@ export async function explabsModels(
   }
 }
 
-const explabsCatalogCache = new Map<
+const EXPLABS_FAILURE_SECONDS = 30;
+
+const explabsCatalogs = new Map<
   string,
-  { expires: number; models: ModelInfo[] }
+  { expires: number; models: Promise<ModelInfo[]> }
 >();
+
+async function loadExplabsCatalog(apiKey: string): Promise<ModelInfo[]> {
+  const result = await explabsModels(apiKey);
+  if (result.status !== "ok") {
+    throw new Error(`Experiential Labs model list returned ${result.status}`);
+  }
+  return result.models;
+}
 
 async function explabsModel(
   apiKey: string,
   model: string,
 ): Promise<ModelInfo | null> {
-  const cacheKey = createHash("sha256").update(apiKey).digest("hex");
-  const cached = explabsCatalogCache.get(cacheKey);
-  if (cached && cached.expires > Date.now()) {
-    return cached.models.find((entry) => entry.id === model) ?? null;
+  const now = Date.now();
+  for (const [key, entry] of explabsCatalogs) {
+    if (entry.expires <= now) explabsCatalogs.delete(key);
   }
-  const result = await explabsModels(apiKey);
-  if (result.status !== "ok") {
-    throw new Error(`Experiential Labs model list returned ${result.status}`);
+  const cacheKey = sha256(apiKey);
+  let entry = explabsCatalogs.get(cacheKey);
+  if (!entry) {
+    const created = {
+      expires: now + CACHE_SECONDS * 1000,
+      models: loadExplabsCatalog(apiKey),
+    };
+    created.models.catch(() => {
+      created.expires = Date.now() + EXPLABS_FAILURE_SECONDS * 1000;
+    });
+    explabsCatalogs.set(cacheKey, created);
+    entry = created;
   }
-  explabsCatalogCache.set(cacheKey, {
-    expires: Date.now() + CACHE_SECONDS * 1000,
-    models: result.models,
-  });
-  return result.models.find((entry) => entry.id === model) ?? null;
+  const models = await entry.models;
+  return models.find((candidate) => candidate.id === model) ?? null;
 }
 
 // -- Capability routing, keyed by provider + model -----------------------
 
-type ModelTarget = Pick<ModelRef, "provider" | "model" | "apiKey">;
+export interface ModelTarget {
+  provider: AiProvider;
+  model: string;
+  apiKey: string;
+}
 
 export async function structuredRouting({
   provider,
