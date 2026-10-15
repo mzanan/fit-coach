@@ -597,7 +597,7 @@ defined as the thing that matters most.
 
 ## Durable markdown import
 
-- Pinned `workflow@5.0.0-beta.47`; `beta.48` is a broken publish.
+- Pinned exactly to `workflow@5.2.2`; `5.0.0-beta.48` was a broken publish.
 - `POST /api/import/extract` starts the run and returns a `runId`;
   `GET /api/import/extract/<runId>?startIndex=N` replays the progress
   stream from any point; `POST /api/import/extract/<runId>/cancel` stops it.
