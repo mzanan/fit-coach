@@ -10,10 +10,22 @@ import { requireApiUser } from "@/lib/session";
 
 type StreamEvent = ImportEvent | { type: "error"; message: string };
 
+const EXPIRED_RUN_ERRORS = new Set([
+  "RunExpiredError",
+  "StreamExpiredError",
+  "WorkflowRunNotFoundError",
+]);
+const EXPIRED_MESSAGE = "This import expired. Start it again.";
+
+function isExpiredRun(error: unknown) {
+  return error instanceof Error && EXPIRED_RUN_ERRORS.has(error.name);
+}
+
 async function failureMessage(run: Run<MdExtraction>) {
   try {
     await run.returnValue;
   } catch (caught) {
+    if (isExpiredRun(caught)) return EXPIRED_MESSAGE;
     if (WorkflowRunFailedError.is(caught)) {
       const cause = caught.cause;
       return cause instanceof Error ? cause.message : String(cause);
@@ -65,6 +77,11 @@ export async function GET(
         send({ type: "done", extraction: await run.returnValue });
       }
     } catch (error) {
+      if (isExpiredRun(error)) {
+        console.warn("md import: run expired or not found", error);
+        send({ type: "error", message: EXPIRED_MESSAGE });
+        return;
+      }
       console.error("md import: stream failed", error);
       send({
         type: "error",
