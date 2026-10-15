@@ -7,10 +7,10 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Page } from "@/components/ui/Page";
 
 export default function AppError({
-  unstable_retry,
+  retry,
 }: {
   error: Error & { digest?: string };
-  unstable_retry: () => void;
+  retry: () => void;
 }) {
   return (
     <Page>
@@ -18,7 +18,7 @@ export default function AppError({
         icon={AlertCircle}
         title="This screen could not load"
         body="Check your connection and try again."
-        action={<Button onClick={unstable_retry}>Try again</Button>}
+        action={<Button onClick={retry}>Try again</Button>}
       />
     </Page>
   );
