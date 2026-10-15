@@ -294,7 +294,7 @@ async function toolReply(
   signal?: AbortSignal,
   appGenerated = false,
 ): Promise<CoachResult> {
-  const allowWrite = await canWriteMeals(ref.provider, ref.model);
+  const allowWrite = await canWriteMeals(ref);
   const learned = await learnFromQuestion(ref, userId, question, appGenerated, signal);
   const setup = await toolSetup(
     userId,
@@ -586,7 +586,7 @@ export async function coachReply(
 
   let toolPin: string[] | null | undefined = null;
   try {
-    toolPin = await toolsRouting(ref.provider, ref.model);
+    toolPin = await toolsRouting(ref);
   } catch {
     toolPin = undefined;
   }

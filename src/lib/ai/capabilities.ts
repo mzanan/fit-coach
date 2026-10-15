@@ -1,8 +1,10 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
 import { unstable_cache } from "next/cache";
 
-import type { AiProvider } from "@/lib/ai/options";
+import type { ModelRef } from "@/lib/ai/aiCredentials";
 import { isWriteBlocked } from "@/lib/ai/writeGate";
 import { FETCH_TIMEOUT_MS } from "@/lib/constants";
 
@@ -256,22 +258,10 @@ export async function googleModels(
   }
 }
 
-// -- Experiential Labs curated capability map ----------------------------
-// The gateway serves 318 ids through an Anthropic-shaped /v1/messages and its
-// /v1/models listing carries no tool or schema flags, so capability stays
-// curated exactly like Groq and Google above. Only ids measured emitting
-// tool_use against this gateway are listed; anything else is offered but
-// marked unsupported, which keeps it out of the coach's write path.
-
-const EXPLABS_CAPABILITIES: Record<string, { tools: boolean; structured: boolean }> = {
-  "deepseek-v4-flash": { tools: true, structured: true },
-  "deepseek-v4.1-flash": { tools: true, structured: true },
-  "gpt-5.6-luna": { tools: true, structured: true },
-  "qwen3.8-27b": { tools: true, structured: true },
-};
-
-export function explabsCapability(id: string): { tools: boolean; structured: boolean } {
-  return EXPLABS_CAPABILITIES[id] ?? { tools: false, structured: false };
+interface ExplabsModel {
+  id?: string;
+  supports_tools?: boolean | null;
+  supports_structured_output?: boolean | null;
 }
 
 export async function explabsModels(
@@ -287,24 +277,60 @@ export async function explabsModels(
     }
     if (!response.ok) return { status: "error" };
 
-    const body = (await response.json()) as { data?: { id?: string }[] };
+    const body = (await response.json()) as { data?: ExplabsModel[] };
     const models = (body.data ?? [])
-      .map((model) => model.id)
-      .filter((id): id is string => Boolean(id) && !NON_CHAT.test(id ?? ""))
-      .sort()
-      .map((id) => ({ id, name: id, free: id.endsWith("-free"), ...explabsCapability(id) }));
+      .filter(
+        (model): model is ExplabsModel & { id: string } =>
+          Boolean(model.id) && !NON_CHAT.test(model.id ?? ""),
+      )
+      .map((model) => ({
+        id: model.id,
+        name: model.id,
+        free: model.id.endsWith("-free"),
+        tools: model.supports_tools === true,
+        structured: model.supports_structured_output === true,
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id));
     return { status: "ok", models };
   } catch {
     return { status: "error" };
   }
 }
 
+const explabsCatalogCache = new Map<
+  string,
+  { expires: number; models: ModelInfo[] }
+>();
+
+async function explabsModel(
+  apiKey: string,
+  model: string,
+): Promise<ModelInfo | null> {
+  const cacheKey = createHash("sha256").update(apiKey).digest("hex");
+  const cached = explabsCatalogCache.get(cacheKey);
+  if (cached && cached.expires > Date.now()) {
+    return cached.models.find((entry) => entry.id === model) ?? null;
+  }
+  const result = await explabsModels(apiKey);
+  if (result.status !== "ok") {
+    throw new Error(`Experiential Labs model list returned ${result.status}`);
+  }
+  explabsCatalogCache.set(cacheKey, {
+    expires: Date.now() + CACHE_SECONDS * 1000,
+    models: result.models,
+  });
+  return result.models.find((entry) => entry.id === model) ?? null;
+}
+
 // -- Capability routing, keyed by provider + model -----------------------
 
-export async function structuredRouting(
-  provider: AiProvider,
-  model: string,
-): Promise<string[] | null | undefined> {
+type ModelTarget = Pick<ModelRef, "provider" | "model" | "apiKey">;
+
+export async function structuredRouting({
+  provider,
+  model,
+  apiKey,
+}: ModelTarget): Promise<string[] | null | undefined> {
   if (provider === "google") {
     return googleModel(model) ? undefined : null;
   }
@@ -312,15 +338,16 @@ export async function structuredRouting(
     return groqCapability(model).structured ? undefined : null;
   }
   if (provider === "explabs") {
-    return explabsCapability(model).structured ? undefined : null;
+    return (await explabsModel(apiKey, model))?.structured ? undefined : null;
   }
   return structuredRouteOnly(model);
 }
 
-export async function toolsRouting(
-  provider: AiProvider,
-  model: string,
-): Promise<string[] | null | undefined> {
+export async function toolsRouting({
+  provider,
+  model,
+  apiKey,
+}: ModelTarget): Promise<string[] | null | undefined> {
   if (provider === "google") {
     return googleModel(model) ? undefined : null;
   }
@@ -328,32 +355,23 @@ export async function toolsRouting(
     return groqCapability(model).tools ? undefined : null;
   }
   if (provider === "explabs") {
-    return explabsCapability(model).tools ? undefined : null;
+    return (await explabsModel(apiKey, model))?.tools ? undefined : null;
   }
   return toolsRouteOnly(model);
 }
 
-export async function canStructured(
-  provider: AiProvider,
-  model: string,
-): Promise<boolean> {
-  return (await structuredRouting(provider, model)) !== null;
+export async function canStructured(target: ModelTarget): Promise<boolean> {
+  return (await structuredRouting(target)) !== null;
 }
 
-export async function canTools(
-  provider: AiProvider,
-  model: string,
-): Promise<boolean> {
-  return (await toolsRouting(provider, model)) !== null;
+export async function canTools(target: ModelTarget): Promise<boolean> {
+  return (await toolsRouting(target)) !== null;
 }
 
-export async function canWriteMeals(
-  provider: AiProvider,
-  model: string,
-): Promise<boolean> {
-  if (isWriteBlocked(model)) return false;
+export async function canWriteMeals(target: ModelTarget): Promise<boolean> {
+  if (isWriteBlocked(target.model)) return false;
   try {
-    return await canTools(provider, model);
+    return await canTools(target);
   } catch {
     return true;
   }

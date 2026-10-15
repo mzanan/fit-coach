@@ -4,7 +4,7 @@ import { CoachPanel } from "@/components/coach/CoachPanel";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Page } from "@/components/ui/Page";
-import { getAiSettings } from "@/lib/ai/aiCredentials";
+import { userModelRef } from "@/lib/ai/aiCredentials";
 import { canTools } from "@/lib/ai/capabilities";
 import { getFullConversation } from "@/lib/data/coachMessages";
 import { getPendingPreview } from "@/lib/data/coachPendingWrite";
@@ -15,7 +15,7 @@ import { requireUser } from "@/lib/session";
 export default async function CoachPage() {
   const user = await requireUser();
   const [ai, history, profile, pending] = await Promise.all([
-    getAiSettings(user.id),
+    userModelRef(user.id),
     getFullConversation(user.id),
     ensureProfile(user.id),
     getPendingPreview(user.id),
@@ -24,7 +24,7 @@ export default async function CoachPage() {
   let weeklySummaryAvailable = false;
   if (ai) {
     try {
-      weeklySummaryAvailable = await canTools(ai.provider, ai.model);
+      weeklySummaryAvailable = await canTools(ai);
     } catch {
       weeklySummaryAvailable = false;
     }
