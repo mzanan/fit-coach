@@ -5,22 +5,35 @@ import type { Targets } from "@/lib/targets";
 
 describe("kcalOf", () => {
   it("computes protein and carbs at 4 kcal/g and fat at 9 kcal/g", () => {
-    expect(kcalOf({ protein_g: 10, carbs_g: 20, fat_g: 5 })).toBe(10 * 4 + 20 * 4 + 5 * 9);
+    expect(kcalOf({ protein_g: 10, carbs_g: 20, fat_g: 5, alcohol_g: 0 })).toBe(10 * 4 + 20 * 4 + 5 * 9);
+  });
+
+  it("counts alcohol at 7 kcal/g", () => {
+    expect(kcalOf({ protein_g: 2, carbs_g: 23, fat_g: 0, alcohol_g: 26 })).toBe(2 * 4 + 23 * 4 + 26 * 7);
   });
 });
 
 describe("sumMacros", () => {
   it("returns zeros for an empty list", () => {
-    expect(sumMacros([])).toEqual({ protein_g: 0, fat_g: 0, carbs_g: 0 });
+    expect(sumMacros([])).toEqual({ protein_g: 0, fat_g: 0, carbs_g: 0, alcohol_g: 0 });
   });
 
   it("sums two items", () => {
     expect(
       sumMacros([
-        { protein_g: 10, fat_g: 5, carbs_g: 20 },
-        { protein_g: 15, fat_g: 3, carbs_g: 10 },
+        { protein_g: 10, fat_g: 5, carbs_g: 20, alcohol_g: 0 },
+        { protein_g: 15, fat_g: 3, carbs_g: 10, alcohol_g: 0 },
       ]),
-    ).toEqual({ protein_g: 25, fat_g: 8, carbs_g: 30 });
+    ).toEqual({ protein_g: 25, fat_g: 8, carbs_g: 30, alcohol_g: 0 });
+  });
+
+  it("sums alcohol", () => {
+    expect(
+      sumMacros([
+        { protein_g: 1, fat_g: 0, carbs_g: 12, alcohol_g: 13 },
+        { protein_g: 1, fat_g: 0, carbs_g: 11, alcohol_g: 13 },
+      ]),
+    ).toEqual({ protein_g: 2, fat_g: 0, carbs_g: 23, alcohol_g: 26 });
   });
 });
 
@@ -62,7 +75,7 @@ describe("macroSummary", () => {
 
   it("uses calories_rest as the kcal target on a rest day", () => {
     const { kcalTarget } = macroSummary(
-      { protein_g: 150, fat_g: 65, carbs_g: 100 },
+      { protein_g: 150, fat_g: 65, carbs_g: 100, alcohol_g: 0 },
       targets,
       false,
     );
@@ -70,21 +83,21 @@ describe("macroSummary", () => {
   });
 
   it("flags low protein with warn", () => {
-    const { lines } = macroSummary({ protein_g: 100, fat_g: 65, carbs_g: 150 }, targets, true);
+    const { lines } = macroSummary({ protein_g: 100, fat_g: 65, carbs_g: 150, alcohol_g: 0 }, targets, true);
     const protein = lines.find((l) => l.key === "protein")!;
     expect(protein.state).toBe("low");
     expect(protein.warn).toBe(true);
   });
 
   it("flags fat below the floor with warn", () => {
-    const { lines } = macroSummary({ protein_g: 150, fat_g: 30, carbs_g: 150 }, targets, true);
+    const { lines } = macroSummary({ protein_g: 150, fat_g: 30, carbs_g: 150, alcohol_g: 0 }, targets, true);
     const fat = lines.find((l) => l.key === "fat")!;
     expect(fat.state).toBe("low");
     expect(fat.warn).toBe(true);
   });
 
   it("reports ok when everything is in range", () => {
-    const { lines } = macroSummary({ protein_g: 150, fat_g: 65, carbs_g: 150 }, targets, true);
+    const { lines } = macroSummary({ protein_g: 150, fat_g: 65, carbs_g: 150, alcohol_g: 0 }, targets, true);
     const protein = lines.find((l) => l.key === "protein")!;
     const fat = lines.find((l) => l.key === "fat")!;
     const calories = lines.find((l) => l.key === "calories")!;
@@ -97,7 +110,7 @@ describe("macroSummary", () => {
   });
 
   it("flags calories over target with warn", () => {
-    const { lines, kcal } = macroSummary({ protein_g: 150, fat_g: 65, carbs_g: 300 }, targets, true);
+    const { lines, kcal } = macroSummary({ protein_g: 150, fat_g: 65, carbs_g: 300, alcohol_g: 0 }, targets, true);
     const calories = lines.find((l) => l.key === "calories")!;
     expect(kcal).toBeGreaterThan(targets.calories_target * 1.1);
     expect(calories.state).toBe("over");

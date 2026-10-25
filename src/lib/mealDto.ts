@@ -9,6 +9,7 @@ export function toMealDto(meal: Meal) {
     protein_g: meal.protein_g,
     fat_g: meal.fat_g,
     carbs_g: meal.carbs_g,
+    alcohol_g: meal.alcohol_g,
     fat_quality: meal.fat_quality,
     catalog_item_id: meal.catalog_item_id,
   };

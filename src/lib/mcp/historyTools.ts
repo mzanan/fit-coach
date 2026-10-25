@@ -18,9 +18,11 @@ import {
   replaceDayInput,
   routineInput,
 } from "@/lib/history/schemas";
+import { kcalOf } from "@/lib/macros";
 import { toMealDto } from "@/lib/mealDto";
 import { futureDayError, toolTextContent } from "@/lib/mcp/toolResult";
 import { pickTargets } from "@/lib/planTargets";
+import { round } from "@/lib/utils";
 
 const APP_PATHS = ["/", "/workout", "/routine", "/body", "/coach", "/settings", "/settings/targets"];
 
@@ -38,7 +40,7 @@ export function registerHistoryTools(
     "get_day",
     {
       description:
-        "Read any past or present day: its day type, steps, notes and whether it is closed, every meal with its id, macro totals, the targets of the plan that applied that day, and the gym session with notes and PR flags. Read a day before correcting it.",
+        "Read any past or present day: its day type, steps, notes and whether it is closed, every meal with its id, macro totals with kcal (alcohol included), the targets of the plan that applied that day, and the gym session with notes and PR flags. Read a day before correcting it.",
       inputSchema: getDayInput,
     },
     async ({ day }) => {
@@ -54,7 +56,7 @@ export function registerHistoryTools(
         notes: data.dayRow?.notes ?? null,
         closed: Boolean(data.dayRow?.closed_at),
         meals: data.meals.map(toMealDto),
-        totals: data.totals,
+        totals: { ...data.totals, kcal: round(kcalOf(data.totals)) },
         plan: plan ? { phase: plan.phase, effective_from: plan.effective_from } : null,
         targets: plan ? pickTargets(plan) : data.targets,
         workout: workout

@@ -35,6 +35,13 @@ export const workoutSessionInput = z.object({
 });
 export const fatQuality = z.enum(["clean", "oily"]).nullable();
 export const macroNumber = z.number().min(0).max(2000);
+export const alcoholGrams = z
+  .number()
+  .min(0)
+  .max(300)
+  .describe(
+    "Grams of alcohol (ethanol) for alcoholic drinks, 0 for everything else. Counted at 7 kcal/g. Estimate as ml x ABV x 0.789, e.g. a 330 ml beer at 5% is 13 g.",
+  );
 export const measurementValue = z.number().positive().max(MEASUREMENT_VALUE_MAX);
 export const componentGroup = z.enum(
   COMPONENT_GROUPS.map((g) => g.key) as [ComponentGroup, ...ComponentGroup[]],

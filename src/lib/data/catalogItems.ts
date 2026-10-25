@@ -23,6 +23,7 @@ export async function listCatalogItems(
       protein_g: catalog_items.protein_g,
       fat_g: catalog_items.fat_g,
       carbs_g: catalog_items.carbs_g,
+      alcohol_g: catalog_items.alcohol_g,
       fat_quality: catalog_items.fat_quality,
       notes: catalog_items.notes,
       delivery: catalog_items.delivery,

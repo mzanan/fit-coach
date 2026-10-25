@@ -289,6 +289,7 @@ export const catalog_items = pgTable(
     protein_g: doublePrecision("protein_g"),
     fat_g: doublePrecision("fat_g"),
     carbs_g: doublePrecision("carbs_g"),
+    alcohol_g: doublePrecision("alcohol_g").notNull().default(0),
     fat_quality: text("fat_quality"),
     notes: text("notes"),
     is_composable: boolean("is_composable")
@@ -358,6 +359,7 @@ export const catalog_components = pgTable(
     protein_g: doublePrecision("protein_g").notNull().default(0),
     fat_g: doublePrecision("fat_g").notNull().default(0),
     carbs_g: doublePrecision("carbs_g").notNull().default(0),
+    alcohol_g: doublePrecision("alcohol_g").notNull().default(0),
     fat_quality: text("fat_quality"),
     sort: integer("sort").notNull().default(0),
   },
@@ -378,6 +380,7 @@ export const meals = pgTable(
     protein_g: doublePrecision("protein_g").notNull().default(0),
     fat_g: doublePrecision("fat_g").notNull().default(0),
     carbs_g: doublePrecision("carbs_g").notNull().default(0),
+    alcohol_g: doublePrecision("alcohol_g").notNull().default(0),
     fat_quality: text("fat_quality"),
     catalog_item_id: text("catalog_item_id"),
     created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),

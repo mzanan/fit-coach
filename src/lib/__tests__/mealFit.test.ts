@@ -20,16 +20,21 @@ describe("remainingOf", () => {
   };
 
   it("returns target minus consumed for each macro", () => {
-    const remaining = remainingOf({ protein_g: 100, fat_g: 30, carbs_g: 120 }, targets);
+    const remaining = remainingOf({ protein_g: 100, fat_g: 30, carbs_g: 120, alcohol_g: 0 }, targets);
     expect(remaining.protein_g).toBe(50);
     expect(remaining.fat_g).toBe(25);
     expect(remaining.carbs_g).toBe(80);
   });
 
   it("computes remaining kcal via kcalOf", () => {
-    const remaining = remainingOf({ protein_g: 100, fat_g: 30, carbs_g: 120 }, targets);
+    const remaining = remainingOf({ protein_g: 100, fat_g: 30, carbs_g: 120, alcohol_g: 0 }, targets);
     const kcal = 100 * 4 + 120 * 4 + 30 * 9;
     expect(remaining.kcal).toBe(2150 - kcal);
+  });
+
+  it("subtracts alcohol kcal from the remaining kcal", () => {
+    const remaining = remainingOf({ protein_g: 2, fat_g: 0, carbs_g: 23, alcohol_g: 26 }, targets);
+    expect(remaining.kcal).toBe(2150 - (2 * 4 + 23 * 4 + 26 * 7));
   });
 });
 
@@ -43,54 +48,54 @@ describe("fits", () => {
 
   it("passes an item that fits within what's left, at any point in the day", () => {
     const remaining = { protein_g: 50, fat_g: 15, carbs_g: 20, kcal: 200 };
-    const item = { protein_g: 30, fat_g: 5, carbs_g: 10 };
+    const item = { protein_g: 30, fat_g: 5, carbs_g: 10, alcohol_g: 0 };
     expect(fits(item, remaining, bands)).toBe(true);
   });
 
   it("passes a breakfast item early in the day, when little budget has been spent yet", () => {
     const remaining = { protein_g: 150, fat_g: 55, carbs_g: 200, kcal: 2150 };
-    const item = { protein_g: 20, fat_g: 15, carbs_g: 30 };
+    const item = { protein_g: 20, fat_g: 15, carbs_g: 30, alcohol_g: 0 };
     expect(fits(item, remaining, bands)).toBe(true);
   });
 
   it("passes fat exactly at the tolerance over what remains", () => {
     const remaining = { protein_g: 50, fat_g: 0, carbs_g: 20, kcal: 200 };
-    const item = { protein_g: 30, fat_g: 5.5, carbs_g: 10 };
+    const item = { protein_g: 30, fat_g: 5.5, carbs_g: 10, alcohol_g: 0 };
     expect(fits(item, remaining, bands)).toBe(true);
   });
 
   it("fails fat more than the tolerance over what remains", () => {
     const remaining = { protein_g: 50, fat_g: 0, carbs_g: 20, kcal: 200 };
-    const item = { protein_g: 30, fat_g: 6, carbs_g: 10 };
+    const item = { protein_g: 30, fat_g: 6, carbs_g: 10, alcohol_g: 0 };
     expect(fits(item, remaining, bands)).toBe(false);
   });
 
   it("passes carbs exactly at the tolerance over what remains", () => {
     const remaining = { protein_g: 50, fat_g: 15, carbs_g: 0, kcal: 245 };
-    const item = { protein_g: 30, fat_g: 5, carbs_g: 20 };
+    const item = { protein_g: 30, fat_g: 5, carbs_g: 20, alcohol_g: 0 };
     expect(fits(item, remaining, bands)).toBe(true);
   });
 
   it("fails carbs more than the tolerance over what remains", () => {
     const remaining = { protein_g: 50, fat_g: 15, carbs_g: 0, kcal: 245 };
-    const item = { protein_g: 30, fat_g: 5, carbs_g: 21 };
+    const item = { protein_g: 30, fat_g: 5, carbs_g: 21, alcohol_g: 0 };
     expect(fits(item, remaining, bands)).toBe(false);
   });
 
   it("passes kcal exactly at the tolerance over what remains", () => {
     const remaining = { protein_g: 50, fat_g: 15, carbs_g: 20, kcal: 55 };
-    const item = { protein_g: 30, fat_g: 5, carbs_g: 10 };
+    const item = { protein_g: 30, fat_g: 5, carbs_g: 10, alcohol_g: 0 };
     expect(fits(item, remaining, bands)).toBe(true);
   });
 
   it("fails kcal more than the tolerance over what remains", () => {
     const remaining = { protein_g: 50, fat_g: 15, carbs_g: 20, kcal: 54 };
-    const item = { protein_g: 30, fat_g: 5, carbs_g: 10 };
+    const item = { protein_g: 30, fat_g: 5, carbs_g: 10, alcohol_g: 0 };
     expect(fits(item, remaining, bands)).toBe(false);
   });
 
   it("never fails on protein alone, however far over or under target", () => {
-    const item = { protein_g: 0, fat_g: 5, carbs_g: 10 };
+    const item = { protein_g: 0, fat_g: 5, carbs_g: 10, alcohol_g: 0 };
     const remainingOver = { protein_g: -1000, fat_g: 15, carbs_g: 20, kcal: 200 };
     expect(fits(item, remainingOver, bands)).toBe(true);
     const remainingUnder = { protein_g: 1000, fat_g: 15, carbs_g: 20, kcal: 200 };
@@ -99,14 +104,20 @@ describe("fits", () => {
 
   it("never fails for being under the fat floor: eating more can only help hit it", () => {
     const remaining = { protein_g: 50, fat_g: 55, carbs_g: 20, kcal: 200 };
-    const item = { protein_g: 30, fat_g: 0, carbs_g: 10 };
+    const item = { protein_g: 30, fat_g: 0, carbs_g: 10, alcohol_g: 0 };
     expect(fits(item, remaining, bands)).toBe(true);
   });
 
   it("fails once the day's remaining budget is already spent, however small the item", () => {
     const remaining = { protein_g: 50, fat_g: -5, carbs_g: 20, kcal: 200 };
-    const item = { protein_g: 30, fat_g: 1, carbs_g: 10 };
+    const item = { protein_g: 30, fat_g: 1, carbs_g: 10, alcohol_g: 0 };
     expect(fits(item, remaining, bands)).toBe(false);
+  });
+
+  it("fails a drink whose alcohol kcal exceed what's left", () => {
+    const remaining = { protein_g: 50, fat_g: 15, carbs_g: 40, kcal: 120 };
+    const drink = { protein_g: 2, fat_g: 0, carbs_g: 23, alcohol_g: 26 };
+    expect(fits(drink, remaining, bands)).toBe(false);
   });
 });
 
@@ -120,6 +131,7 @@ describe("filterRotation", () => {
       protein_g: 20,
       fat_g: 5,
       carbs_g: 10,
+      alcohol_g: 0,
       fat_quality: null,
       notes: null,
       is_composable: false,

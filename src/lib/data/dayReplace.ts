@@ -78,6 +78,7 @@ export async function replaceDay(
           protein_g: meal.protein_g,
           fat_g: meal.fat_g,
           carbs_g: meal.carbs_g,
+          alcohol_g: meal.alcohol_g,
           fat_quality: meal.fat_quality ?? null,
           catalog_item_id:
             meal.catalog_item_id && ownedCatalogIds.has(meal.catalog_item_id) ? meal.catalog_item_id : null,

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { MEAL_CATEGORIES } from "@/lib/constants";
 import { targetsSchema } from "@/lib/targets";
-import { calendarDay, fatQuality, workoutExerciseInput } from "@/lib/validation";
+import { alcoholGrams, calendarDay, fatQuality, workoutExerciseInput } from "@/lib/validation";
 
 const categoryKeys = MEAL_CATEGORIES.map((category) => category.key) as [string, ...string[]];
 
@@ -99,6 +99,7 @@ const dayMeal = z.object({
   protein_g: z.number().min(0).max(500),
   fat_g: z.number().min(0).max(500),
   carbs_g: z.number().min(0).max(1000),
+  alcohol_g: alcoholGrams.default(0),
   fat_quality: fatQuality.optional(),
   catalog_item_id: z.string().min(1).nullable().optional(),
 });

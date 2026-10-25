@@ -28,6 +28,7 @@ export interface ResolvedMeal {
   protein_g: number;
   fat_g: number;
   carbs_g: number;
+  alcohol_g: number;
   kcal: number;
   fat_quality: string | null;
 }
@@ -51,6 +52,7 @@ async function findUniqueByName(
       protein_g: catalog_items.protein_g,
       fat_g: catalog_items.fat_g,
       carbs_g: catalog_items.carbs_g,
+      alcohol_g: catalog_items.alcohol_g,
     })
     .from(catalog_items)
     .where(
@@ -144,6 +146,7 @@ export async function resolveCatalogMeal(
     protein_g: round(item.protein_g * portions),
     fat_g: round(item.fat_g * portions),
     carbs_g: round(item.carbs_g * portions),
+    alcohol_g: round(item.alcohol_g * portions),
   };
 
   return {
@@ -172,6 +175,7 @@ export interface SizeVariant {
   protein_g: number;
   fat_g: number;
   carbs_g: number;
+  alcohol_g: number;
   kcal: number;
 }
 
@@ -189,6 +193,7 @@ export async function sizeVariantsOf(
       protein_g: catalog_items.protein_g,
       fat_g: catalog_items.fat_g,
       carbs_g: catalog_items.carbs_g,
+      alcohol_g: catalog_items.alcohol_g,
     })
     .from(catalog_items)
     .where(
@@ -210,6 +215,7 @@ export async function sizeVariantsOf(
       protein_g: row.protein_g,
       fat_g: row.fat_g,
       carbs_g: row.carbs_g,
+      alcohol_g: row.alcohol_g,
       kcal: round(kcalOf(row)),
     });
   }
@@ -221,6 +227,7 @@ export interface EstimatedMeal {
   protein_g: number;
   fat_g: number;
   carbs_g: number;
+  alcohol_g: number;
 }
 
 export async function insertEstimatedMeal(
@@ -240,6 +247,7 @@ export async function insertEstimatedMeal(
     protein_g: round(meal.protein_g),
     fat_g: round(meal.fat_g),
     carbs_g: round(meal.carbs_g),
+    alcohol_g: round(meal.alcohol_g),
     fat_quality: null,
     catalog_item_id: null,
     created_at: new Date(),
@@ -264,6 +272,7 @@ export async function insertResolvedMeal(
     protein_g: meal.protein_g,
     fat_g: meal.fat_g,
     carbs_g: meal.carbs_g,
+    alcohol_g: meal.alcohol_g,
     fat_quality: meal.fat_quality,
     catalog_item_id: meal.catalog_item_id,
     created_at: new Date(),

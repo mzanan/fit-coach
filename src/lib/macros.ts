@@ -5,6 +5,7 @@ export interface Macros {
   protein_g: number;
   fat_g: number;
   carbs_g: number;
+  alcohol_g?: number;
 }
 
 export interface PartialMacros {
@@ -14,7 +15,7 @@ export interface PartialMacros {
 }
 
 export function kcalOf(m: Macros): number {
-  return m.protein_g * 4 + m.carbs_g * 4 + m.fat_g * 9;
+  return m.protein_g * 4 + m.carbs_g * 4 + m.fat_g * 9 + (m.alcohol_g ?? 0) * 7;
 }
 
 export function sumMacros(items: Macros[]): Macros {
@@ -23,8 +24,9 @@ export function sumMacros(items: Macros[]): Macros {
       protein_g: acc.protein_g + m.protein_g,
       fat_g: acc.fat_g + m.fat_g,
       carbs_g: acc.carbs_g + m.carbs_g,
+      alcohol_g: (acc.alcohol_g ?? 0) + (m.alcohol_g ?? 0),
     }),
-    { protein_g: 0, fat_g: 0, carbs_g: 0 },
+    { protein_g: 0, fat_g: 0, carbs_g: 0, alcohol_g: 0 },
   );
 }
 
