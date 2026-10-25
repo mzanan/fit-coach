@@ -10,7 +10,7 @@ import {
 } from "@/lib/constants";
 import { isValidTimezone } from "@/lib/dates";
 import { planInput } from "@/lib/history/schemas";
-import { calendarDay, fatQuality, measurementValue } from "@/lib/validation";
+import { alcoholGrams, calendarDay, fatQuality, measurementValue } from "@/lib/validation";
 
 const id = z.string().min(1);
 const measurementTypes = MEASUREMENT_TYPES.map((type) => type.key) as [string, ...string[]];
@@ -95,6 +95,7 @@ const catalogFields = z.object({
   protein_g: z.number().min(0).max(500).nullable().optional(),
   fat_g: z.number().min(0).max(500).nullable().optional(),
   carbs_g: z.number().min(0).max(1000).nullable().optional(),
+  alcohol_g: alcoholGrams.optional(),
   fat_quality: fatQuality.optional(),
   notes: z.string().trim().max(1000).nullable().optional(),
   delivery: z.boolean().optional(),

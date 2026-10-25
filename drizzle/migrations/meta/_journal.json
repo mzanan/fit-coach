@@ -64,6 +64,13 @@
       "when": 1791865858959,
       "tag": "0008_harden-write-history",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792916412200,
+      "tag": "0009_add-alcohol",
+      "breakpoints": true
     }
   ]
 }

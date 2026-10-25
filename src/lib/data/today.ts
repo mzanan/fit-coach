@@ -5,7 +5,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import type { Day, Meal, Profile } from "@/lib/db/schema";
 import { resolveDayType, type DayType } from "@/lib/dayType";
-import { macroSummary, sumMacros, type MacroLine } from "@/lib/macros";
+import { macroSummary, sumMacros, type MacroLine, type Macros } from "@/lib/macros";
 import { targetsOf, type Targets } from "@/lib/targets";
 
 const { meals, days, routine_slots } = schema;
@@ -13,7 +13,7 @@ const { meals, days, routine_slots } = schema;
 export interface DayData {
   day: string;
   meals: Meal[];
-  totals: { protein_g: number; fat_g: number; carbs_g: number };
+  totals: Macros;
   summary: { lines: MacroLine[]; kcal: number; kcalTarget: number } | null;
   targets: Targets | null;
   isGymDay: boolean;

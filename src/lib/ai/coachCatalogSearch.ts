@@ -90,6 +90,7 @@ export interface CatalogSearchResult {
     protein_g: number | null;
     fat_g: number | null;
     carbs_g: number | null;
+    alcohol_g: number;
     fat_quality: string | null;
   }[];
 }
@@ -157,6 +158,7 @@ export async function searchCatalog(
       protein_g: item.protein_g,
       fat_g: item.fat_g,
       carbs_g: item.carbs_g,
+      alcohol_g: item.alcohol_g,
       fat_quality: item.fat_quality,
     })),
   };

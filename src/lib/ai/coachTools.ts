@@ -89,7 +89,7 @@ import {
 import { db, schema } from "@/lib/db";
 import type { CatalogItem, Profile } from "@/lib/db/schema";
 import { round } from "@/lib/utils";
-import { measurementValue, workoutSessionInput } from "@/lib/validation";
+import { alcoholGrams, measurementValue, workoutSessionInput } from "@/lib/validation";
 import {
   evaluateProgression,
   PROGRESSION_SESSIONS_REQUIRED,
@@ -626,6 +626,7 @@ export function buildCoachTools(
             protein_g: round(day.totals.protein_g),
             fat_g: round(day.totals.fat_g),
             carbs_g: round(day.totals.carbs_g),
+            alcohol_g: round(day.totals.alcohol_g ?? 0),
             kcal: round(kcalOf(day.totals)),
           },
           remaining: remaining
@@ -711,6 +712,7 @@ export function buildCoachTools(
               protein_g: item.protein_g,
               fat_g: item.fat_g,
               carbs_g: item.carbs_g,
+              alcohol_g: item.alcohol_g,
               kcal: round(kcalOf(item)),
               remaining_after: {
                 protein_g: round(remaining.protein_g - item.protein_g),
@@ -939,6 +941,7 @@ export function buildCoachTools(
               protein_g: resolved.meal.protein_g,
               fat_g: resolved.meal.fat_g,
               carbs_g: resolved.meal.carbs_g,
+              alcohol_g: resolved.meal.alcohol_g,
               kcal: resolved.meal.kcal,
             },
           };
@@ -947,13 +950,14 @@ export function buildCoachTools(
     }),
     log_estimated_meal: tool({
       description:
-        "Log a meal the user ate that is NOT in their catalog, with macros you estimate from what they said (a standard portion of that food). Use this whenever the user asks to log something and search_catalog returned no matching item: never ask whether to log it or whether to add it to the catalog, estimate and call this. Pass the food name as the user said it and integer grams of protein, fat and carbs for the portion eaten. The app marks the entry as an estimate. This writes immediately, with no confirmation step.",
+        "Log a meal the user ate that is NOT in their catalog, with macros you estimate from what they said (a standard portion of that food). Use this whenever the user asks to log something and search_catalog returned no matching item: never ask whether to log it or whether to add it to the catalog, estimate and call this. Pass the food name as the user said it and integer grams of protein, fat and carbs for the portion eaten, plus grams of alcohol (ethanol) for alcoholic drinks. The app marks the entry as an estimate. This writes immediately, with no confirmation step.",
       inputSchema: z.object({
         name: z.string().trim().min(1).max(120).describe("the food as the user named it, e.g. 'Jugo de naranja exprimido sin azúcar (vaso)'"),
         category: z.enum(CATEGORY_KEYS),
         protein_g: z.number().min(0).max(300),
         fat_g: z.number().min(0).max(300),
         carbs_g: z.number().min(0).max(600),
+        alcohol_g: alcoholGrams.default(0),
       }),
       execute: safe(
         "log_estimated_meal",
@@ -963,6 +967,7 @@ export function buildCoachTools(
           protein_g: number;
           fat_g: number;
           carbs_g: number;
+          alcohol_g: number;
         }) => {
           await insertEstimatedMeal(userId, input, input.category, today);
           revalidatePath("/");
@@ -976,6 +981,7 @@ export function buildCoachTools(
               protein_g: round(input.protein_g),
               fat_g: round(input.fat_g),
               carbs_g: round(input.carbs_g),
+              alcohol_g: round(input.alcohol_g),
               kcal: round(kcalOf(input)),
             },
           };
