@@ -297,15 +297,8 @@ async function toolReply(
   appGenerated = false,
 ): Promise<CoachResult> {
   const allowWrite = await canWriteMeals(ref);
-  const learned = await learnFromQuestion(ref, userId, question, appGenerated, signal);
-  const setup = await toolSetup(
-    userId,
-    profile,
-    history,
-    allowWrite,
-    question,
-    learned,
-  );
+  const learning = learnFromQuestion(ref, userId, question, appGenerated, signal);
+  const setup = await toolSetup(userId, profile, history, allowWrite, question);
 
   try {
     const {
@@ -327,6 +320,7 @@ async function toolReply(
       onEvent: onEvent ?? (() => {}),
       signal,
     });
+    const learned = await learning;
 
     const receipts = writeReceipts(writeOutputs);
     const daySummary = writeOutputs.some(
@@ -462,7 +456,7 @@ async function contextReply(
   appGenerated = false,
 ): Promise<CoachResult> {
   const ctx = await buildContext(userId, profile, false);
-  const learned = await learnFromQuestion(ref, userId, question, appGenerated, signal);
+  const learning = learnFromQuestion(ref, userId, question, appGenerated, signal);
   const { memory, parts } = await memoryFactsAndRules(
     userId,
     profile,
@@ -478,7 +472,6 @@ async function contextReply(
   const instructions = [
     COACH_FRAME + diningRule(profile) + coachingRules(profile),
     ...parts,
-    ...learnedAddendum(learned),
     REPLY_STYLE,
   ].join("\n\n");
 
@@ -500,6 +493,7 @@ async function contextReply(
         usage = totals;
       },
     );
+    const learned = await learning;
     if (text) {
       const asked = appGenerated
         ? "(tapped the weekly summary button)"
