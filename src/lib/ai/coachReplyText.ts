@@ -32,6 +32,37 @@ export function limitErrorReply(
   return `${label}: ${detail} Nothing was read or written.`;
 }
 
+export function providerErrorReply(
+  provider: ModelRef["provider"],
+  error: unknown,
+): string {
+  const limited = limitErrorReply(provider, error);
+  if (limited) return limited;
+  const status = (error as { statusCode?: number })?.statusCode;
+  const label = PROVIDER_LABEL[provider];
+  const message = error instanceof Error ? error.message : "";
+  const aboutModel = /\bmodel\b/i.test(message);
+  if (status === 404 || ((status === 400 || status === 403) && aboutModel)) {
+    return `${label} does not offer the selected model to your key. Pick another one in Settings > AI. Nothing was read or written.`;
+  }
+  if (status === 401 || status === 403) {
+    return `${label} rejected your key. Check it in Settings > AI. Nothing was read or written.`;
+  }
+  if (status === 400) {
+    return `${label} rejected the request for the selected model. Try another model in Settings > AI. Nothing was read or written.`;
+  }
+  if (status !== undefined && status >= 500) {
+    return `${label} is failing right now. Try again in a minute. Nothing was read or written.`;
+  }
+  return aiErrorReply();
+}
+
+export function providerErrorDetail(error: unknown): string {
+  const status = (error as { statusCode?: number })?.statusCode;
+  const message = error instanceof Error ? error.message : String(error);
+  return `${status ?? "no status"}: ${message}`.slice(0, 300);
+}
+
 export function previewFailure(reason: ResolveFailure, error: string): string {
   if (reason === "no_macros") return error;
   return "The coach tried to log a meal it could not identify in your catalog. Ask again naming the item.";

@@ -415,7 +415,7 @@ export async function previewLogMeasurement(
 
 const closeDayInput = z.object({
   steps: z.number().int().min(0).max(100000),
-  notes: z.string().trim().max(500).nullable().default(null),
+  notes: z.string().trim().max(500).nullish(),
 });
 
 export async function previewCloseDay(
@@ -441,7 +441,7 @@ export async function previewCloseDay(
       toolName: CLOSE_DAY_TOOL,
       day: today,
       steps: parsed.data.steps,
-      notes: parsed.data.notes,
+      notes: parsed.data.notes || existing?.notes || null,
       previousSteps: existing?.steps ?? null,
     },
   };
@@ -899,7 +899,7 @@ export function buildCoachTools(
     ...readTools,
     log_meal: tool({
       description:
-        "Log a meal the user has eaten, using an item from their catalog. Only call this when the user asks for it. Pass the `id` and the exact `name` of a catalog item a previous search returned: the app resolves the macros itself from that item, so never pass macro numbers. Use `portions` when they ate more or less than one serving. This writes immediately, with no confirmation step: call it only when the user actually asked for the meal to be logged, and if several catalog items differ only in size pick the one matching what they said.",
+        "Log a meal the user has eaten, using an item from their catalog. Only call this when the user asks for it. Pass the `id` and the exact `name` of a catalog item a previous search returned: the app resolves the macros itself from that item, so never pass macro numbers. Use `portions` when they ate more or less than one serving. This writes immediately, with no confirmation step: call it only when the user actually asked for the meal to be logged. When several catalog items differ only in size, use any of them and scale `portions` to the amount the user ate.",
       inputSchema: z.object({
         item_id: z.string().min(1).describe("id of the catalog item, from search_catalog"),
         item_name: z.string().min(1).describe("exact name of that same catalog item"),
@@ -950,7 +950,7 @@ export function buildCoachTools(
     }),
     log_estimated_meal: tool({
       description:
-        "Log a meal the user ate that is NOT in their catalog, with macros you estimate from what they said (a standard portion of that food). Use this whenever the user asks to log something and search_catalog returned no matching item: never ask whether to log it or whether to add it to the catalog, estimate and call this. Pass the food name as the user said it and integer grams of protein, fat and carbs for the portion eaten, plus grams of alcohol (ethanol) for alcoholic drinks. The app marks the entry as an estimate. This writes immediately, with no confirmation step.",
+        "Log a meal the user ate that is NOT in their catalog, with macros you estimate for the amount they said they ate. Use this whenever the user asks to log something and search_catalog returned no matching item: never ask whether to log it or whether to add it to the catalog, estimate and call this. Pass the food name as the user said it and integer grams of protein, fat and carbs for the portion eaten, plus grams of alcohol (ethanol) for alcoholic drinks. The app marks the entry as an estimate. This writes immediately, with no confirmation step.",
       inputSchema: z.object({
         name: z.string().trim().min(1).max(120).describe("the food as the user named it, e.g. 'Jugo de naranja exprimido sin azúcar (vaso)'"),
         category: z.enum(CATEGORY_KEYS),
@@ -1122,10 +1122,10 @@ export function buildCoachTools(
       inputSchema: closeDayInput,
       execute: safe(
         "close_day",
-        async (input: { steps: number; notes: string | null }) => {
-          await closeOrUpdateDay(userId, profile, today, {
+        async (input: { steps: number; notes?: string | null }) => {
+          const saved = await closeOrUpdateDay(userId, profile, today, {
             steps: input.steps,
-            notes: input.notes,
+            notes: input.notes || undefined,
           });
           const day = await getDayData(userId, profile, today);
           const weeklyStepsAvg = await weeklyStepsAvgThrough(userId, today);
@@ -1135,8 +1135,8 @@ export function buildCoachTools(
             logged: true,
             targets_set: targets !== null,
             day: {
-              steps: input.steps,
-              notes: input.notes,
+              steps: saved.steps,
+              notes: saved.notes,
               summary:
                 day.summary && targets
                   ? {

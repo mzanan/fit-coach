@@ -1,4 +1,5 @@
 import type { WriteOutput } from "@/lib/ai/provider";
+import { hasSizePrefix } from "@/lib/sizeName";
 import {
   categoryLabel,
   ESTIMATE_TOOL,
@@ -49,7 +50,10 @@ interface MeasurementOutput {
 function mealLine(output: unknown): string {
   const meal = (output as MealOutput)?.meal;
   if (!meal?.name) return "";
-  const portions = meal.portions === 1 ? "" : ` x${meal.portions}`;
+  const portions =
+    meal.portions === 1 || meal.portions === undefined || hasSizePrefix(meal.name)
+      ? ""
+      : ` x${meal.portions}`;
   const category = meal.category
     ? ` as ${categoryLabel(meal.category).toLowerCase()}`
     : "";
