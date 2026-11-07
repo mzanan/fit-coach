@@ -2,11 +2,11 @@ import "server-only";
 
 import { count, desc, eq } from "drizzle-orm";
 
-import { sizeVariantKey } from "@/lib/catalogMeal";
 import { getCatalog } from "@/lib/data/catalog";
 import { db, schema } from "@/lib/db";
 import { hasMacros } from "@/lib/macros";
 import { matchesTerm } from "@/lib/search";
+import { sizeVariantKey } from "@/lib/sizeName";
 
 const { meals } = schema;
 
@@ -141,7 +141,7 @@ export async function searchCatalog(
       : !matched
         ? "Nothing matched those terms, so these are a sample of the catalog across the user's places. Suggest from them; do not say the catalog is empty or that you found nothing."
         : usableHits.length > 1 && hitFamilies.size === 1
-          ? "These are the SAME item at different sizes. If the user is asking to log this, call log_meal with ANY one of them right now: the app will show them a card to pick the exact size before writing anything. Do not ask them to specify the size in chat."
+          ? "These are the SAME food at different sizes. To log it you need the amount the user ate: if they did not say it, ask how much they ate as an open question, never offering these sizes as the only choices. Then call log_meal with one of these items and portions = amount / item size (150 g with the 100G item is portions 1.5)."
           : usableHits.length
             ? undefined
             : "The matched items have no recorded macros, and a sample of items WITH macros from the rest of the catalog follows them. Suggest from those.";

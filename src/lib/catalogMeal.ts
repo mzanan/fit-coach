@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { hasMacros, kcalOf } from "@/lib/macros";
 import { matchesAllTerms, normalizeSearch } from "@/lib/search";
+import { scaledSizeName, sizeVariantKey } from "@/lib/sizeName";
 import { newId, round } from "@/lib/utils";
 
 const { meals, catalog_items } = schema;
@@ -153,7 +154,7 @@ export async function resolveCatalogMeal(
     ok: true,
     meal: {
       catalog_item_id: item.id,
-      name: item.name,
+      name: scaledSizeName(item.name, portions),
       place: item.place,
       portions,
       ...scaled,
@@ -161,12 +162,6 @@ export async function resolveCatalogMeal(
       fat_quality: item.fat_quality,
     },
   };
-}
-
-const SIZE_PREFIX = /^\s*[\d.,]+\s*(g|gr|grs|gram|grams|kg|ml|l|oz)?\b\s*/i;
-
-export function sizeVariantKey(name: string): string {
-  return normalizeSearch(name).replace(SIZE_PREFIX, "").trim();
 }
 
 export interface SizeVariant {
