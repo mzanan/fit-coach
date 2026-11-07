@@ -5,7 +5,7 @@ import { count, desc, eq } from "drizzle-orm";
 import { getCatalog } from "@/lib/data/catalog";
 import { db, schema } from "@/lib/db";
 import { hasMacros } from "@/lib/macros";
-import { matchesTerm } from "@/lib/search";
+import { matchesTerm, startsWithTerm } from "@/lib/search";
 import { sizeVariantKey } from "@/lib/sizeName";
 
 const { meals } = schema;
@@ -92,6 +92,7 @@ export interface CatalogSearchResult {
     carbs_g: number | null;
     alcohol_g: number;
     fat_quality: string | null;
+    match: "name" | "contains" | "sample";
   }[];
 }
 
@@ -104,7 +105,7 @@ export async function searchCatalog(
     .map((query) => query.trim())
     .filter(Boolean);
   const items = (await getCatalog(userId)).filter((item) => !item.archived);
-  const hits = terms.length
+  const matches = terms.length
     ? items.filter((item) =>
         terms.some(
           (term) =>
@@ -113,6 +114,14 @@ export async function searchCatalog(
         ),
       )
     : [];
+  const leading = matches.filter((item) =>
+    terms.some((term) =>
+      startsWithTerm(sizeVariantKey(item.name), sizeVariantKey(term)),
+    ),
+  );
+  const leadingIds = new Set(leading.map((item) => item.id));
+  const contains = matches.filter((item) => !leadingIds.has(item.id));
+  const hits = [...leading, ...contains];
   const matched = hits.length > 0;
   const usableHits = hits.filter(hasMacros);
   const withMacros = items.filter(hasMacros);
@@ -133,18 +142,26 @@ export async function searchCatalog(
   console.info(
     `coach: search_catalog ${JSON.stringify(terms)} -> ${hits.length} hits (${usableHits.length} usable) of ${items.length}, returning ${chosen.length}`,
   );
-  const hitFamilies = new Set(hits.map((item) => sizeVariantKey(item.name)));
-  const note = !items.length
+  const primaryUsable = (leading.length ? leading : contains).filter(hasMacros);
+  const sameFood =
+    primaryUsable.length > 1 &&
+    new Set(primaryUsable.map((item) => sizeVariantKey(item.name))).size === 1;
+  const baseNote = !items.length
     ? "The user's catalog is empty. Tell them so and offer to add items; do not name any food as if it were saved."
     : !chosenUsable
       ? "None of these items has recorded macros, and neither does anything else in the catalog. Say that plainly and offer to fill the macros in; never invent numbers or a dish."
       : !matched
         ? "Nothing matched those terms, so these are a sample of the catalog across the user's places. Suggest from them; do not say the catalog is empty or that you found nothing."
-        : usableHits.length > 1 && hitFamilies.size === 1
-          ? "These are the SAME food at different sizes. To log it you need the amount the user ate: if they did not say it, ask how much they ate as an open question, never offering these sizes as the only choices. Then call log_meal with one of these items and portions = amount / item size (150 g with the 100G item is portions 1.5)."
+        : sameFood
+          ? "The items with match \"name\" are the SAME food at different sizes. To log it you need the amount the user ate: if they did not say it, ask how much they ate as an open question, never offering these sizes as the only choices. Then call log_meal with one of these items and portions = amount / item size (150 g with the 100G item is portions 1.5)."
           : usableHits.length
             ? undefined
             : "The matched items have no recorded macros, and a sample of items WITH macros from the rest of the catalog follows them. Suggest from those.";
+  const containsNote =
+    leading.length && contains.length
+      ? "Items with match \"contains\" have one of the words inside a longer name or in the place. Use one only when it is what the user named (Grilled Chicken Breast for chicken breast); never offer a dish that merely contains the food as an ingredient."
+      : undefined;
+  const note = [baseNote, containsNote].filter(Boolean).join(" ") || undefined;
   return {
     query_matched: matched,
     catalog_size: items.length,
@@ -160,6 +177,11 @@ export async function searchCatalog(
       carbs_g: item.carbs_g,
       alcohol_g: item.alcohol_g,
       fat_quality: item.fat_quality,
+      match: leadingIds.has(item.id)
+        ? ("name" as const)
+        : contains.some((hit) => hit.id === item.id)
+          ? ("contains" as const)
+          : ("sample" as const),
     })),
   };
 }

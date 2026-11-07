@@ -730,7 +730,7 @@ export function buildCoachTools(
     }),
     search_catalog: tool({
       description:
-        "Search the user's saved food catalog by name or place. Each result carries the `id` you must pass to log_meal together with its exact `name`. Pass every term worth trying in one call: they are searched together. The catalog is stored in the words the user typed, often English even when they ask in another language, so include the English translation of each term alongside the original. When nothing matches the terms it returns a sample spread across the user's places, so a miss is not an empty catalog. Read the `note` field: it tells you what the result actually is. A macro of null means that number was never recorded: say so instead of guessing it.",
+        "Search the user's saved food catalog by name or place. Each result carries the `id` you must pass to log_meal together with its exact `name`. Pass every term worth trying in one call: they are searched together. The catalog is stored in the words the user typed, often English even when they ask in another language, so include the English translation of each term alongside the original. When nothing matches the terms it returns a sample spread across the user's places, so a miss is not an empty catalog. Read the `note` field: it tells you what the result actually is. Each item's `match` says whether its name is the food searched (`name`), it only contains one of the words as an ingredient or place (`contains`), or it is a catalog sample (`sample`). A macro of null means that number was never recorded: say so instead of guessing it.",
       inputSchema: z.object({
         queries: z.array(z.string().trim().min(1)).min(1),
       }),
