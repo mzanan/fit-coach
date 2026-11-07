@@ -415,7 +415,7 @@ export async function previewLogMeasurement(
 
 const closeDayInput = z.object({
   steps: z.number().int().min(0).max(100000),
-  notes: z.string().trim().max(500).nullable().default(null),
+  notes: z.string().trim().max(500).nullish(),
 });
 
 export async function previewCloseDay(
@@ -441,7 +441,7 @@ export async function previewCloseDay(
       toolName: CLOSE_DAY_TOOL,
       day: today,
       steps: parsed.data.steps,
-      notes: parsed.data.notes,
+      notes: parsed.data.notes || existing?.notes || null,
       previousSteps: existing?.steps ?? null,
     },
   };
@@ -1122,10 +1122,10 @@ export function buildCoachTools(
       inputSchema: closeDayInput,
       execute: safe(
         "close_day",
-        async (input: { steps: number; notes: string | null }) => {
-          await closeOrUpdateDay(userId, profile, today, {
+        async (input: { steps: number; notes?: string | null }) => {
+          const saved = await closeOrUpdateDay(userId, profile, today, {
             steps: input.steps,
-            notes: input.notes,
+            notes: input.notes || undefined,
           });
           const day = await getDayData(userId, profile, today);
           const weeklyStepsAvg = await weeklyStepsAvgThrough(userId, today);
@@ -1135,8 +1135,8 @@ export function buildCoachTools(
             logged: true,
             targets_set: targets !== null,
             day: {
-              steps: input.steps,
-              notes: input.notes,
+              steps: saved.steps,
+              notes: saved.notes,
               summary:
                 day.summary && targets
                   ? {

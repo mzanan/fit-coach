@@ -85,7 +85,7 @@ export async function updateDay(
 
 export interface CloseDayInput {
   steps: number | null;
-  notes: string | null;
+  notes?: string | null;
 }
 
 export async function closeDay(
