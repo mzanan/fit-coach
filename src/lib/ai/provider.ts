@@ -499,6 +499,7 @@ export async function chatToolsStream(
   let finishReason: FinishReason | undefined;
   let stepText = "";
   let stepCalledTool = false;
+  let streamError: unknown;
   for await (const part of result.fullStream) {
     if (part.type === "start-step") {
       stepText = "";
@@ -555,10 +556,21 @@ export async function chatToolsStream(
       sawFinish = true;
       finishReason = part.finishReason;
       addUsage(usageTotals, part.totalUsage);
+    } else if (part.type === "error") {
+      streamError ??= part.error;
     }
   }
   const writeAttempted = [...writeCalls].some((id) => !deniedCalls.has(id));
   let interrupted = sawAbort && !sawFinish;
+  if (
+    streamError !== undefined &&
+    !text.trim() &&
+    !approvals.length &&
+    !writeOutputs.length &&
+    !toolLog.length
+  ) {
+    throw streamError;
+  }
   let messages: ModelMessage[] = await result.responseMessages;
 
   if (finishReason === "length" && text.trim() && !interrupted) {

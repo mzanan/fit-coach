@@ -3,6 +3,7 @@ import "server-only";
 import type { ModelMessage } from "ai";
 import { after } from "next/server";
 
+import { isAbort } from "@/lib/abort";
 import { userModelRef, type ModelRef } from "@/lib/ai/aiCredentials";
 import { toolsRouting } from "@/lib/ai/capabilities";
 import { buildContext, buildReminderLines } from "@/lib/ai/coachContext";
@@ -12,9 +13,10 @@ import {
   deterministicReply,
   exchangeOf,
   learnedAddendum,
-  limitErrorReply,
   leadWith,
   NO_TOOLS_NOTICE,
+  providerErrorDetail,
+  providerErrorReply,
   unloggedNotice,
 } from "@/lib/ai/coachReplyText";
 import { bufferedOnEvent, watchForStop } from "@/lib/ai/coachStreamControl";
@@ -445,11 +447,7 @@ async function toolReply(
       generated: false,
     };
   } catch (error) {
-    return {
-      status: "answered",
-      text: limitErrorReply(ref.provider, error) ?? aiErrorReply(),
-      generated: false,
-    };
+    return providerFailure(ref, userId, error, signal);
   }
 }
 
@@ -528,12 +526,32 @@ async function contextReply(
       learned,
     };
   } catch (error) {
-    return {
-      status: "answered",
-      text: limitErrorReply(ref.provider, error) ?? aiErrorReply(),
-      generated: false,
-    };
+    return providerFailure(ref, userId, error, signal);
   }
+}
+
+function providerFailure(
+  ref: ModelRef,
+  userId: string,
+  error: unknown,
+  signal?: AbortSignal,
+): CoachResult {
+  if (!isAbort(error, signal)) {
+    const detail = providerErrorDetail(error);
+    console.error(`coach: ${ref.provider}/${ref.model} failed: ${detail}`);
+    after(() =>
+      logAiEvent(userId, "provider_error", {
+        provider: ref.provider,
+        model: ref.model,
+        detail,
+      }),
+    );
+  }
+  return {
+    status: "answered",
+    text: providerErrorReply(ref.provider, error),
+    generated: false,
+  };
 }
 
 const STOPPED_MID_ANSWER = "(stopped before an answer began)";

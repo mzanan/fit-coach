@@ -11,13 +11,42 @@ export function aiErrorReply(): string {
   return "The coach could not reach your AI model. Nothing was read or written. Check your key and model in Settings > AI, or try again.";
 }
 
+const MODEL_UNAVAILABLE =
+  /\bmodel\b[\s\S]{0,40}(not found|not granted|does not exist|unknown|not available|unavailable|not supported)|\b(unknown|invalid|unsupported) model\b/i;
+const KEY_REJECTED = /api[ _-]?key|unauthori[sz]ed|authentication|invalid[ _]key/i;
+
+interface ErrorParts {
+  status: number | undefined;
+  name: string;
+  message: string;
+}
+
+function errorParts(error: unknown): ErrorParts {
+  const source = (error as { lastError?: unknown } | null)?.lastError ?? error;
+  const record = (typeof source === "object" && source !== null ? source : {}) as {
+    statusCode?: unknown;
+    code?: unknown;
+    name?: unknown;
+    message?: unknown;
+  };
+  const status =
+    typeof record.statusCode === "number"
+      ? record.statusCode
+      : typeof record.code === "number"
+        ? record.code
+        : undefined;
+  return {
+    status,
+    name: typeof record.name === "string" ? record.name : "",
+    message: typeof record.message === "string" ? record.message : String(source),
+  };
+}
+
 export function limitErrorReply(
   provider: ModelRef["provider"],
   error: unknown,
 ): string | null {
-  const status = (error as { statusCode?: number })?.statusCode;
-  const name = error instanceof Error ? error.name : "";
-  const message = error instanceof Error ? error.message : "";
+  const { status, name, message } = errorParts(error);
   const rateLimited =
     status === 429 ||
     /rate ?limit/i.test(name) ||
@@ -30,6 +59,34 @@ export function limitErrorReply(
     ? "Your daily quota on the free tier is used up. It resets tomorrow, or add credits to your account."
     : "You are being rate limited right now. Wait a minute and ask again.";
   return `${label}: ${detail} Nothing was read or written.`;
+}
+
+export function providerErrorReply(
+  provider: ModelRef["provider"],
+  error: unknown,
+): string {
+  const limited = limitErrorReply(provider, error);
+  if (limited) return limited;
+  const { status, message } = errorParts(error);
+  const label = PROVIDER_LABEL[provider];
+  if (status === 404 || (status !== undefined && status < 500 && MODEL_UNAVAILABLE.test(message))) {
+    return `${label} does not offer the selected model to your key. Pick another one in Settings > AI. Nothing was read or written.`;
+  }
+  if (status === 401 || status === 403 || (status === 400 && KEY_REJECTED.test(message))) {
+    return `${label} rejected your key. Check it in Settings > AI. Nothing was read or written.`;
+  }
+  if (status === 400) {
+    return `${label} rejected the request for the selected model. Try another model in Settings > AI. Nothing was read or written.`;
+  }
+  if (status !== undefined && status >= 500) {
+    return `${label} is failing right now. Try again in a minute. Nothing was read or written.`;
+  }
+  return aiErrorReply();
+}
+
+export function providerErrorDetail(error: unknown): string {
+  const { status, message } = errorParts(error);
+  return `${status ?? "no status"}: ${message}`.slice(0, 300);
 }
 
 export function previewFailure(reason: ResolveFailure, error: string): string {

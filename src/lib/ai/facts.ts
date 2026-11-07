@@ -3,6 +3,7 @@ import "server-only";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { isAbort } from "@/lib/abort";
 import { chatJson } from "@/lib/ai/provider";
 import type { ModelRef } from "@/lib/ai/aiCredentials";
 import {
@@ -251,11 +252,6 @@ export async function saveImportedFact(
 ): Promise<boolean> {
   if (!hasEmbeddings()) return false;
   return saveFact(userId, content, category, subject, source);
-}
-
-function isAbort(err: unknown, signal?: AbortSignal): boolean {
-  if (signal?.aborted) return true;
-  return err instanceof Error && err.name === "AbortError";
 }
 
 function errorReason(err: unknown): string {
