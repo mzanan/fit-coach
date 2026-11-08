@@ -4,22 +4,13 @@ import { and, eq } from "drizzle-orm";
 
 import { db, schema } from "@/lib/db";
 import { hasMacros, kcalOf } from "@/lib/macros";
-import { matchesAllTerms, normalizeSearch } from "@/lib/search";
+import { matchesAllTerms, normalizeSearch, sameItemName } from "@/lib/search";
 import { scaledSizeName, sizeVariantKey } from "@/lib/sizeName";
 import { newId, round } from "@/lib/utils";
 
 const { meals, catalog_items } = schema;
 
 export const MAX_PORTIONS = 10;
-
-function sameItemName(given: string, stored: string): boolean {
-  const strip = (value: string) => normalizeSearch(value).replace(/\s+/g, "");
-  return (
-    strip(given) === strip(stored) ||
-    matchesAllTerms(stored, given) ||
-    strip(stored).includes(strip(given))
-  );
-}
 
 export interface ResolvedMeal {
   catalog_item_id: string;

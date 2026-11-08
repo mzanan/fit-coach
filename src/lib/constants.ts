@@ -282,9 +282,13 @@ export const WORKOUT_TOOL = "log_workout_session";
 export const MEASUREMENT_TOOL = "log_measurement";
 export const CLOSE_DAY_TOOL = "close_day";
 export const SET_TARGETS_TOOL = "set_targets";
+export const UPDATE_MEAL_TOOL = "update_meal";
+export const DELETE_MEAL_TOOL = "delete_meal";
 export const DIRECT_WRITE_TOOLS = [
   WRITE_TOOL,
   ESTIMATE_TOOL,
+  UPDATE_MEAL_TOOL,
+  DELETE_MEAL_TOOL,
   RULE_TOOL,
   FATIGUE_TOOL,
   WORKOUT_TOOL,
@@ -297,8 +301,10 @@ export const MEAL_WRITE_TOOLS = new Set([WRITE_TOOL, ESTIMATE_TOOL]);
 
 export const WRITE_TOOLS = [...DIRECT_WRITE_TOOLS, ...CARD_WRITE_TOOLS];
 
+const NOT_ESCALATABLE = new Set([ESTIMATE_TOOL, UPDATE_MEAL_TOOL, DELETE_MEAL_TOOL]);
+
 export const TOOL_GATE_ESCALATABLE: ReadonlySet<string> = new Set(
-  DIRECT_WRITE_TOOLS.filter((name) => name !== ESTIMATE_TOOL),
+  DIRECT_WRITE_TOOLS.filter((name) => !NOT_ESCALATABLE.has(name)),
 );
 
 export const DINING_MODES = ["delivery", "cooks"] as const;

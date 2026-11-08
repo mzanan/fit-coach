@@ -120,8 +120,30 @@ export const replaceDayInput = z.object({
 
 export type ReplaceDayInput = z.infer<typeof replaceDayInput>;
 
-export const deleteMealInput = z.object({
-  meal_id: z.string().min(1).describe("id from get_today or get_day"),
+const mealRef = {
+  meal_id: z.string().min(1).describe("id of the meal, from get_today or get_day"),
+  day: calendarDay.describe("the day that meal is logged on, as get_today or get_day returned it"),
+  meal_name: z.string().trim().min(1).max(200).describe("the meal's current name, exactly as get_today or get_day returned it"),
+};
+
+export const deleteMealInput = z.object(mealRef);
+
+export const updateMealInput = z.object({
+  ...mealRef,
+  name: z.string().trim().min(1).max(200).optional().describe("new name, only when the food or amount in the name changed"),
+  category: z.enum(categoryKeys).optional(),
+  scale: z
+    .number()
+    .positive()
+    .max(10)
+    .optional()
+    .describe("multiply all of the meal's macros by this factor (0.5 for half the amount); do not combine with macro numbers"),
+  protein_g: z.number().min(0).max(500).optional(),
+  fat_g: z.number().min(0).max(500).optional(),
+  carbs_g: z.number().min(0).max(1000).optional(),
+  alcohol_g: alcoholGrams.optional(),
 });
+
+export type UpdateMealInput = z.infer<typeof updateMealInput>;
 
 export const getDayInput = z.object({ day: calendarDay });

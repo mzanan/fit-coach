@@ -5,24 +5,15 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { replaceDay } from "@/lib/data/dayReplace";
-import { deleteMealForUser } from "@/lib/data/meals";
-import { listPlans, planFor, savePlan } from "@/lib/data/plans";
+import { listPlans, savePlan } from "@/lib/data/plans";
 import { getCurrentRoutine, listRoutineVersions, replaceRoutine } from "@/lib/data/routineVersions";
-import { getDayData } from "@/lib/data/today";
-import { getWorkoutForDay } from "@/lib/data/workouts";
 import type { Profile } from "@/lib/db/schema";
 import {
-  deleteMealInput,
-  getDayInput,
   planInput,
   replaceDayInput,
   routineInput,
 } from "@/lib/history/schemas";
-import { kcalOf } from "@/lib/macros";
-import { toMealDto } from "@/lib/mealDto";
 import { futureDayError, toolTextContent } from "@/lib/mcp/toolResult";
-import { pickTargets } from "@/lib/planTargets";
-import { round } from "@/lib/utils";
 
 const APP_PATHS = ["/", "/workout", "/routine", "/body", "/coach", "/settings", "/settings/targets"];
 
@@ -37,50 +28,6 @@ export function registerHistoryTools(
   today: string,
 ) {
   server.registerTool(
-    "get_day",
-    {
-      description:
-        "Read any past or present day: its day type, steps, notes and whether it is closed, every meal with its id, macro totals with kcal (alcohol included), the targets of the plan that applied that day, and the gym session with notes and PR flags. Read a day before correcting it.",
-      inputSchema: getDayInput,
-    },
-    async ({ day }) => {
-      const [data, workout, plan] = await Promise.all([
-        getDayData(userId, profile, day),
-        getWorkoutForDay(userId, day),
-        planFor(userId, day),
-      ]);
-      return toolTextContent({
-        day,
-        day_type: data.dayRow?.day_type ?? data.dayType,
-        steps: data.dayRow?.steps ?? null,
-        notes: data.dayRow?.notes ?? null,
-        closed: Boolean(data.dayRow?.closed_at),
-        meals: data.meals.map(toMealDto),
-        totals: { ...data.totals, kcal: round(kcalOf(data.totals)) },
-        plan: plan ? { phase: plan.phase, effective_from: plan.effective_from } : null,
-        targets: plan ? pickTargets(plan) : data.targets,
-        workout: workout
-          ? {
-              label: workout.label,
-              notes: workout.notes,
-              exercises: workout.exercises.map((exercise) => ({
-                name: exercise.name,
-                exercise_catalog_id: exercise.exercise_catalog_id,
-                notes: exercise.notes,
-                sets: exercise.sets.map((set) => ({
-                  reps: set.reps,
-                  weight: set.weight,
-                  per_side: set.per_side,
-                  is_pr: set.is_pr,
-                })),
-              })),
-            }
-          : null,
-      });
-    },
-  );
-
-  server.registerTool(
     "replace_day",
     {
       description:
@@ -93,19 +40,6 @@ export function registerHistoryTools(
       const result = await replaceDay(userId, input);
       refreshApp();
       return toolTextContent({ saved: true, day: input.day, ...result });
-    },
-  );
-
-  server.registerTool(
-    "delete_meal",
-    {
-      description: "Delete one logged meal by its id (ids come from get_today or get_day).",
-      inputSchema: deleteMealInput,
-    },
-    async ({ meal_id }) => {
-      const deleted = await deleteMealForUser(userId, meal_id);
-      refreshApp();
-      return toolTextContent({ deleted, meal_id });
     },
   );
 

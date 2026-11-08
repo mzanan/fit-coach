@@ -1,3 +1,5 @@
+import { UPDATE_MEAL_TOOL } from "@/lib/constants";
+
 export type GateDecision = "approve" | "escalate" | "deny";
 
 export const GATE_DECISIONS: readonly GateDecision[] = ["approve", "escalate", "deny"];
@@ -28,15 +30,23 @@ export interface GateTurn {
   text: string;
 }
 
+const HIDDEN_GATE_FIELDS: Record<string, string[]> = { [UPDATE_MEAL_TOOL]: ["meal_name"] };
+
+export function gateInputFor(toolName: string, input: unknown): unknown {
+  const hidden = HIDDEN_GATE_FIELDS[toolName];
+  if (!hidden || !input || typeof input !== "object") return input;
+  return Object.fromEntries(Object.entries(input).filter(([key]) => !hidden.includes(key)));
+}
+
 export const DEFAULT_GATE_THRESHOLDS: GateThresholds = { approveMin: 0.7, denyMin: 0.7 };
 
 export const TOOL_GATE_POLICY: Record<GateDecision, string> = {
   approve:
-    "In the conversation, the user asks to record exactly this, either in their latest message or by answering the assistant's last question (a short reply such as a number, a choice or a yes completes what the assistant asked): a meal they ate (a catalog item by id, or a food not in the catalog whose macros the assistant estimated, which is expected), fatigue, a workout session, a body measurement, or a standing rule the user wants applied from now on (always, every day, from now on). The food, category, portions and values match what the user said.",
+    "In the conversation, the user asks to record exactly this, either in their latest message or by answering the assistant's last question (a short reply such as a number, a choice or a yes completes what the assistant asked): a meal they ate (a catalog item by id, or a food not in the catalog whose macros the assistant estimated, which is expected), fatigue, a workout session, a body measurement, or a standing rule the user wants applied from now on (always, every day, from now on). Or the user asks to correct or remove a meal already logged, on today or another day they name, and the call changes or deletes that same meal (update_meal, delete_meal); for delete_meal, meal_name is the meal being removed and must be the one the user named. The food, category, portions and values match what the user said.",
   escalate:
     "The user asked to record this, but a value is ambiguous or implausible for what they described (a portion count far from what they said, a measurement far outside a normal human range), so the user should confirm it before it is saved.",
   deny:
-    "The user did not ask to record this: they asked a question, asked for advice, or asked for something else. A correction or description of one meal is not a standing rule. Or a value contradicts what the user said: a different food, a different meal category, a different number.",
+    "The user did not ask to record this: they asked a question, asked for advice, or asked for something else. A correction or description of one meal is not a standing rule. The call changes or deletes a meal the user did not ask to change or remove: for delete_meal, meal_name is a different meal from the one the user named. Or a value contradicts what the user said: a different food, a different meal category, a different number.",
 };
 
 export const GATE_DENIED_REASON =
