@@ -15,6 +15,7 @@ import {
   recentTurns,
   statusLabel,
   TOOL_GATE_POLICY,
+  gateInputFor,
   verdictLabel,
   withoutUserTexts,
   type GateMessage,
@@ -61,7 +62,7 @@ async function askJev(
         state: {
           recent_conversation: recentTurns(messages),
           user_latest_message: latestUserText(messages),
-          proposed_tool_call: { tool: toolName, input },
+          proposed_tool_call: { tool: toolName, input: gateInputFor(toolName, input) },
         },
         questions: {
           decision: {

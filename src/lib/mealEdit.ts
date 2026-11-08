@@ -1,4 +1,5 @@
 import type { Meal } from "@/lib/db/schema";
+import { sameItemName } from "@/lib/search";
 
 export interface MealEditInput {
   name?: string;
@@ -43,4 +44,20 @@ export function mealEditPatch(
     return { ok: false, error: "Nothing to change: pass at least one field." };
   }
   return { ok: true, patch };
+}
+
+export interface MealRef {
+  meal_id: string;
+  day: string;
+  meal_name: string;
+}
+
+export function mealRefError(meal: Meal | null, ref: MealRef): string | null {
+  if (!meal || meal.logical_day !== ref.day) {
+    return `No meal with id ${ref.meal_id} on ${ref.day}. Read the day again and use an id from it.`;
+  }
+  if (!sameItemName(ref.meal_name, meal.name)) {
+    return `Meal ${ref.meal_id} is "${meal.name}", not "${ref.meal_name}". Read the day again and pick the meal the user named.`;
+  }
+  return null;
 }

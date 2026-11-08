@@ -39,3 +39,12 @@ export function matchesTerm(haystack: string, term: string): boolean {
   if (counted.total === 1) return counted.hits === 1;
   return counted.hits >= Math.max(2, Math.ceil(counted.total / 2));
 }
+
+export function sameItemName(given: string, stored: string): boolean {
+  const strip = (value: string) => normalizeSearch(value).replace(/\s+/g, "");
+  return (
+    strip(given) === strip(stored) ||
+    matchesAllTerms(stored, given) ||
+    strip(stored).includes(strip(given))
+  );
+}

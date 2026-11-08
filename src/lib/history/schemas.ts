@@ -123,6 +123,7 @@ export type ReplaceDayInput = z.infer<typeof replaceDayInput>;
 const mealRef = {
   meal_id: z.string().min(1).describe("id of the meal, from get_today or get_day"),
   day: calendarDay.describe("the day that meal is logged on, as get_today or get_day returned it"),
+  meal_name: z.string().trim().min(1).max(200).describe("the meal's current name, exactly as get_today or get_day returned it"),
 };
 
 export const deleteMealInput = z.object(mealRef);

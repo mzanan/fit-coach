@@ -99,7 +99,7 @@ import { toMealDto } from "@/lib/mealDto";
 import { getDayDetail } from "@/lib/data/dayDetail";
 import { deleteMealForUser, getMealForUser, updateMealForUser } from "@/lib/data/meals";
 import { deleteMealInput, getDayInput, updateMealInput, type UpdateMealInput } from "@/lib/history/schemas";
-import { mealEditPatch } from "@/lib/mealEdit";
+import { mealEditPatch, mealRefError, type MealRef } from "@/lib/mealEdit";
 
 const { meals, workouts } = schema;
 
@@ -1000,13 +1000,12 @@ export function buildCoachTools(
     }),
     update_meal: tool({
       description:
-        "Correct one meal the user already logged, on any day. Read the day first with get_today or get_day and pass that meal's id and its day. Change only what the user corrected: the name, the category, the amount with scale (0.5 for half, 2 for double, it multiplies every macro), or exact macro numbers. Only call this when the user says a logged meal is wrong; never log a new meal to correct an old one. This writes immediately, with no confirmation step.",
+        "Correct one meal the user already logged, on any day. Read the day first with get_today or get_day and pass that meal's id, its day and its current name. Change only what the user corrected: the name, the category, the amount with scale (0.5 for half, 2 for double, it multiplies every macro), or exact macro numbers. Only call this when the user says a logged meal is wrong; never log a new meal to correct an old one. This writes immediately, with no confirmation step.",
       inputSchema: updateMealInput,
       execute: safe("update_meal", async (input: UpdateMealInput) => {
         const before = await getMealForUser(userId, input.meal_id);
-        if (!before || before.logical_day !== input.day) {
-          return { logged: false, error: `No meal with id ${input.meal_id} on ${input.day}. Read the day again and use an id from it.` };
-        }
+        const refError = mealRefError(before, input);
+        if (refError || !before) return { logged: false, error: refError };
         const edit = mealEditPatch(before, input);
         if (!edit.ok) return { logged: false, error: edit.error };
         const after = await updateMealForUser(userId, input.meal_id, edit.patch);
@@ -1017,13 +1016,12 @@ export function buildCoachTools(
     }),
     delete_meal: tool({
       description:
-        "Delete one meal the user logged by mistake, on any day. Read the day first with get_today or get_day and pass that meal's id and its day. Only call this when the user asks to remove that meal; to change its amount or macros use update_meal instead. This writes immediately, with no confirmation step.",
+        "Delete one meal the user logged by mistake, on any day. Read the day first with get_today or get_day and pass that meal's id, its day and its current name. Only call this when the user asks to remove that meal; to change its amount or macros use update_meal instead. This writes immediately, with no confirmation step.",
       inputSchema: deleteMealInput,
-      execute: safe("delete_meal", async (input: { meal_id: string; day: string }) => {
+      execute: safe("delete_meal", async (input: MealRef) => {
         const meal = await getMealForUser(userId, input.meal_id);
-        if (!meal || meal.logical_day !== input.day) {
-          return { logged: false, error: `No meal with id ${input.meal_id} on ${input.day}. Read the day again and use an id from it.` };
-        }
+        const refError = mealRefError(meal, input);
+        if (refError || !meal) return { logged: false, error: refError };
         const deleted = await deleteMealForUser(userId, input.meal_id);
         if (!deleted) return { logged: false, error: `No meal with id ${input.meal_id}.` };
         revalidatePath("/");
