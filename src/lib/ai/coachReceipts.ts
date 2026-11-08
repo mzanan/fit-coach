@@ -2,6 +2,7 @@ import type { WriteOutput } from "@/lib/ai/provider";
 import { hasSizePrefix } from "@/lib/sizeName";
 import {
   categoryLabel,
+  DELETE_MEAL_TOOL,
   ESTIMATE_TOOL,
   FATIGUE_TOOL,
   fatigueExtrasLabel,
@@ -10,6 +11,7 @@ import {
   measurementTypeLabel,
   measurementUnit,
   RULE_TOOL,
+  UPDATE_MEAL_TOOL,
   WORKOUT_TOOL,
   WRITE_TOOL,
 } from "@/lib/constants";
@@ -65,6 +67,23 @@ function estimatedMealLine(output: unknown): string {
   return line ? line.replace(/^Logged /, "Logged (aprox) ") : "";
 }
 
+interface MealEditOutput {
+  day?: string;
+  meal?: { name?: string; protein_g?: number; fat_g?: number; carbs_g?: number };
+}
+
+function updatedMealLine(output: unknown): string {
+  const { day, meal } = (output as MealEditOutput) ?? {};
+  if (!meal?.name) return "";
+  return `Updated ${meal.name} on ${day}: ${meal.protein_g}g protein, ${meal.fat_g}g fat, ${meal.carbs_g}g carbs.`;
+}
+
+function deletedMealLine(output: unknown): string {
+  const { day, meal } = (output as MealEditOutput) ?? {};
+  if (!meal?.name) return "";
+  return `Deleted ${meal.name} from ${day}.`;
+}
+
 function ruleLine(output: unknown): string {
   const rule = (output as RuleOutput)?.rule;
   if (!rule?.key) return "";
@@ -104,6 +123,8 @@ function measurementLine(output: unknown): string {
 const LINE_BUILDERS: Record<string, (output: unknown) => string> = {
   [WRITE_TOOL]: mealLine,
   [ESTIMATE_TOOL]: estimatedMealLine,
+  [UPDATE_MEAL_TOOL]: updatedMealLine,
+  [DELETE_MEAL_TOOL]: deletedMealLine,
   [RULE_TOOL]: ruleLine,
   [FATIGUE_TOOL]: fatigueLine,
   [WORKOUT_TOOL]: workoutLine,
