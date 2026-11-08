@@ -20,6 +20,7 @@ import {
 } from "@/lib/ai/capabilities";
 import {
   AI_PROVIDERS,
+  isKeyedProvider,
   KEYED_PROVIDERS,
   PROVIDER_LABEL,
   type KeyedProvider,
@@ -130,7 +131,7 @@ export async function saveAiSettingsAction(
   if (!parsed.success) return { error: "Enter a key and pick a model." };
   const { provider, apiKey, model } = parsed.data;
 
-  if (provider === "groq" || provider === "google") {
+  if (isKeyedProvider(provider)) {
     const error = await keyedProviderError(provider, apiKey, model);
     if (error) return { error };
   } else {
@@ -181,7 +182,7 @@ export async function updateAiModelAction(
     return { error: "Save a key for that provider first." };
   }
 
-  if (provider === "groq" || provider === "google") {
+  if (isKeyedProvider(provider)) {
     const apiKey = await providerApiKey(user.id, provider);
     if (!apiKey) {
       return {

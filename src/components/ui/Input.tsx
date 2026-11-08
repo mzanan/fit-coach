@@ -3,7 +3,7 @@ import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 export const FIELD_BASE =
-  "w-full rounded-control border border-input bg-field text-input outline-none transition-[border-color,box-shadow] duration-(--dur-fast) ease-(--ease-out-soft) placeholder:text-faint focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-brand-soft aria-invalid:border-destructive aria-invalid:ring-4 aria-invalid:ring-destructive-soft disabled:opacity-40 sm:text-body";
+  "w-full rounded-control border border-input bg-field text-control text-foreground outline-none transition-[border-color,box-shadow] duration-(--dur-fast) ease-(--ease-out-soft) placeholder:text-faint focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-brand-soft aria-invalid:border-destructive aria-invalid:ring-4 aria-invalid:ring-destructive-soft disabled:opacity-40 sm:text-body";
 
 export const Input = forwardRef<
   HTMLInputElement,
