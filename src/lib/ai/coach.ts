@@ -3,6 +3,7 @@ import "server-only";
 import type { ModelMessage } from "ai";
 import { after } from "next/server";
 
+import { isAbort } from "@/lib/abort";
 import { userModelRef, type ModelRef } from "@/lib/ai/aiCredentials";
 import { toolsRouting } from "@/lib/ai/capabilities";
 import { buildContext, buildReminderLines } from "@/lib/ai/coachContext";
@@ -12,9 +13,10 @@ import {
   deterministicReply,
   exchangeOf,
   learnedAddendum,
-  limitErrorReply,
   leadWith,
   NO_TOOLS_NOTICE,
+  providerErrorDetail,
+  providerErrorReply,
   unloggedNotice,
 } from "@/lib/ai/coachReplyText";
 import { bufferedOnEvent, watchForStop } from "@/lib/ai/coachStreamControl";
@@ -295,15 +297,8 @@ async function toolReply(
   appGenerated = false,
 ): Promise<CoachResult> {
   const allowWrite = await canWriteMeals(ref);
-  const learned = await learnFromQuestion(ref, userId, question, appGenerated, signal);
-  const setup = await toolSetup(
-    userId,
-    profile,
-    history,
-    allowWrite,
-    question,
-    learned,
-  );
+  const learning = learnFromQuestion(ref, userId, question, appGenerated, signal);
+  const setup = await toolSetup(userId, profile, history, allowWrite, question);
 
   try {
     const {
@@ -325,6 +320,7 @@ async function toolReply(
       onEvent: onEvent ?? (() => {}),
       signal,
     });
+    const learned = await learning;
 
     const receipts = writeReceipts(writeOutputs);
     const daySummary = writeOutputs.some(
@@ -445,11 +441,7 @@ async function toolReply(
       generated: false,
     };
   } catch (error) {
-    return {
-      status: "answered",
-      text: limitErrorReply(ref.provider, error) ?? aiErrorReply(),
-      generated: false,
-    };
+    return providerFailure(ref, userId, error, signal);
   }
 }
 
@@ -464,7 +456,7 @@ async function contextReply(
   appGenerated = false,
 ): Promise<CoachResult> {
   const ctx = await buildContext(userId, profile, false);
-  const learned = await learnFromQuestion(ref, userId, question, appGenerated, signal);
+  const learning = learnFromQuestion(ref, userId, question, appGenerated, signal);
   const { memory, parts } = await memoryFactsAndRules(
     userId,
     profile,
@@ -480,7 +472,6 @@ async function contextReply(
   const instructions = [
     COACH_FRAME + diningRule(profile) + coachingRules(profile),
     ...parts,
-    ...learnedAddendum(learned),
     REPLY_STYLE,
   ].join("\n\n");
 
@@ -502,6 +493,7 @@ async function contextReply(
         usage = totals;
       },
     );
+    const learned = await learning;
     if (text) {
       const asked = appGenerated
         ? "(tapped the weekly summary button)"
@@ -528,12 +520,32 @@ async function contextReply(
       learned,
     };
   } catch (error) {
-    return {
-      status: "answered",
-      text: limitErrorReply(ref.provider, error) ?? aiErrorReply(),
-      generated: false,
-    };
+    return providerFailure(ref, userId, error, signal);
   }
+}
+
+function providerFailure(
+  ref: ModelRef,
+  userId: string,
+  error: unknown,
+  signal?: AbortSignal,
+): CoachResult {
+  if (!isAbort(error, signal)) {
+    const detail = providerErrorDetail(error);
+    console.error(`coach: ${ref.provider}/${ref.model} failed: ${detail}`);
+    after(() =>
+      logAiEvent(userId, "provider_error", {
+        provider: ref.provider,
+        model: ref.model,
+        detail,
+      }),
+    );
+  }
+  return {
+    status: "answered",
+    text: providerErrorReply(ref.provider, error),
+    generated: false,
+  };
 }
 
 const STOPPED_MID_ANSWER = "(stopped before an answer began)";

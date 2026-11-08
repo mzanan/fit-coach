@@ -25,6 +25,14 @@ export function matchesAllTerms(haystack: string, term: string): boolean {
   return counted !== null && counted.total > 0 && counted.hits === counted.total;
 }
 
+export function startsWithTerm(haystack: string, term: string): boolean {
+  const target = normalizeSearch(haystack);
+  const needle = normalizeSearch(term);
+  if (!needle || !target.startsWith(needle)) return false;
+  const next = target.charAt(needle.length);
+  return next === "" || !/[\p{L}\p{N}]/u.test(next);
+}
+
 export function matchesTerm(haystack: string, term: string): boolean {
   const counted = tokenHits(haystack, term);
   if (!counted || !counted.total) return false;
