@@ -1,6 +1,6 @@
 import "server-only";
 
-import { count, desc, eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 
 import { getCatalog } from "@/lib/data/catalog";
 import { db, schema } from "@/lib/db";
@@ -14,29 +14,24 @@ const CATALOG_RESULTS = 8;
 const CATALOG_SAMPLE = 12;
 const MAX_QUERY_TERMS = 12;
 
-async function mostEaten<T extends { id: string }>(
-  userId: string,
-  items: T[],
-  limit: number,
-): Promise<T[]> {
+async function usageCounts(userId: string): Promise<Map<string, number>> {
   const rows = await db
     .select({ id: meals.catalog_item_id, uses: count() })
     .from(meals)
     .where(eq(meals.user_id, userId))
-    .groupBy(meals.catalog_item_id)
-    .orderBy(desc(count()))
-    .limit(limit);
-
-  const ranking = new Map(
+    .groupBy(meals.catalog_item_id);
+  return new Map(
     rows
       .filter((row): row is { id: string; uses: number } => Boolean(row.id))
-      .map((row, index) => [row.id, index]),
+      .map((row) => [row.id, row.uses]),
   );
-  return [...items].sort(
-    (a, b) =>
-      (ranking.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
-      (ranking.get(b.id) ?? Number.MAX_SAFE_INTEGER),
-  );
+}
+
+function byUsage<T extends { id: string }>(
+  items: T[],
+  uses: Map<string, number>,
+): T[] {
+  return [...items].sort((a, b) => (uses.get(b.id) ?? 0) - (uses.get(a.id) ?? 0));
 }
 
 function placeCounts<T extends { place: string | null }>(
@@ -93,6 +88,7 @@ export interface CatalogSearchResult {
     alcohol_g: number;
     fat_quality: string | null;
     match: "name" | "contains" | "sample";
+    times_logged: number;
   }[];
 }
 
@@ -105,6 +101,7 @@ export async function searchCatalog(
     .map((query) => query.trim())
     .filter(Boolean);
   const items = (await getCatalog(userId)).filter((item) => !item.archived);
+  const uses = await usageCounts(userId);
   const matches = terms.length
     ? items.filter((item) =>
         terms.some(
@@ -114,19 +111,25 @@ export async function searchCatalog(
         ),
       )
     : [];
-  const leading = matches.filter((item) =>
-    terms.some((term) =>
-      startsWithTerm(sizeVariantKey(item.name), sizeVariantKey(term)),
+  const leading = byUsage(
+    matches.filter((item) =>
+      terms.some((term) =>
+        startsWithTerm(sizeVariantKey(item.name), sizeVariantKey(term)),
+      ),
     ),
+    uses,
   );
   const leadingIds = new Set(leading.map((item) => item.id));
-  const contains = matches.filter((item) => !leadingIds.has(item.id));
+  const contains = byUsage(
+    matches.filter((item) => !leadingIds.has(item.id)),
+    uses,
+  );
   const hits = [...leading, ...contains];
   const matched = hits.length > 0;
   const usableHits = hits.filter(hasMacros);
   const withMacros = items.filter(hasMacros);
   const sample = spreadByPlace(
-    await mostEaten(userId, withMacros.length ? withMacros : items, CATALOG_SAMPLE),
+    byUsage(withMacros.length ? withMacros : items, uses),
     CATALOG_SAMPLE,
   );
   const chosen = matched
@@ -182,6 +185,7 @@ export async function searchCatalog(
         : contains.some((hit) => hit.id === item.id)
           ? ("contains" as const)
           : ("sample" as const),
+      times_logged: uses.get(item.id) ?? 0,
     })),
   };
 }
