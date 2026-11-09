@@ -239,22 +239,6 @@ export const EXERCISE_EQUIPMENT_KNOWN = EXERCISE_EQUIPMENT_FACETS.filter(
 
 export const EMBEDDING_DIM = 768;
 
-export const COACH_FACT_CATEGORIES = [
-  { key: "preference", label: "Preference" },
-  { key: "constraint", label: "Constraint" },
-  { key: "correction", label: "Correction" },
-  { key: "routine", label: "Routine" },
-  { key: "context", label: "Context" },
-] as const;
-
-export type CoachFactCategory = (typeof COACH_FACT_CATEGORIES)[number]["key"];
-
-export const COACH_FACT_CATEGORY_KEYS = COACH_FACT_CATEGORIES.map((c) => c.key);
-
-export function coachFactCategoryLabel(category: string): string {
-  return COACH_FACT_CATEGORIES.find((c) => c.key === category)?.label ?? category;
-}
-
 export const COACH_RULES_MAX = 20_000;
 export const SUMMARY_RULES_MAX = 20_000;
 export const CHAT_LANGUAGE_MAX = 32;
@@ -369,6 +353,9 @@ export const FACT_CONTENT_MAX = 600;
 export const COACH_PROMPT_FACTS_MAX = 150;
 export const COACH_PROMPT_ITEMS_MAX = 20;
 export const FACT_SUBJECT_MAX = 60;
+export const RULE_KEY_MAX = 40;
+export const LOCATION_SCOPE_PREFIX = "location:";
+export const LOCATION_MAX = 60;
 export const FACT_SCOPE_MAX = 80;
 export const HEALTH_TITLE_MAX = 200;
 export const HEALTH_DETAILS_MAX = 2000;

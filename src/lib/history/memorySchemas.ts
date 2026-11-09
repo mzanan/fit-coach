@@ -16,7 +16,7 @@ import { calendarDay } from "@/lib/validation";
 const id = z.string().min(1);
 
 export const rememberFactInput = z.object({
-  action: z.enum(["list", "save", "delete", "retire_scope"]),
+  action: z.enum(["list", "save", "delete"]),
   domain: z.enum(FACT_DOMAINS).optional().describe("save: required; list: optional filter"),
   subject: z
     .string()
@@ -32,7 +32,7 @@ export const rememberFactInput = z.object({
     .max(FACT_SCOPE_MAX)
     .nullable()
     .optional()
-    .describe("save: set when the fact only holds in a context, e.g. location:da_nang; omit to keep the current one, null clears it; retire_scope deletes every fact with that scope"),
+    .describe("save: set when the fact only holds in one city, e.g. location:da_nang; such facts are used only while that city is the current location; omit to keep the current one, null clears it"),
   review_on: calendarDay.nullable().optional().describe("save: day to re-check the fact; omit to keep, null clears"),
   replaces_id: id.optional().describe("save: id of an older fact this one supersedes; it is deleted"),
   id: id.optional().describe("delete: id from list"),

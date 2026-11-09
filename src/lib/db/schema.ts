@@ -273,6 +273,7 @@ export const profiles = pgTable("profiles", {
   summary_rules: text("summary_rules"),
   dining_mode: text("dining_mode"),
   chat_language: text("chat_language"),
+  current_location: text("current_location"),
   created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
 });

@@ -1,7 +1,6 @@
 import type {
   ImportedBodyScan,
   ImportedCatalogItem,
-  ImportedFact,
   ImportedMeal,
   ImportedRule,
   ImportedWorkout,
@@ -25,11 +24,6 @@ export interface PreviewDay {
 }
 
 export interface PreviewCatalogItem extends ImportedCatalogItem {
-  key: string;
-  include: boolean;
-}
-
-export interface PreviewFact extends ImportedFact {
   key: string;
   include: boolean;
 }
@@ -68,14 +62,6 @@ export function toPreviewCatalogItems(
   return extraction.catalog_items.map((item, index) => ({
     ...item,
     key: `c-${index}`,
-    include: true,
-  }));
-}
-
-export function toPreviewFacts(extraction: MdExtraction): PreviewFact[] {
-  return extraction.facts.map((fact, index) => ({
-    ...fact,
-    key: `f-${index}`,
     include: true,
   }));
 }

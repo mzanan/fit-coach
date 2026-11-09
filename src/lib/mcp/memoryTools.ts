@@ -6,12 +6,12 @@ import { z } from "zod";
 import { listActiveRules } from "@/lib/data/coachRules";
 import { deleteHealthEvent, getHealthEvent, listHealthEvents, logHealthEvent, updateHealthEvent } from "@/lib/data/healthEvents";
 import { addPendingItem, deletePendingItem, listPendingItems, markPendingItemDone, updatePendingItem } from "@/lib/data/pendingItems";
-import { deleteFact, listFacts, retireScope, saveFact } from "@/lib/data/userFacts";
+import { listFacts } from "@/lib/data/userFacts";
 import type { Profile } from "@/lib/db/schema";
 import { MEMORY_DETAILS_MAX, MEMORY_HEALTH_EVENTS_MAX, MEMORY_PENDING_ITEMS_MAX } from "@/lib/constants";
-import { manageHealthEventInput, managePendingItemInput, rememberFactInput } from "@/lib/history/memorySchemas";
+import { manageHealthEventInput, managePendingItemInput } from "@/lib/history/memorySchemas";
 import { futureDayError, toolError, toolTextContent } from "@/lib/mcp/toolResult";
-import { clipText, endsBeforeStart, factScope, factSubject, groupFactsByDomain, hasAnyField } from "@/lib/userMemory";
+import { clipText, endsBeforeStart, factsForLocation, groupFactsByDomain, hasAnyField } from "@/lib/userMemory";
 
 const RANGE_ERROR = "resolved_on cannot be before started_on.";
 
@@ -20,7 +20,7 @@ export function registerMemoryTools(server: McpServer, userId: string, profile: 
     "get_coach_memory",
     {
       description:
-        "Read everything the coach must know before answering: the coaching method the user wrote, every current fact about the user grouped by domain, standing rules, open pending items (shopping, to-dos, appointments) and open health events. Call it at the start of every conversation.",
+        "Read everything the coach must know before answering: the coaching method the user wrote, the city the user lives in now, every current fact about the user grouped by domain (facts scoped to another city are left out), standing rules, open pending items (shopping, to-dos, appointments) and open health events. Call it at the start of every conversation.",
       inputSchema: z.object({}),
     },
     async () => {
@@ -33,53 +33,11 @@ export function registerMemoryTools(server: McpServer, userId: string, profile: 
       return toolTextContent({
         today,
         method: profile.coach_rules ?? null,
-        facts: groupFactsByDomain(facts),
+        current_location: profile.current_location,
+        facts: groupFactsByDomain(factsForLocation(facts, profile.current_location)),
         standing_rules: rules,
         pending_items: pendingItems,
         open_health_events: openHealth.map((event) => ({ ...event, details: clipText(event.details, MEMORY_DETAILS_MAX) })),
-      });
-    },
-  );
-
-  server.registerTool(
-    "remember_fact",
-    {
-      description:
-        "Facts about the user that are true now: preferences, constraints and context (diet, restaurants, training, measurements, health, lifestyle, context). action save: domain, subject, content; saving the same domain and subject replaces the old fact, pass replaces_id when a fact with another subject is now wrong; the result lists the other facts of that domain so you can spot duplicates. action delete: id, when a fact stops being true (history lives in meals, measurements and health events, not here). action retire_scope: scope, deletes every fact tied to it, e.g. location:da_nang after a move. action list: optional domain.",
-      inputSchema: rememberFactInput,
-    },
-    async (input) => {
-      if (input.action === "list") return toolTextContent({ facts: groupFactsByDomain(await listFacts(userId, input.domain)) });
-      if (input.action === "delete") {
-        if (!input.id) return toolError("delete needs id.");
-        return toolTextContent({ deleted: await deleteFact(userId, input.id), id: input.id });
-      }
-      if (input.action === "retire_scope") {
-        const scope = factScope(input.scope);
-        if (!scope) return toolError("retire_scope needs scope.");
-        return toolTextContent({ deleted: await retireScope(userId, scope), scope });
-      }
-      const subject = factSubject(input.subject);
-      if (!input.domain || !input.content) return toolError("save needs domain, subject and content.");
-      if (!subject) return toolError("subject needs letters or digits.");
-      const { fact, replaced } = await saveFact(
-        userId,
-        {
-          domain: input.domain,
-          subject,
-          content: input.content,
-          scope: input.scope === undefined ? undefined : factScope(input.scope),
-          review_on: input.review_on,
-          source: "mcp",
-        },
-        input.replaces_id,
-      );
-      const sameDomain = (await listFacts(userId, input.domain)).filter((other) => other.id !== fact.id);
-      return toolTextContent({
-        saved: true,
-        fact,
-        ...(input.replaces_id ? { replaced_id: input.replaces_id, replaced } : {}),
-        other_facts_in_domain: sameDomain.map(({ id, subject: otherSubject, content }) => ({ id, subject: otherSubject, content })),
       });
     },
   );

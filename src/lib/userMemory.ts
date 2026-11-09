@@ -1,4 +1,4 @@
-import { FACT_SUBJECT_MAX } from "@/lib/constants";
+import { FACT_SUBJECT_MAX, LOCATION_MAX, LOCATION_SCOPE_PREFIX, RULE_KEY_MAX } from "@/lib/constants";
 
 export interface FactLine {
   id: string;
@@ -31,6 +31,11 @@ function slug(value: string, separators: RegExp): string {
     .replace(/^_+|_+$/g, "");
 }
 
+export function ruleKey(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return slug(value, /[^a-z0-9]+/g).slice(0, RULE_KEY_MAX) || null;
+}
+
 export function factSubject(value: string | null | undefined): string | null {
   if (!value) return null;
   return slug(value, /[^\p{L}\p{N}]+/gu).slice(0, FACT_SUBJECT_MAX) || null;
@@ -39,6 +44,18 @@ export function factSubject(value: string | null | undefined): string | null {
 export function factScope(value: string | null | undefined): string | null {
   if (!value) return null;
   return slug(value, /[^\p{L}\p{N}:]+/gu).replace(/_*:_*/g, ":") || null;
+}
+
+export function locationSlug(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return slug(value, /[^\p{L}\p{N}]+/gu).slice(0, LOCATION_MAX) || null;
+}
+
+export function factsForLocation<T extends { scope: string | null }>(facts: T[], currentLocation: string | null): T[] {
+  if (!currentLocation) return facts;
+  return facts.filter(
+    (fact) => !fact.scope?.startsWith(LOCATION_SCOPE_PREFIX) || fact.scope === `${LOCATION_SCOPE_PREFIX}${currentLocation}`,
+  );
 }
 
 export function groupFactsByDomain<T extends FactLine>(facts: T[]): Record<string, Omit<T, "domain">[]> {

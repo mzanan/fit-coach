@@ -4,10 +4,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { parseISO } from "date-fns";
 
-import { fail } from "@/lib/actionResult";
-import { normalizeSubject, saveImportedFact } from "@/lib/ai/facts";
 import { mdExtraction } from "@/lib/ai/mdExtraction";
-import { hasEmbeddings } from "@/lib/ai/embeddings";
 import { saveRule } from "@/lib/data/coachRules";
 import { insertImportedScans } from "@/lib/data/bodyScans";
 import { clearImportChunks } from "@/lib/data/importChunks";
@@ -29,12 +26,6 @@ const {
 export async function commitMdImport(payload: unknown) {
   const user = await requireUser();
   const data = mdExtraction.parse(payload);
-
-  if (data.facts.length && !hasEmbeddings()) {
-    return fail(
-      "Coach memory items can't be imported: no embedding provider is configured. Uncheck them or set one up first.",
-    );
-  }
 
   let mealCount = 0;
   let workoutCount = 0;
@@ -195,18 +186,6 @@ export async function commitMdImport(payload: unknown) {
     updateTag("catalog");
   }
 
-  let factCount = 0;
-  for (const fact of data.facts) {
-    const changed = await saveImportedFact(
-      user.id,
-      fact.content,
-      fact.category,
-      normalizeSubject(fact.subject),
-      "md_import",
-    );
-    if (changed) factCount += 1;
-  }
-
   for (const rule of data.rules) {
     await saveRule(user.id, rule.key.trim(), rule.value.trim());
   }
@@ -243,7 +222,6 @@ export async function commitMdImport(payload: unknown) {
     meals: mealCount,
     workouts: workoutCount,
     catalogItems: newItems.length,
-    facts: factCount,
     rules: data.rules.length,
     bodyScans: scanCount,
     skippedCatalogItems: data.catalog_items.length - newItems.length,

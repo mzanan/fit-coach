@@ -27,8 +27,11 @@ import {
   recentFatigueAverage,
   saveFatigueLog,
 } from "@/lib/data/fatigueLogs";
-import { normalizeSubject } from "@/lib/ai/facts";
 import type { ApprovalRequest } from "@/lib/ai/provider";
+import { updateProfileFields } from "@/lib/data/profileFields";
+import { deleteFact, listFacts, saveFact } from "@/lib/data/userFacts";
+import { rememberFactInput } from "@/lib/history/memorySchemas";
+import { factScope, factSubject, groupFactsByDomain, locationSlug, ruleKey } from "@/lib/userMemory";
 import {
   CLOSE_DAY_TOOL,
   COMPANY_OPTIONS,
@@ -36,6 +39,7 @@ import {
   FATIGUE_SCORE_MIN,
   FATIGUE_TIMES_OF_DAY,
   FATIGUE_TOOL,
+  LOCATION_MAX,
   MEAL_CATEGORIES,
   MEASUREMENT_TOOL,
   MEASUREMENT_TYPES,
@@ -224,10 +228,6 @@ const updateRuleInput = z.object({
   value: z.string().trim().min(1).max(300),
 });
 
-function normalizedRuleKey(rawKey: string): string | null {
-  return normalizeSubject(rawKey);
-}
-
 export async function previewUpdateRule(
   userId: string,
   input: unknown,
@@ -243,7 +243,7 @@ export async function previewUpdateRule(
       error: "The coach asked to update a rule it did not describe properly.",
     };
   }
-  const key = normalizedRuleKey(parsed.data.key);
+  const key = ruleKey(parsed.data.key);
   if (!key) {
     return {
       ok: false,
@@ -587,12 +587,18 @@ async function weeklyStepsAvgThrough(
   return weeklyStepsAverage(weekDays);
 }
 
+export interface CoachToolOptions {
+  logMealOverride?: LogMealOverride;
+  factSource?: "coach" | "mcp";
+  onFactSaved?: (content: string) => void;
+}
+
 export function buildCoachTools(
   userId: string,
   profile: Profile,
   today: string,
   allowWrite: boolean,
-  logMealOverride?: LogMealOverride,
+  { logMealOverride, factSource = "coach", onFactSaved }: CoachToolOptions = {},
 ): ToolSet {
   const readTools: ToolSet = {
     get_current_time: tool({
@@ -1052,7 +1058,7 @@ export function buildCoachTools(
       execute: safe(
         "update_rule",
         async (input: { key: string; value: string }) => {
-          const key = normalizedRuleKey(input.key);
+          const key = ruleKey(input.key);
           if (!key) {
             return { logged: false, error: "The rule key was empty." };
           }
@@ -1060,6 +1066,62 @@ export function buildCoachTools(
           return { logged: true, rule: { key, value: input.value } };
         },
       ),
+    }),
+    remember_fact: tool({
+      description:
+        "Facts about the user that are true now: preferences, constraints and context (diet, restaurants, training, measurements, health, lifestyle, context). Save only what the user stated about themselves that stays true beyond today; never a one-off meal, a logged number or anything the app already records. action save: domain, subject, content; saving the same domain and subject replaces the old fact, pass replaces_id when a fact with another subject is now wrong; the result lists the other facts of that domain so you can spot duplicates. A fact that only holds in one city carries scope location:<city>. action delete: id, when a fact stops being true; never delete city facts because the user moved, call set_current_location instead. action list: optional domain.",
+      inputSchema: rememberFactInput,
+      execute: safe("remember_fact", async (input: z.infer<typeof rememberFactInput>) => {
+        if (input.action === "list") {
+          return { facts: groupFactsByDomain(await listFacts(userId, input.domain)) };
+        }
+        if (input.action === "delete") {
+          if (!input.id) return { logged: false, error: "delete needs id." };
+          return { deleted: await deleteFact(userId, input.id), id: input.id };
+        }
+        const subject = factSubject(input.subject);
+        if (!input.domain || !input.content) {
+          return { logged: false, error: "save needs domain, subject and content." };
+        }
+        if (!subject) return { logged: false, error: "subject needs letters or digits." };
+        const { fact, replaced } = await saveFact(
+          userId,
+          {
+            domain: input.domain,
+            subject,
+            content: input.content,
+            scope: input.scope === undefined ? undefined : factScope(input.scope),
+            review_on: input.review_on,
+            source: factSource,
+          },
+          input.replaces_id,
+        );
+        onFactSaved?.(fact.content);
+        const sameDomain = (await listFacts(userId, input.domain)).filter((other) => other.id !== fact.id);
+        return {
+          saved: true,
+          fact,
+          ...(input.replaces_id ? { replaced_id: input.replaces_id, replaced } : {}),
+          other_facts_in_domain: sameDomain.map(({ id, subject: otherSubject, content }) => ({
+            id,
+            subject: otherSubject,
+            content,
+          })),
+        };
+      }),
+    }),
+    set_current_location: tool({
+      description:
+        "Set the city the user lives in now, when they say they moved or are staying somewhere else, e.g. Hoi An. Facts scoped to another city stay saved and come back when the user returns there. Pass null when the user has no fixed city.",
+      inputSchema: z.object({
+        city: z.string().trim().min(1).max(LOCATION_MAX).nullable(),
+      }),
+      execute: safe("set_current_location", async (input: { city: string | null }) => {
+        const location = locationSlug(input.city);
+        if (input.city && !location) return { logged: false, error: "city needs letters or digits." };
+        await updateProfileFields(userId, { current_location: location });
+        return { saved: true, current_location: location };
+      }),
     }),
     log_fatigue: tool({
       description:

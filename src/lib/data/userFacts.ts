@@ -84,11 +84,3 @@ export async function deleteFact(userId: string, id: string): Promise<boolean> {
     .returning({ id: user_facts.id });
   return deleted.length > 0;
 }
-
-export async function retireScope(userId: string, scope: string): Promise<number> {
-  const deleted = await db
-    .delete(user_facts)
-    .where(and(eq(user_facts.user_id, userId), eq(user_facts.scope, scope)))
-    .returning({ id: user_facts.id });
-  return deleted.length;
-}
