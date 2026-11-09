@@ -3,7 +3,6 @@ import { StickyActions } from "@/components/ui/StickyActions";
 import { Surface } from "@/components/ui/Surface";
 import { ImportBodyScanRow } from "@/components/import/ImportBodyScanRow";
 import { ImportCatalogRow } from "@/components/import/ImportCatalogRow";
-import { ImportFactRow } from "@/components/import/ImportFactRow";
 import { ImportMealRow } from "@/components/import/ImportMealRow";
 import { ImportRuleRow } from "@/components/import/ImportRuleRow";
 import { ImportWorkoutRow } from "@/components/import/ImportWorkoutRow";
@@ -11,7 +10,6 @@ import type {
   PreviewBodyScan,
   PreviewCatalogItem,
   PreviewDay,
-  PreviewFact,
   PreviewRule,
 } from "@/components/import/useMdImport";
 import type { ImportedMeal } from "@/lib/ai/mdExtraction";
@@ -21,7 +19,6 @@ export function ImportReview({
   today,
   days,
   catalogItems,
-  facts,
   rules,
   bodyScans,
   warnings,
@@ -31,7 +28,6 @@ export function ImportReview({
   toggleMeal,
   toggleWorkout,
   toggleCatalogItem,
-  toggleFact,
   toggleRule,
   toggleBodyScan,
   reset,
@@ -40,7 +36,6 @@ export function ImportReview({
   today: string;
   days: PreviewDay[];
   catalogItems: PreviewCatalogItem[];
-  facts: PreviewFact[];
   rules: PreviewRule[];
   bodyScans: PreviewBodyScan[];
   warnings: string[];
@@ -48,7 +43,6 @@ export function ImportReview({
     meals: number;
     workouts: number;
     catalogItems: number;
-    facts: number;
     rules: number;
     bodyScans: number;
   } | null;
@@ -57,7 +51,6 @@ export function ImportReview({
   toggleMeal: (day: string, key: string, include: boolean) => void;
   toggleWorkout: (day: string, include: boolean) => void;
   toggleCatalogItem: (key: string, include: boolean) => void;
-  toggleFact: (key: string, include: boolean) => void;
   toggleRule: (key: string, include: boolean) => void;
   toggleBodyScan: (takenAt: string, include: boolean) => void;
   reset: () => void;
@@ -159,25 +152,6 @@ export function ImportReview({
           </Surface>
         ) : null}
 
-        {facts.length ? (
-          <Surface>
-            <p className="text-title font-medium tracking-(--tracking-snug)">
-              Coach memory
-            </p>
-            <p className="mt-0.5 text-meta text-muted-foreground">
-              Stored as long-term facts the coach uses to answer you.
-            </p>
-            <div className="mt-card divide-y divide-border">
-              {facts.map((f) => (
-                <ImportFactRow
-                  key={f.key}
-                  fact={f}
-                  onToggle={(include) => toggleFact(f.key, include)}
-                />
-              ))}
-            </div>
-          </Surface>
-        ) : null}
       </div>
 
       <StickyActions className="grid shrink-0 grid-cols-2 gap-2">
@@ -191,7 +165,6 @@ export function ImportReview({
             (!included.meals &&
               !included.workouts &&
               !included.catalogItems &&
-              !included.facts &&
               !included.rules &&
               !included.bodyScans)
           }

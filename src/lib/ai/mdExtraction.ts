@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { COACH_FACT_CATEGORY_KEYS, type CoachFactCategory } from "@/lib/constants";
 import {
   dayString,
   fatQuality,
@@ -48,14 +47,6 @@ const importedCatalogItem = z.object({
   ...optionalMacroFields,
 });
 
-const importedFact = z.object({
-  content: z.string().min(1),
-  category: z.enum(
-    COACH_FACT_CATEGORY_KEYS as [CoachFactCategory, ...CoachFactCategory[]],
-  ),
-  subject: z.string().nullish(),
-});
-
 const importedRule = z.object({
   key: z.string().min(1),
   value: z.string().min(1),
@@ -78,17 +69,12 @@ const importedBodyScan = z.object({
 export const mdExtraction = z.object({
   days: z.array(importedDay).default([]),
   catalog_items: z.array(importedCatalogItem).default([]),
-  facts: z.array(importedFact).default([]),
   rules: z.array(importedRule).default([]),
   body_scans: z.array(importedBodyScan).default([]),
   warnings: z.array(z.string()).default([]),
 });
 
 export type MdExtraction = z.infer<typeof mdExtraction>;
-
-const modelFact = importedFact.extend({
-  category: importedFact.shape.category.catch("context"),
-});
 
 function keepValid<T>(
   items: unknown[],
@@ -114,7 +100,6 @@ export const modelExtraction = z
   .object({
     days: looseList,
     catalog_items: looseList,
-    facts: looseList,
     rules: looseList,
     body_scans: looseList,
     warnings: z.array(z.string()).nullish(),
@@ -129,7 +114,6 @@ export const modelExtraction = z
         "catalog item(s)",
         warnings,
       ),
-      facts: keepValid(raw.facts ?? [], modelFact, "fact(s)", warnings),
       rules: keepValid(raw.rules ?? [], importedRule, "rule(s)", warnings),
       body_scans: keepValid(
         raw.body_scans ?? [],
@@ -144,7 +128,6 @@ export type ImportedDay = z.infer<typeof importedDay>;
 export type ImportedMeal = z.infer<typeof importedMeal>;
 export type ImportedWorkout = z.infer<typeof importedWorkout>;
 export type ImportedCatalogItem = z.infer<typeof importedCatalogItem>;
-export type ImportedFact = z.infer<typeof importedFact>;
 export type ImportedRule = z.infer<typeof importedRule>;
 export type ImportedBodyScan = z.infer<typeof importedBodyScan>;
 
@@ -186,7 +169,6 @@ export function mergeExtractions(parts: MdExtraction[]): MdExtraction {
   const catalog = new Map<string, ImportedCatalogItem>();
   const rules = new Map<string, ImportedRule>();
   const scans = new Map<string, ImportedBodyScan>();
-  const facts = new Map<string, ImportedFact>();
   const warnings: string[] = [];
 
   for (const part of parts) {
@@ -217,12 +199,6 @@ export function mergeExtractions(parts: MdExtraction[]): MdExtraction {
         scans.set(scan.taken_at, scan);
       }
     }
-    for (const fact of part.facts) {
-      const key = fact.subject
-        ? `s:${fact.subject.trim().toLowerCase()}`
-        : `c:${fact.category}:${fact.content.trim().toLowerCase()}`;
-      facts.set(key, fact);
-    }
     warnings.push(...part.warnings);
   }
 
@@ -233,7 +209,6 @@ export function mergeExtractions(parts: MdExtraction[]): MdExtraction {
   return {
     days,
     catalog_items: [...catalog.values()],
-    facts: [...facts.values()],
     rules: [...rules.values()],
     body_scans,
     warnings,

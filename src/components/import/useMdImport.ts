@@ -34,13 +34,11 @@ import {
   toPreviewBodyScans,
   toPreviewCatalogItems,
   toPreviewDays,
-  toPreviewFacts,
   toPreviewRules,
   withoutInclude,
   type PreviewBodyScan,
   type PreviewCatalogItem,
   type PreviewDay,
-  type PreviewFact,
   type PreviewRule,
 } from "@/lib/importPreview";
 
@@ -48,7 +46,6 @@ export type {
   PreviewBodyScan,
   PreviewCatalogItem,
   PreviewDay,
-  PreviewFact,
   PreviewMeal,
   PreviewRule,
   PreviewWorkout,
@@ -67,7 +64,6 @@ export function useMdImport() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [days, setDays] = useState<PreviewDay[] | null>(null);
   const [catalogItems, setCatalogItems] = useState<PreviewCatalogItem[]>([]);
-  const [facts, setFacts] = useState<PreviewFact[]>([]);
   const [rules, setRules] = useState<PreviewRule[]>([]);
   const [bodyScans, setBodyScans] = useState<PreviewBodyScan[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -108,7 +104,6 @@ export function useMdImport() {
   const applyExtraction = useCallback((result: MdExtraction) => {
     setDays(toPreviewDays(result));
     setCatalogItems(toPreviewCatalogItems(result));
-    setFacts(toPreviewFacts(result));
     setRules(toPreviewRules(result));
     setBodyScans(toPreviewBodyScans(result));
     setWarnings(result.warnings);
@@ -377,10 +372,6 @@ export function useMdImport() {
     );
   }
 
-  function toggleFact(key: string, include: boolean) {
-    setFacts((prev) => prev.map((f) => (f.key === key ? { ...f, include } : f)));
-  }
-
   function toggleRule(key: string, include: boolean) {
     setRules((prev) => prev.map((r) => (r.key === key ? { ...r, include } : r)));
   }
@@ -394,7 +385,6 @@ export function useMdImport() {
   function reset() {
     setDays(null);
     setCatalogItems([]);
-    setFacts([]);
     setRules([]);
     setBodyScans([]);
     setWarnings([]);
@@ -435,13 +425,6 @@ export function useMdImport() {
               fat_g: c.fat_g,
               carbs_g: c.carbs_g,
             })),
-          facts: facts
-            .filter((f) => f.include)
-            .map((f) => ({
-              content: f.content,
-              category: f.category,
-              subject: f.subject,
-            })),
           rules: rules
             .filter((r) => r.include)
             .map((r) => ({ key: r.key, value: r.value })),
@@ -453,7 +436,7 @@ export function useMdImport() {
         const result = unwrap(await commitMdImport(payload));
         const skipped = result.skippedDuplicates + result.skippedCatalogItems;
         toast.success(
-          `Imported ${result.meals} meals, ${result.workouts} workouts, ${result.catalogItems} catalog items, ${result.facts} facts, ${result.rules} rules, ${result.bodyScans} body scans${
+          `Imported ${result.meals} meals, ${result.workouts} workouts, ${result.catalogItems} catalog items, ${result.rules} rules, ${result.bodyScans} body scans${
             skipped ? `. ${skipped} already there, skipped` : ""
           }`,
         );
@@ -472,7 +455,6 @@ export function useMdImport() {
         ),
         workouts: days.filter((d) => d.workout?.include).length,
         catalogItems: catalogItems.filter((c) => c.include).length,
-        facts: facts.filter((f) => f.include).length,
         rules: rules.filter((r) => r.include).length,
         bodyScans: bodyScans.filter((s) => s.include).length,
       }
@@ -498,7 +480,6 @@ export function useMdImport() {
     extract,
     days,
     catalogItems,
-    facts,
     rules,
     bodyScans,
     warnings,
@@ -507,7 +488,6 @@ export function useMdImport() {
     toggleMeal,
     toggleWorkout,
     toggleCatalogItem,
-    toggleFact,
     toggleRule,
     toggleBodyScan,
     reset,

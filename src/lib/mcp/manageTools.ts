@@ -11,7 +11,6 @@ import {
   listCatalogItems,
   updateCatalogItem,
 } from "@/lib/data/catalogItems";
-import { normalizeSubject } from "@/lib/ai/facts";
 import { deactivateRule, listActiveRules } from "@/lib/data/coachRules";
 import { setDayFields } from "@/lib/data/dayFields";
 import { deleteFatigueLog, listFatigueLogs, writeFatigueLog } from "@/lib/data/fatigueLogs";
@@ -33,6 +32,7 @@ import {
   updateProfileInput,
 } from "@/lib/history/manageSchemas";
 import { futureDayError, toolError, toolTextContent } from "@/lib/mcp/toolResult";
+import { ruleKey } from "@/lib/userMemory";
 
 const APP_PATHS = ["/", "/workout", "/routine", "/body", "/catalog", "/coach", "/settings", "/settings/targets", "/settings/profile"];
 
@@ -228,7 +228,7 @@ export function registerManageTools(server: McpServer, userId: string, profile: 
       if (!input.key) return toolError("delete needs key.");
       const exact = await deactivateRule(userId, input.key);
       if (exact) return toolTextContent({ deleted: true, key: input.key });
-      const normalized = normalizeSubject(input.key);
+      const normalized = ruleKey(input.key);
       const deleted = normalized ? await deactivateRule(userId, normalized) : false;
       return toolTextContent({ deleted, key: normalized ?? input.key });
     },

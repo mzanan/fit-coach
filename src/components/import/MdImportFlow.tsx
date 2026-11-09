@@ -26,7 +26,6 @@ export function MdImportFlow({ today }: { today: string }) {
     extract,
     days,
     catalogItems,
-    facts,
     rules,
     bodyScans,
     warnings,
@@ -35,7 +34,6 @@ export function MdImportFlow({ today }: { today: string }) {
     toggleMeal,
     toggleWorkout,
     toggleCatalogItem,
-    toggleFact,
     toggleRule,
     toggleBodyScan,
     reset,
@@ -78,7 +76,6 @@ export function MdImportFlow({ today }: { today: string }) {
   if (
     days.length === 0 &&
     catalogItems.length === 0 &&
-    facts.length === 0 &&
     rules.length === 0 &&
     bodyScans.length === 0
   ) {
@@ -90,7 +87,6 @@ export function MdImportFlow({ today }: { today: string }) {
       today={today}
       days={days}
       catalogItems={catalogItems}
-      facts={facts}
       rules={rules}
       bodyScans={bodyScans}
       warnings={warnings}
@@ -100,7 +96,6 @@ export function MdImportFlow({ today }: { today: string }) {
       toggleMeal={toggleMeal}
       toggleWorkout={toggleWorkout}
       toggleCatalogItem={toggleCatalogItem}
-      toggleFact={toggleFact}
       toggleRule={toggleRule}
       toggleBodyScan={toggleBodyScan}
       reset={reset}

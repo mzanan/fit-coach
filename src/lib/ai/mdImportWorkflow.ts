@@ -290,7 +290,6 @@ function skippedPart(index: number, warning: string): MdExtraction {
   return {
     days: [],
     catalog_items: [],
-    facts: [],
     rules: [],
     body_scans: [],
     warnings: [warning],

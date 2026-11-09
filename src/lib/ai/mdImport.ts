@@ -5,7 +5,7 @@ import { googleModel } from "@/lib/ai/capabilities";
 import { modelExtraction, type MdExtraction } from "@/lib/ai/mdExtraction";
 import { chatJson } from "@/lib/ai/provider";
 
-const SYSTEM = `You extract structured data from a personal markdown log that may mix nutrition, training, coaching rules, InBody scans and life context. Return ONLY a JSON object with this exact shape:
+const SYSTEM = `You extract structured data from a personal markdown log that may mix nutrition, training, coaching rules and InBody scans. Return ONLY a JSON object with this exact shape:
 {
   "days": [
     {
@@ -18,9 +18,6 @@ const SYSTEM = `You extract structured data from a personal markdown log that ma
   ],
   "catalog_items": [
     { "name": string, "place": string|null, "protein_g": number|null, "fat_g": number|null, "carbs_g": number|null, "fat_quality": "clean"|"oily"|null, "notes": string|null }
-  ],
-  "facts": [
-    { "content": string, "category": "preference|constraint|correction|routine|context", "subject": string|null }
   ],
   "rules": [
     { "key": string, "value": string }
@@ -41,13 +38,12 @@ Rules:
 - Weights in kg. If the text marks a weight as per side / per leg / each side, set per_side true.
 - Days must resolve to YYYY-MM-DD. If a date cannot be resolved, skip that section and add a warning.
 - catalog_items: only from sections that describe reusable meals or a food reference list (not daily logs).
-- facts: durable, non-numeric statements about the person that stay true beyond one day (preferences, injuries/constraints, corrections to how the coach should behave, recurring routines, life context like job or goals). Never today's meals or a single workout's numbers. Give each fact a short snake_case "subject" naming what it is about, reusing the same subject for facts about the same thing.
-- rules: explicit operational rules the coaching process must follow (a "key" naming the rule, a "value" with its exact content). Only hard rules stated as such, not general preferences (those go in facts).
+- rules: explicit operational rules the coaching process must follow (a "key" naming the rule, a "value" with its exact content). Only hard rules stated as such, not general preferences.
 - body_scans: only from InBody / body-composition reports with a resolvable date. Leave any field the text does not state as null, never estimate it.
-- If a section is unrelated to food, training, rules, InBody data or durable personal context, ignore it.`;
+- If a section is unrelated to food, training, rules or InBody data, ignore it.`;
 
 const DEFAULT_CHUNK_CHARS = 10_000;
-const EXTRACTION_VERSION = "2026-09-16.1";
+const EXTRACTION_VERSION = "2026-11-09.1";
 
 export function extractionCacheKey(text: string): string {
   return `${EXTRACTION_VERSION}\n${text}`;

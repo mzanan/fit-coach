@@ -7,14 +7,13 @@ import { userModelRef } from "@/lib/ai/aiCredentials";
 import { toolsRouting } from "@/lib/ai/capabilities";
 import {
   daySummaryAfterWrite,
-  deferMemory,
   toolSetup,
   turnLimitReached,
   TURN_LIMIT_TEXT,
   type CoachResult,
 } from "@/lib/ai/coach";
-import { writeReceipts } from "@/lib/ai/coachReceipts";
-import { exchangeOf, leadWith } from "@/lib/ai/coachReplyText";
+import { learnedFacts, memoryReceipts, writeReceipts, type MemoryWrite } from "@/lib/ai/coachReceipts";
+import { leadWith } from "@/lib/ai/coachReplyText";
 import { withCoachLedger } from "@/lib/ai/coachLedger";
 import { buildCoachTools, previewApproval } from "@/lib/ai/coachTools";
 import {
@@ -93,7 +92,8 @@ export async function resolvePendingWrite(
 
   const question = pending.question ?? undefined;
   const appGenerated = pending.appGenerated;
-  const learned = pending.learned;
+  const learned = [...pending.learned];
+  const memoryWrites: MemoryWrite[] = [];
   const askedAt = pending.askedAt ? new Date(pending.askedAt) : null;
 
   if (!approved) {
@@ -167,7 +167,6 @@ export async function resolvePendingWrite(
       history,
       allowWrite,
       question,
-      learned,
     );
 
     const answered = [
@@ -205,7 +204,7 @@ export async function resolvePendingWrite(
         ? mealPreview.variants.find((variant) => variant.id === itemId)
         : undefined;
 
-    const { text, toolLog, writeOutputs, approvals, messages, usage } =
+    const { text, writeOutputs, approvals, messages, usage } =
       await chatToolsStream(toolPin ? { ...ref, routeOnly: toolPin } : ref, {
         userId,
         instructions: setup.instructions,
@@ -216,13 +215,20 @@ export async function resolvePendingWrite(
             profile,
             day,
             allowWrite,
-            chosen && mealPreview
-              ? {
-                  toolCallId: mealPreview.toolCallId,
-                  itemId: chosen.id,
-                  itemName: chosen.name,
-                }
-              : undefined,
+            {
+              logMealOverride:
+                chosen && mealPreview
+                  ? {
+                      toolCallId: mealPreview.toolCallId,
+                      itemId: chosen.id,
+                      itemName: chosen.name,
+                    }
+                  : undefined,
+              onMemoryWrite: (write) => {
+                memoryWrites.push(write);
+                learned.push(...learnedFacts([write]));
+              },
+            },
           ),
           userId,
         ),
@@ -275,7 +281,7 @@ export async function resolvePendingWrite(
     const wroteMeal =
       logged.some((preview) => preview.toolName === WRITE_TOOL) ||
       extraWrites.some((output) => MEAL_WRITE_TOOLS.has(output.toolName));
-    const receiptText = [confirmationLines(logged), writeReceipts(extraWrites)]
+    const receiptText = [confirmationLines(logged), writeReceipts(extraWrites), memoryReceipts(memoryWrites)]
       .filter(Boolean)
       .join("\n");
 
@@ -333,14 +339,6 @@ export async function resolvePendingWrite(
     after(() =>
       logExchange(userId, ref, exchange.assistantId, setup.instructions, usage),
     );
-    if (text && !signal?.aborted) {
-      deferMemory(
-        ref,
-        userId,
-        setup.memory,
-        exchangeOf(toolLog, question, answer, appGenerated),
-      );
-    }
     return {
       status: "answered",
       text: answer,

@@ -71,6 +71,13 @@
       "when": 1792916412200,
       "tag": "0009_add-alcohol",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794220400075,
+      "tag": "0010_add-current-location",
+      "breakpoints": true
     }
   ]
 }

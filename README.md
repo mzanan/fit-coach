@@ -41,11 +41,10 @@ Every write to a domain table is audited by a trigger into `write_changes` (befo
 
 ### The AI layer
 
-Three provider slots, deliberately separate because they have different constraints:
+Two provider slots, deliberately separate because they have different constraints:
 
 - **Text** (coach, extraction): per-user BYOK, keys encrypted at rest with AES-256-GCM and a per-user AAD. No system-key fallback: no AI runs until the user supplies a key, so the app never spends someone else's budget silently.
 - **Vision** (InBody scan OCR): a system Gemini key, because it is a fixed pipeline tuned against a real result sheet.
-- **Embeddings** (long-term memory): Gemini `gemini-embedding-001` at 768 dimensions, app infrastructure outside BYOK. Every `coach_facts` row stamps which model built its vector, so a future re-embed job can tell what it is looking at.
 
 Model capability is not uniform, so the app keeps its own capability registry: it reads the provider catalog, marks which models declare tool use and structured output, and gates features per model instead of failing at request time.
 
@@ -70,26 +69,18 @@ The same database is exposed to Claude as a remote MCP server at `/api/mcp`: Bet
 
 ### Memory
 
-Three stores, each solving a different problem:
+Two stores, each solving a different problem:
 
 | Store            | Shape                                                     | Purpose                                                                                      |
 | ---------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `coach_messages` | Full turns; a row mid-generation carries its partial text | Conversation continuity. The last N turns go into every call.                                |
-| `coach_memory`   | One rolling ~150-word summary per user                    | Cheap always-on context that survives clearing the chat and works without an embeddings key. |
-| `coach_facts`    | Discrete facts, one row each, with a 768-dim embedding    | Durable preferences, constraints, corrections and routines, retrieved by cosine similarity.  |
-| `user_facts`     | Current facts per domain and subject, optional scope      | What is true now, written by Claude through MCP and injected whole into the in-app coach.    |
-
-`coach_facts` retrieval uses pgvector's cosine distance operator (`<=>`) with thresholds calibrated against measured distances (retrieval 0.45, semantic dedup 0.06). It filters by `user_id` and then scans rather than using an HNSW index: at a few hundred facts per user an exact scan is fast, and an approximate index combined with a per-user filter can silently drop results.
+| `user_facts`     | Current facts per domain and subject, optional scope      | What is true now, saved through `remember_fact` by the coach and by Claude, injected whole.  |
 
 The app moved from Turso (libSQL) to Postgres in October 2026; `scripts/migrateTursoToPostgres.ts` copied every table in one transaction and compared every row column by column before committing. The SQLite migration history lives in git.
 
-**Supersession.** A vector store models similarity, not time, so without a time model a correction would be retrieved alongside the belief it replaced. Facts carry a `subject`, a normalized key naming _what the fact is about_ (`salmon`, `training_time`). A new fact deactivates every active fact with the same subject inside a transaction; the old row is kept with a `superseded_by` pointer. _At most one active fact per (user, subject)_ is enforced in code and by a partial unique index.
-
-The model is asked what a fact is _about_, never whether it _contradicts_ something, because a lab showed similarity cannot carry that decision: same-topic contradictions landed between 0.1152 and 0.2056 cosine distance, and an unrelated pair at 0.1754, inside that range.
-
 ### Background jobs
 
-- **Daily maintenance** (Vercel Cron, `/api/cron/maintenance`, `CRON_SECRET`-gated): deactivates facts untouched for 30+ days (corrections exempt) and re-grounds `coach_memory` from active facts and recent logged data, merging into the existing summary instead of rewriting it. Runs per user on their own BYOK model; users without a key are skipped.
+- **Daily maintenance** (Vercel Cron, `/api/cron/maintenance`, `CRON_SECRET`-gated): applies plans that start that day and prunes old AI events and write history, per user. No model call.
 - **Markdown import** (Vercel Workflow DevKit): a long multi-step extraction that survives the tab closing, timeouts and crashes, retries rate-limited chunks honoring `retry-after`, and lets the import screen reattach to a run still in progress. A run owned by another user returns 404.
 
 Each job's runtime was chosen in an isolated lab: durability is worth an SDK for the long import and worth nothing for a single-step nightly job.

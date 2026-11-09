@@ -51,9 +51,7 @@ export default function PrivacyPage() {
             <p>
               To run the service: log your data, generate coach replies and
               summaries, read the scans you upload and send the reminders you
-              enable. A daily task also consolidates the coach&apos;s memory
-              of you using your configured AI provider. We do not sell your
-              data or use it for advertising.
+              enable. We do not sell your data or use it for advertising.
             </p>
           </LegalSection>
 
@@ -61,8 +59,7 @@ export default function PrivacyPage() {
             <p>
               Vercel (hosting), Neon (database), Google (sign-in), the AI
               provider you choose (OpenRouter, Groq, Google or Experiential
-              Labs) for coach replies and memory, our own Google credentials
-              for search over your notes, our configured vision provider for
+              Labs) for coach replies, our configured vision provider for
               reading scans, a verification service (Experiential Labs via
               OpenRouter) that receives recent conversation snippets to decide
               whether the coach may save data, your browser push service

@@ -134,39 +134,3 @@ export function askOf(question?: string): string {
     ? question.trim()
     : "Give a short read on how today and the week are going, and the next action.";
 }
-
-export function exchangeOf(
-  toolLog: string[],
-  question: string | undefined,
-  text: string,
-  appGenerated = false,
-): string {
-  const asked = appGenerated
-    ? "(tapped the weekly summary button)"
-    : question?.trim() || "(daily check-in)";
-  return [
-    ...(toolLog.length
-      ? ["Data the coach read from the app:", ...toolLog]
-      : []),
-    `User: ${asked}`,
-    `Coach: ${text}`,
-  ].join("\n");
-}
-
-const LEARNED_ADDENDUM_HEAD =
-  "You just recorded this about the user, from the message they sent you in this turn:";
-
-const LEARNED_ADDENDUM_TAIL =
-  "The app already shows the user that it was saved, so do not acknowledge it in your reply. Take it into account in this very answer: if it is a food preference and the food is not in their catalog, say so and offer to add it, do not just ignore it and suggest something else.";
-
-export function learnedAddendum(facts: string[]): string[] {
-  return facts.length
-    ? [
-        [
-          LEARNED_ADDENDUM_HEAD,
-          ...facts.map((fact) => `- ${fact}`),
-          LEARNED_ADDENDUM_TAIL,
-        ].join("\n"),
-      ]
-    : [];
-}
