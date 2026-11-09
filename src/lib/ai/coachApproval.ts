@@ -12,7 +12,7 @@ import {
   TURN_LIMIT_TEXT,
   type CoachResult,
 } from "@/lib/ai/coach";
-import { writeReceipts } from "@/lib/ai/coachReceipts";
+import { learnedFacts, memoryReceipts, writeReceipts, type MemoryWrite } from "@/lib/ai/coachReceipts";
 import { leadWith } from "@/lib/ai/coachReplyText";
 import { withCoachLedger } from "@/lib/ai/coachLedger";
 import { buildCoachTools, previewApproval } from "@/lib/ai/coachTools";
@@ -93,6 +93,7 @@ export async function resolvePendingWrite(
   const question = pending.question ?? undefined;
   const appGenerated = pending.appGenerated;
   const learned = [...pending.learned];
+  const memoryWrites: MemoryWrite[] = [];
   const askedAt = pending.askedAt ? new Date(pending.askedAt) : null;
 
   if (!approved) {
@@ -223,7 +224,10 @@ export async function resolvePendingWrite(
                       itemName: chosen.name,
                     }
                   : undefined,
-              onFactSaved: (content) => learned.push(content),
+              onMemoryWrite: (write) => {
+                memoryWrites.push(write);
+                learned.push(...learnedFacts([write]));
+              },
             },
           ),
           userId,
@@ -277,7 +281,7 @@ export async function resolvePendingWrite(
     const wroteMeal =
       logged.some((preview) => preview.toolName === WRITE_TOOL) ||
       extraWrites.some((output) => MEAL_WRITE_TOOLS.has(output.toolName));
-    const receiptText = [confirmationLines(logged), writeReceipts(extraWrites)]
+    const receiptText = [confirmationLines(logged), writeReceipts(extraWrites), memoryReceipts(memoryWrites)]
       .filter(Boolean)
       .join("\n");
 

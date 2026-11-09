@@ -11,7 +11,7 @@ import type { Profile } from "@/lib/db/schema";
 import { MEMORY_DETAILS_MAX, MEMORY_HEALTH_EVENTS_MAX, MEMORY_PENDING_ITEMS_MAX } from "@/lib/constants";
 import { manageHealthEventInput, managePendingItemInput } from "@/lib/history/memorySchemas";
 import { futureDayError, toolError, toolTextContent } from "@/lib/mcp/toolResult";
-import { clipText, endsBeforeStart, factsForLocation, groupFactsByDomain, hasAnyField } from "@/lib/userMemory";
+import { clipText, endsBeforeStart, factsForLocation, groupFactsByDomain, hasAnyField, knownCities } from "@/lib/userMemory";
 
 const RANGE_ERROR = "resolved_on cannot be before started_on.";
 
@@ -34,6 +34,7 @@ export function registerMemoryTools(server: McpServer, userId: string, profile: 
         today,
         method: profile.coach_rules ?? null,
         current_location: profile.current_location,
+        known_cities: knownCities(facts),
         facts: groupFactsByDomain(factsForLocation(facts, profile.current_location)),
         standing_rules: rules,
         pending_items: pendingItems,

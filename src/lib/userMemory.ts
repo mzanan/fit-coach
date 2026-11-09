@@ -51,11 +51,30 @@ export function locationSlug(value: string | null | undefined): string | null {
   return slug(value, /[^\p{L}\p{N}]+/gu).slice(0, LOCATION_MAX) || null;
 }
 
+function cityKey(value: string): string {
+  return value.replace(/_/g, "");
+}
+
+function scopeCity(scope: string | null): string | null {
+  if (!scope?.startsWith(LOCATION_SCOPE_PREFIX)) return null;
+  return scope.slice(LOCATION_SCOPE_PREFIX.length).split(":")[0] ?? "";
+}
+
+export function knownCities(facts: { scope: string | null }[]): string[] {
+  const cities = facts.map((fact) => scopeCity(fact.scope)).filter((city): city is string => Boolean(city));
+  return [...new Set(cities)].sort();
+}
+
+export function canonicalCity(location: string, cities: string[]): string {
+  return cities.find((city) => cityKey(city) === cityKey(location)) ?? location;
+}
+
 export function factsForLocation<T extends { scope: string | null }>(facts: T[], currentLocation: string | null): T[] {
   if (!currentLocation) return facts;
-  return facts.filter(
-    (fact) => !fact.scope?.startsWith(LOCATION_SCOPE_PREFIX) || fact.scope === `${LOCATION_SCOPE_PREFIX}${currentLocation}`,
-  );
+  return facts.filter((fact) => {
+    const city = scopeCity(fact.scope);
+    return city === null || cityKey(city) === cityKey(currentLocation);
+  });
 }
 
 export function groupFactsByDomain<T extends FactLine>(facts: T[]): Record<string, Omit<T, "domain">[]> {
@@ -66,10 +85,14 @@ export function groupFactsByDomain<T extends FactLine>(facts: T[]): Record<strin
   return groups;
 }
 
+function singleLine(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
 export function factPromptLines(facts: FactLine[]): string[] {
   return Object.entries(groupFactsByDomain(facts)).flatMap(([domain, items]) => [
     `${domain}:`,
-    ...items.map((fact) => `- ${fact.content}${fact.scope ? ` (${fact.scope})` : ""}`),
+    ...items.map((fact) => `- ${singleLine(fact.content)}${fact.scope ? ` (${singleLine(fact.scope)})` : ""}`),
   ]);
 }
 

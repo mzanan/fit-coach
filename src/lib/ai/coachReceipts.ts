@@ -138,3 +138,23 @@ export function writeReceipts(outputs: WriteOutput[]): string {
     .filter(Boolean)
     .join("\n");
 }
+
+export type MemoryWrite =
+  | { kind: "fact"; content: string }
+  | { kind: "location"; location: string | null };
+
+export function memoryReceipts(writes: MemoryWrite[]): string {
+  return writes
+    .map((write) =>
+      write.kind === "fact"
+        ? `Remembered: ${write.content}`
+        : write.location
+          ? `Current city set to ${write.location}.`
+          : "Current city cleared.",
+    )
+    .join("\n");
+}
+
+export function learnedFacts(writes: MemoryWrite[]): string[] {
+  return writes.flatMap((write) => (write.kind === "fact" ? [write.content] : []));
+}
