@@ -51,8 +51,8 @@ export const LOG_BULLETS = [
 ];
 
 export const COACH_BULLETS = [
-  "Keeps a running summary plus the facts you teach it: preferences, constraints, corrections.",
-  "Corrections are always applied.",
+  "Remembers what you tell it about yourself: preferences, constraints, where you live.",
+  "Move cities and it keeps each city's places for when you come back.",
   "Logs meals, workouts and measurements for you. Big changes wait for your approval.",
 ];
 
