@@ -77,6 +77,10 @@ export function factsForLocation<T extends { scope: string | null }>(facts: T[],
   });
 }
 
+export function factDto<T extends { updated_at: Date }>(fact: T): Omit<T, "updated_at"> & { updated_at: string } {
+  return { ...fact, updated_at: fact.updated_at.toISOString() };
+}
+
 export function groupFactsByDomain<T extends FactLine>(facts: T[]): Record<string, Omit<T, "domain">[]> {
   const groups: Record<string, Omit<T, "domain">[]> = {};
   for (const { domain, ...rest } of facts) {
