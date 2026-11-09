@@ -16,26 +16,31 @@ import { calendarDay } from "@/lib/validation";
 const id = z.string().min(1);
 
 export const rememberFactInput = z.object({
-  action: z.enum(["list", "save", "delete"]),
-  domain: z.enum(FACT_DOMAINS).optional().describe("save: required; list: optional filter"),
+  domain: z.enum(FACT_DOMAINS),
   subject: z
     .string()
     .trim()
     .min(1)
     .max(FACT_SUBJECT_MAX)
-    .optional()
-    .describe("save: short stable key of what the fact is about, e.g. lunch_protein_floor; saving the same domain and subject replaces it"),
-  content: z.string().trim().min(1).max(FACT_CONTENT_MAX).optional().describe("save: the fact, one or two sentences, true now"),
+    .describe("short stable key of what the fact is about, e.g. lunch_protein_floor; saving the same domain and subject replaces it"),
+  content: z.string().trim().min(1).max(FACT_CONTENT_MAX).describe("the fact, one or two sentences, true now"),
   scope: z
     .string()
     .trim()
     .max(FACT_SCOPE_MAX)
     .nullable()
     .optional()
-    .describe("save: set when the fact only holds in one city, e.g. location:da_nang; such facts are used only while that city is the current location; omit to keep the current one, null clears it"),
-  review_on: calendarDay.nullable().optional().describe("save: day to re-check the fact; omit to keep, null clears"),
-  replaces_id: id.optional().describe("save: id of an older fact this one supersedes; it is deleted"),
-  id: id.optional().describe("delete: id from list"),
+    .describe("set when the fact only holds in one city, e.g. location:da_nang; such facts are used only while that city is the current location; omit to keep the current one, null clears it"),
+  review_on: calendarDay.nullable().optional().describe("day to re-check the fact; omit to keep, null clears"),
+  replaces_id: id.optional().describe("id of an older fact this one supersedes; it is deleted"),
+});
+
+export const forgetFactInput = z.object({
+  id: id.describe("id of the fact, from get_facts or get_coach_memory"),
+});
+
+export const getFactsInput = z.object({
+  domain: z.enum(FACT_DOMAINS).optional().describe("only this domain; omit for all"),
 });
 
 export const manageHealthEventInput = z.object({
