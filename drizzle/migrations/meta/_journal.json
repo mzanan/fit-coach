@@ -78,6 +78,13 @@
       "when": 1794220400075,
       "tag": "0010_add-current-location",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794226172713,
+      "tag": "0011_drop-old-coach-memory",
+      "breakpoints": true
     }
   ]
 }

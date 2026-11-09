@@ -237,8 +237,6 @@ export const EXERCISE_EQUIPMENT_KNOWN = EXERCISE_EQUIPMENT_FACETS.filter(
   (f) => f.value !== EXERCISE_EQUIPMENT_OTHER,
 ).map((f) => f.value);
 
-export const EMBEDDING_DIM = 768;
-
 export const COACH_RULES_MAX = 20_000;
 export const SUMMARY_RULES_MAX = 20_000;
 export const CHAT_LANGUAGE_MAX = 32;

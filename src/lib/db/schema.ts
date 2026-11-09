@@ -11,12 +11,9 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-  vector,
 } from "drizzle-orm/pg-core";
 
 import { sql } from "drizzle-orm";
-
-import { EMBEDDING_DIM } from "@/lib/constants";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -389,14 +386,6 @@ export const meals = pgTable(
   (t) => [index("meals_user_day_idx").on(t.user_id, t.logical_day)],
 );
 
-export const coach_memory = pgTable("coach_memory", {
-  user_id: text("user_id")
-    .primaryKey()
-    .references(() => user.id, { onDelete: "cascade" }),
-  content: text("content").notNull(),
-  updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
-});
-
 export const push_subscriptions = pgTable(
   "push_subscriptions",
   {
@@ -464,34 +453,6 @@ export const coach_pending_writes = pgTable("coach_pending_writes", {
   preview: text("preview").notNull(),
   created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
 });
-
-export const coach_facts = pgTable(
-  "coach_facts",
-  {
-    id: text("id").primaryKey(),
-    user_id: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    content: text("content").notNull(),
-    category: text("category").notNull(),
-    embedding: vector("embedding", { dimensions: EMBEDDING_DIM }),
-    embedding_model: text("embedding_model")
-      .notNull()
-      .default("gemini-embedding-001/768"),
-    source: text("source"),
-    subject: text("subject"),
-    active: boolean("active").notNull().default(true),
-    superseded_by: text("superseded_by"),
-    created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
-    updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
-  },
-  (t) => [
-    index("coach_facts_user_idx").on(t.user_id),
-    uniqueIndex("coach_facts_active_subject_idx")
-      .on(t.user_id, t.subject)
-      .where(sql`${t.active} = true AND ${t.subject} IS NOT NULL`),
-  ],
-);
 
 export const user_rules = pgTable(
   "user_rules",
@@ -923,8 +884,6 @@ export type Profile = typeof profiles.$inferSelect;
 export type CatalogItem = typeof catalog_items.$inferSelect;
 export type CatalogComponent = typeof catalog_components.$inferSelect;
 export type Meal = typeof meals.$inferSelect;
-export type CoachMemory = typeof coach_memory.$inferSelect;
-export type CoachFact = typeof coach_facts.$inferSelect;
 export type UserRule = typeof user_rules.$inferSelect;
 export type FatigueLog = typeof fatigue_logs.$inferSelect;
 export type Workout = typeof workouts.$inferSelect;
