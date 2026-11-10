@@ -20,6 +20,7 @@
     "@ai-sdk/anthropic": "^4.0.53",
     "@ai-sdk/google": "^4.0.31",
     "@ai-sdk/groq": "^4.0.19",
+    "@ai-sdk/provider": "4.0.4",
     "@better-auth/cimd": "^1.7.18",
     "@better-auth/mcp": "^1.7.18",
     "@better-auth/oauth-provider": "^1.7.18",
@@ -77,8 +78,11 @@
     "typescript": "^5",
     "vitest": "^4.1.11"
   },
-  "overrides": {
-    "undici": "^7.30.2",
-    "zod": "$zod"
-  }
+  "pnpm": {
+    "overrides": {
+      "undici": "^7.30.2",
+      "zod": "$zod"
+    }
+  },
+  "packageManager": "pnpm@10.33.0"
 }

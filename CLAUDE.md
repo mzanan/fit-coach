@@ -10,8 +10,8 @@ Next 16 (App Router) + React 19 + Tailwind v4 + shadcn/radix. Postgres on Neon v
 
 ## Commands
 
-- `npm run dev` (port 3040), `npm run build`, `npm run lint`, `npm run format`
-- `npm run test` (vitest), `npm run db:generate` / `db:migrate` / `db:studio`, `npm run db:seed-exercises` (imports the exercise catalog via `scripts/importExerciseCatalog.ts`)
+- `pnpm dev` (port 3040), `pnpm build`, `pnpm lint`, `pnpm format`
+- `pnpm test` (vitest), `pnpm db:generate` / `db:migrate` / `db:studio`, `pnpm db:seed-exercises` (imports the exercise catalog via `scripts/importExerciseCatalog.ts`)
 
 ## Structure
 

@@ -20,13 +20,13 @@ Built mobile-first: the core loop is logging a meal from a personal catalog in a
 ## Running locally
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env.local     # every variable is documented inline
-npm run db:migrate             # applies drizzle/migrations to DATABASE_URL_UNPOOLED
-npm run db:backup -- <neon-endpoint>   # manual local pg_dump to ~/Backups/fit-coach
-npm run dev                    # http://localhost:3040
-npm test                       # unit specs (Vitest)
-npm run test:db                # isolation, RLS coverage and idempotency against a dev database
+pnpm db:migrate             # applies drizzle/migrations to DATABASE_URL_UNPOOLED
+pnpm db:backup <neon-endpoint>  # manual local pg_dump to ~/Backups/fit-coach
+pnpm dev                    # http://localhost:3040
+pnpm test                   # unit specs (Vitest)
+pnpm test:db                # isolation, RLS coverage and idempotency against a dev database
 ```
 
 The app runs without any AI key: the coach degrades to a deterministic rule-based summary and the markdown import is disabled with a CTA.
@@ -97,7 +97,7 @@ Every change that touches logic goes through two review agents in parallel befor
 
 ## Known gaps
 
-- **Unit coverage is thin.** Vitest covers the pure logic in `src/lib` (`dates`, `macros`, `inbodyChecks`, `exercises`, `search`), and `npm run test:db` covers user isolation and idempotency against a real database; the rest of the stateful code relies on typecheck, lint, build, the review gates and manual checks.
+- **Unit coverage is thin.** Vitest covers the pure logic in `src/lib` (`dates`, `macros`, `inbodyChecks`, `exercises`, `search`), and `pnpm test:db` covers user isolation and idempotency against a real database; the rest of the stateful code relies on typecheck, lint, build, the review gates and manual checks.
 - **Truncated replies on the streaming path.** A cut reply is continued server-side and a continuation that restarts the answer is discarded, but already-streamed text cannot be reset, so the reply stays cut at the truncation point.
 - **`/api/coach/approve` is still request-bound.** Unlike `/api/coach`, a dropped connection cancels the write-confirmation flow.
 - Facts written before supersession shipped carry no `subject` and are never superseded; they age out only by the semantic dedup path.
