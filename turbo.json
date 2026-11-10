@@ -1,0 +1,49 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "env": [
+        "DATABASE_URL*",
+        "TURSO_*",
+        "BETTER_AUTH_*",
+        "AUTH_*",
+        "GOOGLE_CLIENT_*",
+        "CRON_SECRET",
+        "INTEGRATIONS_ENC_*",
+        "AI_VISION_*",
+        "JEV_*",
+        "VAPID_*",
+        "MCP_ALLOWED_EMAILS",
+        "VERCEL_ENV",
+        "NODE_ENV"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env.production.local", ".env.local", ".env.production", ".env"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "lint": {},
+    "test": {
+      "env": ["DB_TESTS", "DATABASE_URL*", "NODE_ENV"],
+      "inputs": ["$TURBO_DEFAULT$", ".env.test.local", ".env.local", ".env.test", ".env"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "DATABASE_URL*",
+        "TURSO_*",
+        "BETTER_AUTH_*",
+        "AUTH_*",
+        "GOOGLE_CLIENT_*",
+        "CRON_SECRET",
+        "INTEGRATIONS_ENC_*",
+        "AI_VISION_*",
+        "JEV_*",
+        "VAPID_*",
+        "MCP_ALLOWED_EMAILS",
+        "VERCEL_ENV",
+        "NODE_ENV"
+      ]
+    }
+  }
+}

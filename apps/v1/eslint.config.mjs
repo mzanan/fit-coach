@@ -2,10 +2,12 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import unusedImports from "eslint-plugin-unused-imports";
+import turboConfig from "eslint-config-turbo/flat";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  ...turboConfig,
   {
     plugins: {
       "unused-imports": unusedImports,
