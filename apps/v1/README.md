@@ -19,6 +19,8 @@ Built mobile-first: the core loop is logging a meal from a personal catalog in a
 
 ## Running locally
 
+Run these from `apps/v1`, or from the repo root with `pnpm --filter @fit-coach/v1 <script>`. Root `pnpm dev`, `pnpm build`, `pnpm lint` and `pnpm test` run every app through Turborepo.
+
 ```bash
 pnpm install
 cp .env.example .env.local     # every variable is documented inline

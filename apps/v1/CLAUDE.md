@@ -10,6 +10,8 @@ Next 16 (App Router) + React 19 + Tailwind v4 + shadcn/radix. Postgres on Neon v
 
 ## Commands
 
+Run from `apps/v1`, or from the repo root with `pnpm --filter @fit-coach/v1 <script>`.
+
 - `pnpm dev` (port 3040), `pnpm build`, `pnpm lint`, `pnpm format`
 - `pnpm test` (vitest), `pnpm db:generate` / `db:migrate` / `db:studio`, `pnpm db:seed-exercises` (imports the exercise catalog via `scripts/importExerciseCatalog.ts`)
 
@@ -26,7 +28,7 @@ Next 16 (App Router) + React 19 + Tailwind v4 + shadcn/radix. Postgres on Neon v
 
 ## Conventions
 
-Personal engineering standards: `personal/CLAUDE.md`. Secrets in `.env.local` (template: `.env.example`), backed up in Infisical folder `/fit-coach` (envs `dev`/`prod`, `.infisical.json` committed); never commit values.
+Personal engineering standards: `personal/CLAUDE.md`. Secrets in `.env.local` (template: `.env.example`), backed up in Infisical folder `/fit-coach` (envs `dev`/`prod`, `.infisical.json` committed at the repo root); never commit values.
 
 Prod migrations: pass the Neon `main` unpooled URL (`DATABASE_URL_UNPOOLED`) inline from Infisical (env `prod`) or Vercel; never let drizzle fall back to `.env.local` (that is the Neon `dev` branch). Echo the resolved target DB host/URL before running the migration and confirm it is prod. If prod credentials are missing, abort instead of continuing on the fallback.
 
