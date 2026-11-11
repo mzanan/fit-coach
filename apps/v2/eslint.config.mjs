@@ -1,0 +1,52 @@
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+import unusedImports from "eslint-plugin-unused-imports";
+import turboConfig from "eslint-config-turbo/flat";
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  ...turboConfig,
+  {
+    plugins: {
+      "unused-imports": unusedImports,
+    },
+    rules: {
+      "unused-imports/no-unused-imports": "error",
+      "unused-imports/no-unused-vars": [
+        "warn",
+        {
+          vars: "all",
+          varsIgnorePattern: "^_",
+          args: "after-used",
+          argsIgnorePattern: "^_",
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "JSXOpeningElement[name.name=/^(button|a)$/] JSXAttribute[name.name='className'] Literal[value=/rounded-full/][value=/bg-white/]",
+          message:
+            'Inline solid button/anchor styling, reuse <Pill variant="solid"> (@/components/ui/Pill) instead of hand-written bg-white rounded-full classes.',
+        },
+        {
+          selector:
+            "JSXOpeningElement[name.name=/^(Surface|Button|Input|Textarea|ToggleChip|Pill)$/] > JSXAttribute[name.name='className'] Literal[value=/(^|\\s)(rounded-|p-(\\d|card))/]",
+          message:
+            "Use the primitive's radius/pad/size props instead of overriding rounded-* or p-* in className.",
+        },
+      ],
+    },
+  },
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "src/app/.well-known/workflow/**",
+  ]),
+]);
+
+export default eslintConfig;

@@ -1,0 +1,365 @@
+export const MEAL_CATEGORIES = [
+  { key: "breakfast", label: "Breakfast" },
+  { key: "post_gym", label: "Post-gym" },
+  { key: "lunch", label: "Lunch" },
+  { key: "snack", label: "Snack" },
+  { key: "dinner", label: "Dinner" },
+] as const;
+
+export type MealCategoryKey = (typeof MEAL_CATEGORIES)[number]["key"];
+
+export function categoryLabel(key: string): string {
+  return MEAL_CATEGORIES.find((c) => c.key === key)?.label ?? key;
+}
+
+export const FAT_QUALITIES = [
+  { key: "clean", label: "Clean" },
+  { key: "oily", label: "Oily" },
+] as const;
+
+export type FatQuality = (typeof FAT_QUALITIES)[number]["key"];
+
+export const FAT_QUALITY_OPTIONS = [
+  { value: "", label: "Unset" },
+  ...FAT_QUALITIES.map((f) => ({ value: f.key, label: f.label })),
+] as const;
+
+export const COMPONENT_GROUPS = [
+  { key: "protein", label: "Protein" },
+  { key: "carb", label: "Carb" },
+  { key: "veg", label: "Veg" },
+  { key: "sauce", label: "Sauce" },
+  { key: "other", label: "Other" },
+] as const;
+
+export type ComponentGroup = (typeof COMPONENT_GROUPS)[number]["key"];
+
+export const DEFAULT_SPLIT = [
+  "Upper A",
+  "Lower A",
+  "Upper B",
+  "Lower B",
+] as const;
+
+export const DAY_TYPES = [
+  { key: "gym", label: "Gym" },
+  { key: "rest", label: "Rest" },
+] as const;
+
+export type DayTypeKey = (typeof DAY_TYPES)[number]["key"];
+
+export const COMPANY_OPTIONS = [
+  { key: "solo", label: "Solo" },
+  { key: "partner", label: "Partner" },
+] as const;
+
+export type CompanyOptionKey = (typeof COMPANY_OPTIONS)[number]["key"];
+
+export const COMPANY_SEGMENT_OPTIONS = [
+  { value: "", label: "Any" },
+  ...COMPANY_OPTIONS.map((c) => ({ value: c.key, label: c.label })),
+] as const;
+
+export const AUTO_DAY_TYPES = [
+  { key: "gym", label: "Gym" },
+  { key: "rest", label: "Rest" },
+  { key: "any", label: "Any" },
+] as const;
+
+export type AutoDayTypeKey = (typeof AUTO_DAY_TYPES)[number]["key"];
+
+export const AUTO_DAY_TYPE_OPTIONS = [
+  { value: "", label: "Off" },
+  ...AUTO_DAY_TYPES.map((d) => ({ value: d.key, label: d.label })),
+] as const;
+
+export const MACRO_TOLERANCE_PCT = 0.1;
+export const KCAL_TOLERANCE = 150;
+
+export const TARGET_BOUNDS = {
+  protein_target: { min: 1, max: 500 },
+  fat_min: { min: 1, max: 300 },
+  fat_max: { min: 1, max: 300 },
+  fat_floor: { min: 1, max: 300 },
+  carbs_gym: { min: 1, max: 1000 },
+  carbs_rest: { min: 1, max: 1000 },
+  calories_target: { min: 1, max: 10000 },
+  calories_rest: { min: 1, max: 10000 },
+} as const;
+
+export const TIMEZONE_DEFAULT = "Asia/Ho_Chi_Minh";
+export const DAY_CUTOFF_DEFAULT = 4;
+
+export const BODY_SEGMENTS = [
+  { key: "right_arm", label: "Right arm" },
+  { key: "left_arm", label: "Left arm" },
+  { key: "trunk", label: "Trunk" },
+  { key: "right_leg", label: "Right leg" },
+  { key: "left_leg", label: "Left leg" },
+] as const;
+
+export const SEGMENT_METRICS = [
+  { key: "lean_kg", label: "Lean kg" },
+  { key: "lean_pct", label: "Lean %" },
+  { key: "fat_kg", label: "Fat kg" },
+  { key: "fat_pct", label: "Fat %" },
+  { key: "ecw_ratio", label: "ECW" },
+  { key: "phase_angle", label: "Phase" },
+] as const;
+
+export const IMAGE_MAX_DIMENSION = 1600;
+
+export const INBODY_FIELD_GROUPS = [
+  {
+    title: "Muscle and fat",
+    fields: [
+      { key: "weight_kg", label: "Weight (kg)", step: 0.1 },
+      { key: "skeletal_muscle_kg", label: "Skeletal muscle (kg)", step: 0.1 },
+      { key: "body_fat_kg", label: "Body fat (kg)", step: 0.1 },
+      { key: "body_fat_pct", label: "Body fat (%)", step: 0.1 },
+      { key: "bmi", label: "BMI", step: 0.1 },
+      { key: "inbody_score", label: "InBody score", step: 1 },
+    ],
+  },
+  {
+    title: "Body composition",
+    fields: [
+      { key: "total_body_water_l", label: "Body water (L)", step: 0.1 },
+      { key: "protein_kg", label: "Protein (kg)", step: 0.1 },
+      { key: "minerals_kg", label: "Minerals (kg)", step: 0.01 },
+      { key: "bone_mineral_kg", label: "Bone mineral (kg)", step: 0.01 },
+      { key: "soft_lean_mass_kg", label: "Soft lean mass (kg)", step: 0.1 },
+      { key: "fat_free_mass_kg", label: "Fat free mass (kg)", step: 0.1 },
+      { key: "body_cell_mass_kg", label: "Body cell mass (kg)", step: 0.1 },
+      { key: "ecw_ratio", label: "ECW ratio", step: 0.001 },
+      { key: "phase_angle", label: "Phase angle", step: 0.1 },
+    ],
+  },
+  {
+    title: "Research parameters",
+    fields: [
+      { key: "smi", label: "SMI (kg/m2)", step: 0.1 },
+      { key: "bmr_kcal", label: "BMR (kcal)", step: 1 },
+      { key: "visceral_fat_level", label: "Visceral fat level", step: 1 },
+      {
+        key: "visceral_fat_area_cm2",
+        label: "Visceral fat area (cm2)",
+        step: 0.1,
+      },
+      { key: "waist_circumference_cm", label: "Waist (cm)", step: 0.1 },
+      { key: "waist_hip_ratio", label: "Waist-hip ratio", step: 0.01 },
+      { key: "obesity_degree_pct", label: "Obesity degree (%)", step: 1 },
+      { key: "recommended_kcal", label: "Recommended kcal", step: 1 },
+    ],
+  },
+  {
+    title: "Weight control",
+    fields: [
+      { key: "target_weight_kg", label: "Target weight (kg)", step: 0.1 },
+      { key: "weight_control_kg", label: "Weight control (kg)", step: 0.1 },
+      { key: "fat_control_kg", label: "Fat control (kg)", step: 0.1 },
+      { key: "muscle_control_kg", label: "Muscle control (kg)", step: 0.1 },
+    ],
+  },
+  {
+    title: "From the header",
+    fields: [
+      { key: "height_cm", label: "Height (cm)", step: 0.1 },
+      { key: "age", label: "Age", step: 1 },
+    ],
+  },
+] as const;
+
+export const INBODY_TEXT_FIELDS = [
+  { key: "device", label: "Device", placeholder: "InBody 580" },
+  { key: "location", label: "Place", placeholder: "Gym" },
+  { key: "member_id", label: "InBody ID", placeholder: "From the sheet" },
+  { key: "gender", label: "Gender", placeholder: "male" },
+  { key: "body_balance_upper", label: "Balance upper", placeholder: "balanced" },
+  { key: "body_balance_lower", label: "Balance lower", placeholder: "balanced" },
+  {
+    key: "body_balance_upper_lower",
+    label: "Balance upper-lower",
+    placeholder: "balanced",
+  },
+] as const;
+
+export const INBODY_NUMERIC_KEYS = INBODY_FIELD_GROUPS.flatMap((g) =>
+  g.fields.map((f) => f.key),
+);
+
+export const INBODY_TEXT_KEYS = INBODY_TEXT_FIELDS.map((f) => f.key);
+
+export type BodySegment = (typeof BODY_SEGMENTS)[number]["key"];
+export type SegmentMetric = (typeof SEGMENT_METRICS)[number]["key"];
+export type SegmentValues = Partial<Record<SegmentMetric, number | null>>;
+export type Segmental = Partial<Record<BodySegment, SegmentValues | null>>;
+
+export const EXERCISE_EQUIPMENT_OTHER = "__other";
+
+export const EXERCISE_MUSCLE_FACETS = [
+  { value: "abs", label: "Abs" },
+  { value: "pectorals", label: "Chest" },
+  { value: "upper back", label: "Back" },
+  { value: "lats", label: "Lats" },
+  { value: "delts", label: "Shoulders" },
+  { value: "biceps", label: "Biceps" },
+  { value: "triceps", label: "Triceps" },
+  { value: "forearms", label: "Forearms" },
+  { value: "glutes", label: "Glutes" },
+  { value: "quads", label: "Quads" },
+  { value: "hamstrings", label: "Hamstrings" },
+  { value: "calves", label: "Calves" },
+  { value: "traps", label: "Traps" },
+  { value: "adductors", label: "Adductors" },
+  { value: "abductors", label: "Abductors" },
+  { value: "spine", label: "Spine" },
+  { value: "serratus anterior", label: "Serratus" },
+  { value: "levator scapulae", label: "Neck" },
+  { value: "cardiovascular system", label: "Cardio" },
+] as const;
+
+export const EXERCISE_EQUIPMENT_FACETS = [
+  { value: "body weight", label: "Bodyweight" },
+  { value: "dumbbell", label: "Dumbbell" },
+  { value: "barbell", label: "Barbell" },
+  { value: "cable", label: "Cable" },
+  { value: "leverage machine", label: "Machine" },
+  { value: "smith machine", label: "Smith" },
+  { value: "band", label: "Band" },
+  { value: "kettlebell", label: "Kettlebell" },
+  { value: "weighted", label: "Weighted" },
+  { value: "stability ball", label: "Stability ball" },
+  { value: EXERCISE_EQUIPMENT_OTHER, label: "Other" },
+] as const;
+
+export const EXERCISE_EQUIPMENT_KNOWN = EXERCISE_EQUIPMENT_FACETS.filter(
+  (f) => f.value !== EXERCISE_EQUIPMENT_OTHER,
+).map((f) => f.value);
+
+export const COACH_RULES_MAX = 20_000;
+export const SUMMARY_RULES_MAX = 20_000;
+export const CHAT_LANGUAGE_MAX = 32;
+
+const CHAT_LANGUAGE_SHAPE = /^[\p{L}\p{M}]+(?:[ '-][\p{L}\p{M}]+){0,2}$/u;
+
+export function isChatLanguage(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= CHAT_LANGUAGE_MAX &&
+    CHAT_LANGUAGE_SHAPE.test(value)
+  );
+}
+
+export const INTERRUPTED_ANSWER = "This answer was interrupted.";
+
+export const COACH_MAX_DURATION_SECONDS = 300;
+
+export const CATALOG_SEARCH_TOOL = "search_catalog";
+export const WRITE_TOOL = "log_meal";
+export const ESTIMATE_TOOL = "log_estimated_meal";
+export const RULE_TOOL = "update_rule";
+export const FATIGUE_TOOL = "log_fatigue";
+export const WORKOUT_TOOL = "log_workout_session";
+export const MEASUREMENT_TOOL = "log_measurement";
+export const CLOSE_DAY_TOOL = "close_day";
+export const SET_TARGETS_TOOL = "set_targets";
+export const UPDATE_MEAL_TOOL = "update_meal";
+export const DELETE_MEAL_TOOL = "delete_meal";
+export const DIRECT_WRITE_TOOLS = [
+  WRITE_TOOL,
+  ESTIMATE_TOOL,
+  UPDATE_MEAL_TOOL,
+  DELETE_MEAL_TOOL,
+  RULE_TOOL,
+  FATIGUE_TOOL,
+  WORKOUT_TOOL,
+  MEASUREMENT_TOOL,
+];
+
+export const CARD_WRITE_TOOLS = [CLOSE_DAY_TOOL, SET_TARGETS_TOOL];
+
+export const MEAL_WRITE_TOOLS = new Set([WRITE_TOOL, ESTIMATE_TOOL]);
+
+export const WRITE_TOOLS = [...DIRECT_WRITE_TOOLS, ...CARD_WRITE_TOOLS];
+
+const NOT_ESCALATABLE = new Set([ESTIMATE_TOOL, UPDATE_MEAL_TOOL, DELETE_MEAL_TOOL]);
+
+export const TOOL_GATE_ESCALATABLE: ReadonlySet<string> = new Set(
+  DIRECT_WRITE_TOOLS.filter((name) => !NOT_ESCALATABLE.has(name)),
+);
+
+export const DINING_MODES = ["delivery", "cooks"] as const;
+
+export const FATIGUE_TIMES_OF_DAY = [
+  { key: "morning", label: "Morning" },
+  { key: "post_lunch", label: "Post-lunch" },
+] as const;
+
+export type FatigueTimeOfDay = (typeof FATIGUE_TIMES_OF_DAY)[number]["key"];
+
+export function fatigueTimeLabel(key: string): string {
+  return FATIGUE_TIMES_OF_DAY.find((t) => t.key === key)?.label ?? key;
+}
+
+export const FATIGUE_SCORE_MIN = 1;
+export const FATIGUE_SCORE_MAX = 5;
+
+export function fatigueExtrasLabel(
+  sleepHours: number | null,
+  sleepLocation: string | null,
+): string {
+  return [sleepHours != null ? `${sleepHours}h sleep` : null, sleepLocation]
+    .filter(Boolean)
+    .join(", ");
+}
+
+export const MEASUREMENT_TYPES = [
+  { key: "waist", label: "Waist", unit: "cm" },
+  { key: "weight", label: "Weight", unit: "kg" },
+  { key: "photo", label: "Progress photo", unit: "" },
+] as const;
+
+export type MeasurementType = (typeof MEASUREMENT_TYPES)[number]["key"];
+
+export function measurementTypeLabel(key: string): string {
+  return MEASUREMENT_TYPES.find((t) => t.key === key)?.label ?? key;
+}
+
+export function measurementUnit(key: string): string {
+  return MEASUREMENT_TYPES.find((t) => t.key === key)?.unit ?? "";
+}
+
+export const MEASUREMENT_VALUE_MAX = 500;
+
+export const FETCH_TIMEOUT_MS = 10_000;
+
+export const COACH_HISTORY_MESSAGE_LIMIT = 100;
+
+export const COACH_REQUEST_MAX_BYTES = 32_768;
+
+export const IMPORT_MAX_BYTES = 4_000_000;
+
+export const IMPORT_TOO_LARGE = "These files are too large to import at once (4 MB max). Import them in smaller batches.";
+
+export const IMPORT_ALREADY_RUNNING = "An import is already running. Wait for it to finish or cancel it first.";
+
+export const FACT_DOMAINS = ["diet", "restaurants", "training", "measurements", "health", "lifestyle", "context"] as const;
+export const HEALTH_EVENT_KINDS = ["problem", "digestion", "illness", "injury", "checkup"] as const;
+export const PENDING_ITEM_KINDS = ["shopping", "todo", "appointment"] as const;
+export const FACT_CONTENT_MAX = 600;
+export const COACH_PROMPT_FACTS_MAX = 150;
+export const COACH_PROMPT_ITEMS_MAX = 20;
+export const FACT_SUBJECT_MAX = 60;
+export const RULE_KEY_MAX = 40;
+export const LOCATION_SCOPE_PREFIX = "location:";
+export const LOCATION_MAX = 60;
+export const FACT_SCOPE_MAX = 80;
+export const HEALTH_TITLE_MAX = 200;
+export const HEALTH_DETAILS_MAX = 2000;
+export const PENDING_ITEM_TEXT_MAX = 500;
+export const MEMORY_PENDING_ITEMS_MAX = 50;
+export const MEMORY_HEALTH_EVENTS_MAX = 20;
+export const MEMORY_DETAILS_MAX = 300;
+export const READ_TOOL_PREFIXES = ["get_", "search_", "suggest_", "check_"] as const;
+export const WRITE_HISTORY_DAYS = 180;

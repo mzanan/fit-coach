@@ -1,0 +1,321 @@
+import "server-only";
+
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { parseISO } from "date-fns";
+
+import { db, schema } from "@/lib/db";
+import type { BodyScan, Profile } from "@/lib/db/schema";
+import {
+  dayConfig,
+  type DayConfig,
+  logicalDayOf,
+  shiftDay,
+  todayLogicalDay,
+} from "@/lib/dates";
+
+import { kcalOf } from "@/lib/macros";
+import { targetsOf } from "@/lib/targets";
+import { newId } from "@/lib/utils";
+import type { ScanFields } from "@/lib/history/manageSchemas";
+
+const { body_scans, meals, workouts } = schema;
+
+export interface ScanDelta {
+  days: number;
+  weight_kg: number | null;
+  skeletal_muscle_kg: number | null;
+  body_fat_kg: number | null;
+  body_fat_pct: number | null;
+}
+
+export interface PeriodAdherence {
+  days: number;
+  daysLogged: number;
+  proteinHitDays: number | null;
+  avgProtein: number | null;
+  avgKcal: number | null;
+  kcalTarget: number | null;
+  proteinTarget: number | null;
+  workouts: number;
+}
+
+export interface DailyIntake {
+  day: string;
+  kcal: number | null;
+}
+
+export interface BodyScanOverview {
+  latest: BodyScan | null;
+  previous: BodyScan | null;
+  delta: ScanDelta | null;
+  history: BodyScan[];
+  adherence: PeriodAdherence | null;
+  daily: DailyIntake[];
+}
+
+function diff(a: number | null, b: number | null): number | null {
+  if (a == null || b == null) return null;
+  return Math.round((a - b) * 100) / 100;
+}
+
+
+
+async function periodAdherence(
+  userId: string,
+  profile: Profile,
+  fromDay: string,
+  toDay: string,
+): Promise<{ adherence: PeriodAdherence; daily: DailyIntake[] }> {
+  const days: string[] = [];
+  let cursor = toDay;
+  while (cursor >= fromDay && days.length < 120) {
+    days.push(cursor);
+    cursor = shiftDay(cursor, -1);
+  }
+
+  const [mealRows, workoutRows] = await Promise.all([
+    db
+      .select()
+      .from(meals)
+      .where(and(eq(meals.user_id, userId), inArray(meals.logical_day, days))),
+    db
+      .select({ logical_day: workouts.logical_day })
+      .from(workouts)
+      .where(and(eq(workouts.user_id, userId), inArray(workouts.logical_day, days))),
+  ]);
+
+  const byDay = new Map<string, { protein: number; kcal: number }>();
+  for (const row of mealRows) {
+    const current = byDay.get(row.logical_day) ?? { protein: 0, kcal: 0 };
+    current.protein += row.protein_g;
+    current.kcal += kcalOf(row);
+    byDay.set(row.logical_day, current);
+  }
+
+  const targets = targetsOf(profile);
+  const logged = [...byDay.values()];
+  const proteinHitDays = targets
+    ? logged.filter((d) => d.protein >= targets.protein_target * 0.9).length
+    : null;
+  const avg = (pick: (d: { protein: number; kcal: number }) => number) =>
+    logged.length
+      ? Math.round(logged.reduce((total, d) => total + pick(d), 0) / logged.length)
+      : null;
+
+  const daily = [...days]
+    .reverse()
+    .slice(-14)
+    .map((day) => ({ day, kcal: byDay.get(day) ? Math.round(byDay.get(day)!.kcal) : null }));
+
+  return {
+    adherence: {
+      days: days.length,
+      daysLogged: byDay.size,
+      proteinHitDays,
+      avgProtein: avg((d) => d.protein),
+      avgKcal: avg((d) => d.kcal),
+      kcalTarget: targets ? targets.calories_target : null,
+      proteinTarget: targets ? targets.protein_target : null,
+      workouts: new Set(workoutRows.map((w) => w.logical_day)).size,
+    },
+    daily,
+  };
+}
+
+export async function getBodyScanOverview(
+  userId: string,
+  profile: Profile,
+): Promise<BodyScanOverview> {
+  const history = await db
+    .select()
+    .from(body_scans)
+    .where(eq(body_scans.user_id, userId))
+    .orderBy(desc(body_scans.taken_at), desc(body_scans.created_at), desc(body_scans.id))
+    .limit(24);
+
+  const cfg = dayConfig(profile);
+  const toDay = todayLogicalDay(cfg);
+
+  const latest = history[0] ?? null;
+  const previous = history[1] ?? null;
+  if (!latest) {
+    const recent = await periodAdherence(
+      userId,
+      profile,
+      shiftDay(toDay, -13),
+      toDay,
+    );
+    return {
+      latest: null,
+      previous: null,
+      delta: null,
+      history: [],
+      adherence: recent.adherence,
+      daily: recent.daily,
+    };
+  }
+
+  const delta = previous
+    ? {
+        days: Math.max(
+          1,
+          Math.round(
+            (latest.taken_at.getTime() - previous.taken_at.getTime()) / 86_400_000,
+          ),
+        ),
+        weight_kg: diff(latest.weight_kg, previous.weight_kg),
+        skeletal_muscle_kg: diff(
+          latest.skeletal_muscle_kg,
+          previous.skeletal_muscle_kg,
+        ),
+        body_fat_kg: diff(latest.body_fat_kg, previous.body_fat_kg),
+        body_fat_pct: diff(latest.body_fat_pct, previous.body_fat_pct),
+      }
+    : null;
+
+  const fromDay = logicalDayOf(
+    (previous ?? latest).taken_at,
+    cfg,
+  );
+  const window = await periodAdherence(userId, profile, fromDay, toDay);
+
+  return {
+    latest,
+    previous,
+    delta,
+    history: [...history].reverse(),
+    adherence: window.adherence,
+    daily: window.daily,
+  };
+}
+
+export async function getScanCount(userId: string): Promise<number> {
+  const rows = await db
+    .select({ id: body_scans.id })
+    .from(body_scans)
+    .where(eq(body_scans.user_id, userId));
+  return rows.length;
+}
+
+export async function getLatestScanTakenAt(userId: string): Promise<Date | null> {
+  const rows = await db
+    .select({ taken_at: body_scans.taken_at })
+    .from(body_scans)
+    .where(eq(body_scans.user_id, userId))
+    .orderBy(desc(body_scans.taken_at), desc(body_scans.created_at), desc(body_scans.id))
+    .limit(1);
+  return rows[0]?.taken_at ?? null;
+}
+
+export interface ImportedScanCandidate {
+  taken_at: string;
+  weight_kg: number | null;
+  skeletal_muscle_kg: number | null;
+  body_fat_kg: number | null;
+  body_fat_pct: number | null;
+  bmi: number | null;
+  visceral_fat_level: number | null;
+  bmr_kcal: number | null;
+  inbody_score: number | null;
+  waist_circumference_cm: number | null;
+  height_cm: number | null;
+}
+
+export async function insertImportedScans(
+  userId: string,
+  cfg: DayConfig,
+  scans: ImportedScanCandidate[],
+): Promise<number> {
+  const existing = await db
+    .select({ taken_at: body_scans.taken_at })
+    .from(body_scans)
+    .where(eq(body_scans.user_id, userId));
+  const existingDays = new Set(
+    existing.map((row) => logicalDayOf(row.taken_at, cfg)),
+  );
+  const fresh = scans.filter((scan) => !existingDays.has(scan.taken_at));
+  if (!fresh.length) return 0;
+
+  const now = new Date();
+  await db.insert(body_scans).values(
+    fresh.map((scan) => ({
+      id: newId(),
+      user_id: userId,
+      taken_at: parseISO(`${scan.taken_at}T12:00:00`),
+      weight_kg: scan.weight_kg,
+      skeletal_muscle_kg: scan.skeletal_muscle_kg,
+      body_fat_kg: scan.body_fat_kg,
+      body_fat_pct: scan.body_fat_pct,
+      bmi: scan.bmi,
+      visceral_fat_level: scan.visceral_fat_level,
+      bmr_kcal: scan.bmr_kcal,
+      inbody_score: scan.inbody_score,
+      waist_circumference_cm: scan.waist_circumference_cm,
+      height_cm: scan.height_cm,
+      created_at: now,
+    })),
+  );
+  return fresh.length;
+}
+
+export async function recentScans(userId: string, limit: number): Promise<BodyScan[]> {
+  return db
+    .select()
+    .from(body_scans)
+    .where(eq(body_scans.user_id, userId))
+    .orderBy(desc(body_scans.taken_at))
+    .limit(limit);
+}
+
+export async function createScan(
+  userId: string,
+  takenOn: string,
+  fields: ScanFields,
+): Promise<BodyScan> {
+  const [row] = await db
+    .insert(body_scans)
+    .values({
+      id: newId(),
+      user_id: userId,
+      taken_at: parseISO(`${takenOn}T12:00:00`),
+      ...fields,
+      created_at: new Date(),
+    })
+    .returning();
+  return row;
+}
+
+export async function updateScan(
+  userId: string,
+  id: string,
+  fields: ScanFields,
+  takenOn?: string,
+): Promise<BodyScan | null> {
+  const [row] = await db
+    .update(body_scans)
+    .set({ ...fields, ...(takenOn ? { taken_at: parseISO(`${takenOn}T12:00:00`) } : {}) })
+    .where(and(eq(body_scans.user_id, userId), eq(body_scans.id, id)))
+    .returning();
+  return row ?? null;
+}
+
+export async function deleteScan(userId: string, id: string): Promise<boolean> {
+  const deleted = await db
+    .delete(body_scans)
+    .where(and(eq(body_scans.user_id, userId), eq(body_scans.id, id)))
+    .returning({ id: body_scans.id });
+  return deleted.length > 0;
+}
+
+export async function scanDayTaken(
+  userId: string,
+  day: string,
+  cfg: DayConfig,
+  exceptId?: string,
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: body_scans.id, taken_at: body_scans.taken_at })
+    .from(body_scans)
+    .where(eq(body_scans.user_id, userId));
+  return rows.some((row) => row.id !== exceptId && logicalDayOf(row.taken_at, cfg) === day);
+}
