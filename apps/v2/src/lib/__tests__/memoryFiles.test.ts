@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { MEMORY_FILE_MAX_CHARS } from "@/lib/constants";
 import { filesForLocation, memoryCities, memoryIndexLines, memoryIndexText } from "@/lib/memory/memoryIndex";
-import { cityFolder, movedPath, normalizeMemoryPath } from "@/lib/memory/memoryPath";
-import { entryText, folderListing, insertAtLine, replaceOnce, sizeError, viewFileText } from "@/lib/memory/memoryText";
+import { cityFolder, normalizeMemoryPath } from "@/lib/memory/memoryPath";
+import { addedLines, entryText, folderListing, insertAtLine, replaceOnce, sizeError, viewFileText } from "@/lib/memory/memoryText";
 
 const diet = { path: "/memories/diet.md", content: "# Diet: defaults\n- 2026-10-12: Lunch protein 60 g or more." };
 const daNang = { path: "/memories/da_nang/restaurants.md", content: "# Restaurants\n- 2026-10-12: Lunch by Grab only." };
@@ -15,6 +15,15 @@ describe("normalizeMemoryPath", () => {
     expect(normalizeMemoryPath("/memories/")).toEqual({ ok: true, path: "/memories" });
   });
 
+  it("slugs city folders the way v1 slugged city scopes", () => {
+    expect(normalizeMemoryPath("/memories/Da Nang/restaurants.md")).toEqual({ ok: true, path: "/memories/da_nang/restaurants.md" });
+    expect(normalizeMemoryPath("/memories/Hội-An/restaurants.md")).toEqual({ ok: true, path: "/memories/hoi_an/restaurants.md" });
+    expect(normalizeMemoryPath("/memories/Da_Nang")).toEqual({ ok: true, path: "/memories/da_nang" });
+    expect(normalizeMemoryPath("/memories/Diet.md")).toEqual({ ok: true, path: "/memories/Diet.md" });
+    expect(normalizeMemoryPath("/memories/MEMORY.md")).toEqual({ ok: true, path: "/memories/MEMORY.md" });
+    expect(normalizeMemoryPath("/memories/x.md ")).toEqual({ ok: true, path: "/memories/x.md" });
+  });
+
   it("rejects traversal, encoded traversal and other roots", () => {
     for (const raw of [
       "/memories/../../secrets.env",
@@ -24,6 +33,11 @@ describe("normalizeMemoryPath", () => {
       "/etc/passwd",
       "memories/diet.md",
       "/memoriesx/diet.md",
+      "/memories/a\n- /memories/evil.md",
+      "/memories/100%25.md",
+      "/memories/ x.md",
+      "/memories/da_nang/food/lunch.md",
+      "/memories/---/diet.md",
     ]) {
       expect(normalizeMemoryPath(raw).ok).toBe(false);
     }
@@ -41,19 +55,18 @@ describe("city folders", () => {
     expect(filesForLocation([diet, daNang, hanoi], "danang").map((file) => file.path)).toEqual([diet.path, daNang.path]);
     expect(filesForLocation([diet, daNang, hanoi], null)).toHaveLength(3);
   });
-
-  it("moves a file or a whole folder", () => {
-    expect(movedPath("/memories/da_nang/restaurants.md", "/memories/da_nang", "/memories/hoi_an")).toBe(
-      "/memories/hoi_an/restaurants.md",
-    );
-    expect(movedPath(diet.path, diet.path, "/memories/food.md")).toBe("/memories/food.md");
-  });
 });
 
 describe("memory index", () => {
   it("lists each file with its title, sorted by path", () => {
     expect(memoryIndexLines([diet, daNang])).toEqual([
       "- /memories/da_nang/restaurants.md: Restaurants",
+      "- /memories/diet.md: Diet: defaults",
+    ]);
+  });
+
+  it("keeps the heading as title when a line is inserted above it", () => {
+    expect(memoryIndexLines([{ path: diet.path, content: `- 2026-11-11: no dairy\n${diet.content}` }])).toEqual([
       "- /memories/diet.md: Diet: defaults",
     ]);
   });
@@ -81,6 +94,7 @@ describe("file edits", () => {
     expect(replaceOnce(diet.path, diet.content, "absent", "x").ok).toBe(false);
     expect(replaceOnce(diet.path, "a\na", "a", "b").ok).toBe(false);
     expect(replaceOnce(diet.path, diet.content, "", "x").ok).toBe(false);
+    expect(replaceOnce(diet.path, "budget X", "X", "$$5 $& $'")).toEqual({ ok: true, content: "budget $$5 $& $'" });
   });
 
   it("inserts after a line and rejects lines out of range", () => {
@@ -97,6 +111,12 @@ describe("file edits", () => {
   it("lists a folder two levels deep with sizes", () => {
     const listing = folderListing("/memories", [diet, daNang]);
     expect(listing.split("\n").slice(1)).toEqual([`${daNang.content.length}\t${daNang.path}`, `${diet.content.length}\t${diet.path}`]);
+  });
+
+  it("reports whole changed lines, not fragments or untouched context", () => {
+    const before = "# Training\n- 2026-10-12: Gym 3 days a week.\n- 2026-10-12: No home workouts.";
+    const after = "# Training\n- 2026-11-11: Gym 4 days a week.\n- 2026-10-12: No home workouts.";
+    expect(entryText(addedLines(before, after))).toBe("Gym 4 days a week.");
   });
 
   it("strips dates and titles from what the coach learned", () => {

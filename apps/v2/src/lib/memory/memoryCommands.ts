@@ -13,7 +13,7 @@ import {
 } from "@/lib/data/memoryFiles";
 import { memoryIndexText } from "@/lib/memory/memoryIndex";
 import { isInsideFolder, isMemoryIndex, isMemoryRoot, normalizeMemoryPath } from "@/lib/memory/memoryPath";
-import { entryText, folderListing, insertAtLine, replaceOnce, sizeError, viewFileText, type TextEdit } from "@/lib/memory/memoryText";
+import { addedLines, entryText, folderListing, insertAtLine, replaceOnce, sizeError, viewFileText, type TextEdit } from "@/lib/memory/memoryText";
 import type { MemoryCommandInput } from "@/lib/history/memorySchemas";
 
 export type MemoryResult = { result: string } | { error: string };
@@ -70,6 +70,7 @@ async function editFile(
   userId: string,
   path: string,
   edit: (file: StoredMemoryFile) => TextEdit,
+  onWrite?: OnWrite,
 ): Promise<MemoryResult> {
   if (isMemoryIndex(path)) return fail(INDEX_READ_ONLY);
   for (let attempt = 0; attempt < MEMORY_WRITE_RETRIES; attempt += 1) {
@@ -79,7 +80,10 @@ async function editFile(
     if (!edited.ok) return fail(edited.error);
     const tooLarge = sizeError(path, edited.content);
     if (tooLarge) return fail(tooLarge);
-    if (await updateMemoryFile(userId, file, edited.content)) return { result: `The file ${path} has been edited.` };
+    if (await updateMemoryFile(userId, file, edited.content)) {
+      onWrite?.({ kind: "memory", receipt: `Memory updated: ${path}.`, learned: entryText(addedLines(file.content, edited.content)) });
+      return { result: `The file ${path} has been edited.` };
+    }
   }
   return fail(`Error: ${path} kept changing while it was being edited. View it again and retry.`);
 }
@@ -134,18 +138,14 @@ export async function runMemoryCommand(
       if (input.old_str === undefined) return missing("old_str");
       const oldStr = input.old_str;
       const newStr = input.new_str ?? "";
-      const outcome = await editFile(userId, path, (file) => replaceOnce(path, file.content, oldStr, newStr));
-      if ("result" in outcome) onWrite?.({ kind: "memory", receipt: `Memory updated: ${path}.`, learned: entryText(newStr) });
-      return outcome;
+      return editFile(userId, path, (file) => replaceOnce(path, file.content, oldStr, newStr), onWrite);
     }
     case "insert": {
       if (input.insert_line === undefined) return missing("insert_line");
       if (input.insert_text === undefined) return missing("insert_text");
       const line = input.insert_line;
       const text = input.insert_text;
-      const outcome = await editFile(userId, path, (file) => insertAtLine(file.content, line, text));
-      if ("result" in outcome) onWrite?.({ kind: "memory", receipt: `Memory updated: ${path}.`, learned: entryText(text) });
-      return outcome;
+      return editFile(userId, path, (file) => insertAtLine(file.content, line, text), onWrite);
     }
     case "delete":
       return remove(userId, path, onWrite);

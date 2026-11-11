@@ -51,7 +51,7 @@ export function replaceOnce(path: string, content: string, oldStr: string, newSt
       error: `No replacement was performed. Multiple occurrences of old_str \`${oldStr}\` in lines: ${lines.join(", ")}. Please ensure it is unique`,
     };
   }
-  return { ok: true, content: content.replace(oldStr, newStr) };
+  return { ok: true, content: content.replace(oldStr, () => newStr) };
 }
 
 export function insertAtLine(content: string, line: number, text: string): TextEdit {
@@ -89,4 +89,12 @@ export function entryText(text: string): string | undefined {
     .map((line) => line.replace(/^\s*-\s*(\d{4}-\d{2}-\d{2}:\s*)?/, "").trim())
     .filter((line) => line && !line.startsWith("#"));
   return entries.length ? entries.join(" · ") : undefined;
+}
+
+export function addedLines(before: string, after: string): string {
+  const previous = new Set(before.split("\n"));
+  return after
+    .split("\n")
+    .filter((line) => !previous.has(line))
+    .join("\n");
 }

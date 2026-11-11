@@ -591,7 +591,7 @@ async function weeklyStepsAvgThrough(
 }
 
 const MEMORY_TOOL_DESCRIPTION =
-  "Your persistent memory about the user, kept as files under /memories. Commands: view (a file with line numbers, optional view_range [first, last]; a folder lists its files), create (a new file with file_text; fails when the file exists), str_replace (old_str must appear exactly once; it becomes new_str), insert (insert_text after line insert_line, 0 is the top), delete (a file or a folder), rename (old_path to new_path; never overwrites). Every path starts with /memories. /memories/MEMORY.md is the index the app builds; it is read-only.";
+  "Your persistent memory about the user, kept as files under /memories. Commands: view (a file with line numbers, optional view_range [first, last]; a folder lists its files), create (a new file with file_text; fails when the file exists), str_replace (old_str must appear exactly once; it becomes new_str), insert (insert_text after line insert_line, 0 is the top, above the title), delete (a file or a folder), rename (old_path to new_path; never overwrites). Layout: one file per topic (diet, restaurants, training, measurements, health, lifestyle, context), e.g. /memories/diet.md; folders under /memories are cities only, for facts that hold in one city, e.g. /memories/da_nang/restaurants.md. A file starts with a title line \"# Topic: what it holds\" and holds one entry per line, \"- YYYY-MM-DD: text\". /memories/MEMORY.md is the index the app builds; it is read-only.";
 
 const MEMORY_READ_ONLY_DESCRIPTION =
   "Read your persistent memory about the user, kept as files under /memories. Only command view works with this model: a file with line numbers (optional view_range [first, last]) or a folder listing.";

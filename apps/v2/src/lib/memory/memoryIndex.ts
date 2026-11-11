@@ -10,7 +10,8 @@ interface IndexedFile {
 const TITLE_MAX = 120;
 
 function fileTitle(content: string): string {
-  const first = content.split("\n").find((line) => line.trim()) ?? "";
+  const lines = content.split("\n");
+  const first = lines.find((line) => line.startsWith("#")) ?? lines.find((line) => line.trim()) ?? "";
   const title = first.replace(/^#+\s*/, "").trim();
   return title.length > TITLE_MAX ? `${title.slice(0, TITLE_MAX)}...` : title;
 }
