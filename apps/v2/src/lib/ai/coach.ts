@@ -295,6 +295,10 @@ async function toolReply(
       ? (await daySummaryAfterWrite(userId, profile, setup.today)) ?? undefined
       : undefined;
 
+    if (approvals.length || (receipts && !text)) {
+      after(() => logExchange(userId, ref, exchange.assistantId, setup.instructions, usage, toolLog));
+    }
+
     if (approvals.length) {
       const resolved = await Promise.all(
         approvals.map((approval) =>

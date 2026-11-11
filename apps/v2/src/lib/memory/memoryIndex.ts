@@ -1,4 +1,4 @@
-import { MEMORY_INDEX_PATH, MEMORY_SUMMARY_MAX } from "@/lib/constants";
+import { MEMORY_INDEX_PATH, MEMORY_SUMMARY_MAX, MEMORY_TITLE_MAX } from "@/lib/constants";
 import { cityFolder } from "@/lib/memory/memoryPath";
 import { cityKey } from "@/lib/userMemory";
 
@@ -7,24 +7,39 @@ interface IndexedFile {
   content: string;
 }
 
-const KEY_ENTRY = /^\s*-\s*(?:\d{4}-\d{2}-\d{2}\s*)?!\s*:?\s*(.+)$/;
+const KEY_ENTRY = /^- \d{4}-\d{2}-\d{2} !: (\S.*)$/;
+
+function contentLines(content: string): string[] {
+  return content.split(/\r?\n/).map((line) => line.trimEnd());
+}
+
+function clip(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max)}...` : text;
+}
 
 function fileTitle(lines: string[]): string {
-  const first = lines.find((line) => line.startsWith("#")) ?? lines.find((line) => line.trim()) ?? "";
-  return first.replace(/^#+\s*/, "").trim();
+  const heading = lines.find((line) => line.startsWith("#")) ?? "";
+  return clip(heading.replace(/^#+\s*/, "").trim(), MEMORY_TITLE_MAX);
 }
 
 export function keyEntries(content: string): string[] {
-  return content.split("\n").flatMap((line) => {
+  return contentLines(content).flatMap((line) => {
     const match = KEY_ENTRY.exec(line);
     return match ? [match[1].trim()] : [];
   });
 }
 
 function fileSummary(content: string): string {
-  const lines = content.split("\n");
-  const summary = [fileTitle(lines), ...keyEntries(content)].filter(Boolean).join(" · ");
-  return summary.length > MEMORY_SUMMARY_MAX ? `${summary.slice(0, MEMORY_SUMMARY_MAX)}...` : summary;
+  const keys = keyEntries(content);
+  let summary = fileTitle(contentLines(content));
+  for (const [index, key] of keys.entries()) {
+    const next = summary ? `${summary} · ${key}` : key;
+    if (next.length > MEMORY_SUMMARY_MAX) {
+      return `${summary} · +${keys.length - index} more key entries: view the file`;
+    }
+    summary = next;
+  }
+  return summary;
 }
 
 export function memoryCities(files: { path: string }[]): string[] {

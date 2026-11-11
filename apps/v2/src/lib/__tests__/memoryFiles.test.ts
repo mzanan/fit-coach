@@ -82,6 +82,18 @@ describe("memory index", () => {
     ]);
   });
 
+  it("matches only well-formed key entries, also with CRLF", () => {
+    const content = "# Diet\r\n- 2026-10-12 !: Lunch by Grab only.\r\n- ! not a key\r\n- 2026-10-12 ! no colon\r\n- 2026-10-12 !:\r\n- 2026-10-12: plain";
+    expect(keyEntries(content)).toEqual(["Lunch by Grab only."]);
+  });
+
+  it("never drops key entries silently when the line is full", () => {
+    const keys = Array.from({ length: 12 }, (_, n) => `- 2026-10-12 !: Constraint number ${n} that must always apply.`);
+    const [line] = memoryIndexLines([{ path: "/memories/diet.md", content: [`# ${"T".repeat(380)}`, ...keys].join("\n") }]);
+    expect(line.length).toBeLessThan(600);
+    expect(line).toMatch(/\+\d+ more key entries: view the file$/);
+  });
+
   it("says so when there is no file", () => {
     expect(memoryIndexText([])).toContain("(no memory files yet)");
   });

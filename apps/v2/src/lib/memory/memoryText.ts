@@ -86,7 +86,7 @@ export function folderListing(folder: string, files: ListedFile[]): string {
 export function entryText(text: string): string | undefined {
   const entries = text
     .split("\n")
-    .map((line) => line.replace(/^\s*-\s*(\d{4}-\d{2}-\d{2}\s*)?!?\s*:?\s*/, "").trim())
+    .map((line) => line.replace(/^\s*-\s*(\d{4}-\d{2}-\d{2}(\s*!)?:\s*)?/, "").trim())
     .filter((line) => line && !line.startsWith("#"));
   return entries.length ? entries.join(" · ") : undefined;
 }
