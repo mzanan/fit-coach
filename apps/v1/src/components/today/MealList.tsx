@@ -2,9 +2,9 @@ import { MealRow } from "@/components/today/MealRow";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Surface } from "@/components/ui/Surface";
 import { MEAL_CATEGORIES } from "@/lib/constants";
-import type { Meal } from "@/lib/db/schema";
+import type { MealDto } from "@/lib/mealDto";
 
-export function MealList({ meals }: { meals: Meal[] }) {
+export function MealList({ meals }: { meals: MealDto[] }) {
   if (meals.length === 0) {
     return (
       <EmptyState

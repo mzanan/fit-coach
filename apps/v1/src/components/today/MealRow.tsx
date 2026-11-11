@@ -10,10 +10,10 @@ import { MacroChips } from "@/components/ui/MacroChips";
 import { Pill } from "@/components/ui/Pill";
 import { MealForm } from "@/components/today/MealForm";
 import { deleteMeal, updateMeal } from "@/lib/actions/meals";
-import type { Meal } from "@/lib/db/schema";
+import type { MealDto } from "@/lib/mealDto";
 import { useAction } from "@/hooks/useAction";
 
-export function MealRow({ meal }: { meal: Meal }) {
+export function MealRow({ meal }: { meal: MealDto }) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const { pending, run } = useAction();

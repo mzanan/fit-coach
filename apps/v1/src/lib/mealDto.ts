@@ -1,5 +1,7 @@
 import type { Meal } from "@/lib/db/schema";
 
+export type MealDto = ReturnType<typeof toMealDto>;
+
 export function toMealDto(meal: Meal) {
   return {
     id: meal.id,

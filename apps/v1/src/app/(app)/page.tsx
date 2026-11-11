@@ -11,6 +11,7 @@ import { getCatalog } from "@/lib/data/catalog";
 import { getWeekDays } from "@/lib/data/days";
 import { getDayData } from "@/lib/data/today";
 import { getRecentMeals } from "@/lib/data/recentMeals";
+import { toMealDto } from "@/lib/mealDto";
 import { dayDeviations, weeklyStepsAverage } from "@/lib/dayClose";
 import { dayConfig, daysSinceMonday, shiftDay, todayLogicalDay } from "@/lib/dates";
 import { ensureProfile } from "@/lib/profile";
@@ -71,7 +72,7 @@ export default async function TodayPage({
             />
           }
         />
-        <MealList meals={dayData.meals} />
+        <MealList meals={dayData.meals.map(toMealDto)} />
       </div>
       <CloseDay
         day={day}
