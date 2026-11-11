@@ -1,0 +1,38 @@
+import { cn } from "@/lib/utils";
+import { clamp } from "@/lib/utils";
+
+const SIZE = {
+  xs: "h-[3px]",
+  sm: "h-1",
+  md: "h-2",
+} as const;
+
+export function ProgressBar({
+  value,
+  size = "md",
+  barClassName,
+  className,
+}: {
+  value: number;
+  size?: keyof typeof SIZE;
+  barClassName?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "w-full overflow-hidden rounded-full bg-well shadow-inset",
+        SIZE[size],
+        className,
+      )}
+    >
+      <div
+        className={cn(
+          "h-full rounded-full transition-[width] duration-(--dur-data) ease-(--ease-out-soft)",
+          barClassName,
+        )}
+        style={{ width: `${clamp(value, 0, 100)}%` }}
+      />
+    </div>
+  );
+}

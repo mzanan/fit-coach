@@ -1,0 +1,428 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+
+import {
+  clearCoachChat,
+  updateReasoningEffortAction,
+} from "@/lib/actions/coach";
+import type { DaySummary } from "@/lib/ai/coach";
+import type { ReasoningEffort } from "@/lib/ai/options";
+import {
+  isStaleStream,
+  lastUserBubbleId,
+  localBubble,
+  reattachTarget,
+  toBubbles,
+  type ChatBubble,
+  type ReattachTarget,
+} from "@/lib/coachBubbles";
+import { INTERRUPTED_ANSWER } from "@/lib/constants";
+import type {
+  CoachMessage,
+  CoachMessageStatus,
+} from "@/lib/data/coachMessages";
+import type { PendingPreview } from "@/lib/data/coachPendingWrite";
+import { readNdjson } from "@/lib/ndjson";
+
+export type { ChatBubble } from "@/lib/coachBubbles";
+
+export interface PendingApproval {
+  approvalId: string;
+  previews: PendingPreview[];
+  question: string | null;
+}
+
+type CoachStreamEvent =
+  | { type: "status"; tool: string }
+  | { type: "reasoning"; text: string }
+  | { type: "delta"; text: string }
+  | { type: "question"; text: string }
+  | { type: "started"; assistantId: string; ids: string[] }
+  | { type: "rate_limited"; retryAfterMs?: number }
+  | {
+      type: "done";
+      text: string;
+      generated: boolean;
+      daySummary?: DaySummary;
+      stopped?: boolean;
+      learned?: string[];
+    }
+  | {
+      type: "approval";
+      approvalId: string;
+      previews: PendingPreview[];
+      logged?: string;
+      daySummary?: DaySummary;
+    }
+  | { type: "error" };
+
+const REATTACH_POLL_MS = 2000;
+const STATUS: Record<string, string> = {
+  thinking: "Thinking",
+  get_today: "Reading today's meals and targets",
+  search_catalog: "Searching your catalog",
+  get_workouts: "Reading your recent workouts",
+  get_body_scans: "Reading your body scans",
+  get_progress_overview: "Reading your full progress history",
+  log_meal: "Preparing to log a meal",
+};
+
+export function useCoachChat(
+  initial: CoachMessage[],
+  initialEffort: ReasoningEffort | null,
+  initialPending: PendingApproval | null,
+) {
+  const [effort, setEffortState] = useState(initialEffort);
+  const [bubbles, setBubbles] = useState<ChatBubble[]>(() => [
+    ...toBubbles(initial),
+    ...(initialPending?.question
+      ? [localBubble("user", initialPending.question)]
+      : []),
+  ]);
+  const [pending, setPending] = useState<PendingApproval | null>(
+    initialPending,
+  );
+  const [question, setQuestion] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [streaming, setStreaming] = useState("");
+  const [reasoning, setReasoning] = useState("");
+  const [anchor, setAnchor] = useState<HTMLDivElement | null>(null);
+  const [controller, setController] = useState<AbortController | null>(null);
+  const [streamingExchange, setStreamingExchange] = useState<{
+    ids: string[];
+  } | null>(null);
+  const [reattach, setReattach] = useState<ReattachTarget[]>(() => {
+    const target = reattachTarget(initial);
+    return target ? [target] : [];
+  });
+  const router = useRouter();
+  const activeUrlRef = useRef<string | null>(null);
+  const pendingStopRef = useRef(false);
+
+  useEffect(() => {
+    anchor?.scrollIntoView({ block: "end", behavior: "smooth" });
+  }, [anchor, bubbles, loading, streaming, pending]);
+
+  useEffect(() => {
+    if (!reattach.length) return;
+
+    let cancelled = false;
+    const settle = (id: string, patch: Partial<ChatBubble>) => {
+      setReattach((current) => current.filter((target) => target.id !== id));
+      setBubbles((current) =>
+        current.map((bubble) =>
+          bubble.id === id ? { ...bubble, ...patch } : bubble,
+        ),
+      );
+    };
+    const pollOne = async (target: ReattachTarget) => {
+      if (isStaleStream(target.createdAt)) {
+        settle(target.id, { status: "stopped" });
+        return;
+      }
+      try {
+        const res = await fetch(`/api/coach/message/${target.id}`);
+        if (cancelled) return;
+        if (res.status === 404) {
+          settle(target.id, { status: "stopped" });
+          return;
+        }
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          content: string;
+          status: CoachMessageStatus;
+          generated: boolean;
+          daySummary: DaySummary | null;
+          learned: string[] | null;
+        };
+        if (cancelled) return;
+        const patch: Partial<ChatBubble> = {
+          content: data.content,
+          status: data.status,
+          generated: data.generated,
+          daySummary: data.daySummary ?? undefined,
+          learned: data.learned ?? undefined,
+        };
+        if (data.status === "streaming") {
+          setBubbles((current) =>
+            current.map((bubble) =>
+              bubble.id === target.id ? { ...bubble, ...patch } : bubble,
+            ),
+          );
+        } else {
+          settle(target.id, patch);
+        }
+      } catch {
+        return;
+      }
+    };
+    const poll = () => {
+      for (const target of reattach) void pollOne(target);
+    };
+
+    const interval = setInterval(poll, REATTACH_POLL_MS);
+    poll();
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [reattach]);
+
+  const consume = useCallback(async (url: string, body: unknown) => {
+    setLoading(true);
+    setStatus(STATUS.thinking);
+    setStreaming("");
+    activeUrlRef.current = url;
+    pendingStopRef.current = false;
+
+    const abort = new AbortController();
+    setController(abort);
+    let answer = "";
+    let assistantId: string | null = null;
+    let startedAt = new Date();
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        signal: abort.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.status === 413) {
+        const sent = (body as { question?: string }).question;
+        if (sent) {
+          setBubbles((current) => current.slice(0, -1));
+          setQuestion((current) => current || sent);
+        }
+        toast.error("That message is too long. Shorten it and ask again.");
+        return;
+      }
+      if (!res.ok || !res.body) throw new Error("Coach unavailable");
+
+      let thoughts = "";
+      let generated = true;
+      let stopped = false;
+      let learned: string[] | undefined;
+      let daySummary: DaySummary | undefined;
+      let approval: PendingApproval | null = null;
+
+      for await (const event of readNdjson<CoachStreamEvent>(res.body)) {
+        if (event.type === "status") {
+          answer = "";
+          setStreaming("");
+          setStatus(STATUS[event.tool] ?? STATUS.thinking);
+        } else if (event.type === "started") {
+          assistantId = event.assistantId;
+          startedAt = new Date();
+          setStreamingExchange({ ids: event.ids });
+          if (pendingStopRef.current) {
+            pendingStopRef.current = false;
+            void fetch("/api/coach/stop", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ids: event.ids }),
+            }).catch(() => {});
+          }
+        } else if (event.type === "rate_limited") {
+          const seconds = event.retryAfterMs
+            ? Math.ceil(event.retryAfterMs / 1000)
+            : null;
+          setStatus(
+            seconds
+              ? `Waiting for model quota (~${seconds}s)`
+              : "Waiting for model quota",
+          );
+        } else if (event.type === "question") {
+          setBubbles((current) => [
+            ...current,
+            localBubble("user", event.text),
+          ]);
+        } else if (event.type === "reasoning") {
+          thoughts += event.text;
+          setReasoning(thoughts);
+        } else if (event.type === "delta") {
+          answer += event.text;
+          setStatus(null);
+          setStreaming(answer);
+        } else if (event.type === "done") {
+          answer = event.text;
+          generated = event.generated;
+          daySummary = event.daySummary;
+          stopped = event.stopped ?? false;
+          learned = event.learned;
+        } else if (event.type === "approval") {
+          approval = {
+            approvalId: event.approvalId,
+            previews: event.previews,
+            question: null,
+          };
+          if (event.logged) {
+            const chained = localBubble("assistant", event.logged);
+            setBubbles((current) => [
+              ...current,
+              { ...chained, generated: false, daySummary: event.daySummary },
+            ]);
+          }
+        } else {
+          throw new Error("Coach failed");
+        }
+      }
+
+      if (approval) {
+        setPending(approval);
+      } else {
+        const answered = localBubble("assistant", answer);
+        setBubbles((current) => [
+          ...current,
+          {
+            ...answered,
+            id: assistantId ?? answered.id,
+            generated,
+            status: stopped ? "stopped" : "done",
+            reasoning: thoughts.trim() || undefined,
+            daySummary,
+            learned,
+          },
+        ]);
+      }
+    } catch (error) {
+      if ((error as Error).name === "AbortError") {
+        setBubbles((current) => [
+          ...current,
+          {
+            ...localBubble("assistant", INTERRUPTED_ANSWER),
+            generated: false,
+            status: "stopped",
+          },
+        ]);
+      } else if (assistantId) {
+        const id = assistantId;
+        setBubbles((current) => [
+          ...current,
+          {
+            ...localBubble("assistant", answer),
+            id,
+            status: "streaming",
+          },
+        ]);
+        setReattach((current) => [...current, { id, createdAt: startedAt }]);
+      } else {
+        toast.error("Could not reach the coach");
+      }
+    } finally {
+      activeUrlRef.current = null;
+      pendingStopRef.current = false;
+      setController(null);
+      setStreamingExchange(null);
+      setStreaming("");
+      setReasoning("");
+      setStatus(null);
+      setLoading(false);
+      router.refresh();
+    }
+  }, [router]);
+
+  const ask = useCallback(
+    async (text?: string) => {
+      const asked = (text ?? question).trim();
+      if (loading) return;
+      if (!asked && bubbles.length) return;
+      setQuestion("");
+      setPending(null);
+      if (asked)
+        setBubbles((current) => [...current, localBubble("user", asked)]);
+      await consume("/api/coach", { question: asked || undefined });
+    },
+    [question, loading, bubbles.length, consume],
+  );
+
+  const askSummary = useCallback(async () => {
+    if (loading) return;
+    setPending(null);
+    await consume("/api/coach", { summary: true });
+  }, [loading, consume]);
+
+  const decide = useCallback(
+    async (approved: boolean, itemId?: string) => {
+      if (!pending || loading) return;
+      const { approvalId } = pending;
+      setPending(null);
+      await consume("/api/coach/approve", { approvalId, approved, itemId });
+    },
+    [pending, loading, consume],
+  );
+
+  function stop() {
+    if (streamingExchange) {
+      void fetch("/api/coach/stop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: streamingExchange.ids }),
+      }).catch(() => {});
+      return;
+    }
+    if (activeUrlRef.current === "/api/coach") {
+      pendingStopRef.current = true;
+      return;
+    }
+    controller?.abort();
+  }
+
+  function setEffort(next: ReasoningEffort) {
+    const previous = effort;
+    setEffortState(next);
+    void updateReasoningEffortAction(next)
+      .then((result) => {
+        if (result.error) {
+          toast.error(result.error);
+          setEffortState(previous);
+        }
+      })
+      .catch(() => {
+        toast.error("Could not change the effort");
+        setEffortState(previous);
+      });
+  }
+
+  function clear() {
+    setReattach([]);
+    setBubbles([]);
+    setPending(null);
+    setConfirmOpen(false);
+    void clearCoachChat().catch(() => toast.error("Could not clear the chat"));
+  }
+
+  const editLastUserMessage = useCallback(() => {
+    const id = lastUserBubbleId(bubbles);
+    const target = bubbles.find((bubble) => bubble.id === id);
+    if (target) setQuestion(target.content);
+  }, [bubbles]);
+
+  return {
+    bubbles,
+    question,
+    setQuestion,
+    loading,
+    status,
+    streaming,
+    reasoning,
+    pending,
+    ask,
+    askSummary,
+    decide,
+    stop,
+    setAnchor,
+    confirmOpen,
+    setConfirmOpen,
+    effort,
+    setEffort,
+    clear,
+    lastUserId: lastUserBubbleId(bubbles),
+    editLastUserMessage,
+  };
+}

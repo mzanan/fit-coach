@@ -1,0 +1,325 @@
+"use client";
+
+import {
+  Check,
+  ChevronRight,
+  Copy,
+  RotateCcw,
+  Pencil,
+  Sparkles,
+  Square,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/Button";
+import { Collapse } from "@/components/ui/Collapse";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Markdown } from "@/components/ui/Markdown";
+import { Pill } from "@/components/ui/Pill";
+import { Spinner } from "@/components/ui/Spinner";
+import { Surface } from "@/components/ui/Surface";
+import { cn } from "@/lib/utils";
+import { DiningModeAsk } from "@/components/coach/DiningModeAsk";
+import { EffortMenu } from "@/components/coach/EffortMenu";
+import { ApprovalCard } from "@/components/coach/ApprovalCard";
+import { LearnedChip } from "@/components/coach/LearnedChip";
+import { MacroTable } from "@/components/coach/MacroTable";
+import {
+  useCoachChat,
+  type ChatBubble,
+  type PendingApproval,
+} from "@/components/coach/useCoachChat";
+import type { ReasoningEffort } from "@/lib/ai/options";
+import type { CoachMessage } from "@/lib/data/coachMessages";
+
+const QUICK = [
+  "How am I doing today?",
+  "What should I eat next?",
+  "Is my fat too high?",
+];
+
+function Thoughts({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className="flex items-center gap-1 text-meta text-muted-foreground transition-colors duration-(--dur-fast) hover:text-foreground"
+      >
+        <ChevronRight
+          className={cn(
+            "size-3.5 transition-transform duration-(--dur-fast) ease-(--ease-out-soft)",
+            open && "rotate-90",
+          )}
+          strokeWidth={1.5}
+        />
+        Thought process
+      </button>
+      <Collapse open={open}>
+        <p className="mt-2 border-l border-input pl-3 text-meta whitespace-pre-wrap text-muted-foreground">
+          {text}
+        </p>
+      </Collapse>
+    </div>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timeout = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timeout);
+  }, [copied]);
+
+  return (
+    <button
+      type="button"
+      aria-label="Copy message"
+      onClick={() => {
+        if (!navigator.clipboard) {
+          toast.error("Clipboard not available");
+          return;
+        }
+        navigator.clipboard
+          .writeText(text)
+          .then(() => setCopied(true))
+          .catch(() => toast.error("Could not copy"));
+      }}
+      className="-mt-2 flex size-11 items-center justify-center text-muted-foreground sm:mt-0 sm:size-auto opacity-100 transition-colors duration-(--dur-fast) hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
+    >
+      {copied ? (
+        <Check className="size-3.5" strokeWidth={1.5} />
+      ) : (
+        <Copy className="size-3.5" strokeWidth={1.5} />
+      )}
+    </button>
+  );
+}
+
+function Turn({
+  bubble,
+  isLastUser,
+  onEdit,
+}: {
+  bubble: ChatBubble;
+  isLastUser: boolean;
+  onEdit: () => void;
+}) {
+  if (bubble.role === "user") {
+    return (
+      <div className="group flex flex-col items-end sm:gap-1">
+        <div className="max-w-[80%] rounded-2xl rounded-br-md bg-primary px-4 py-3 text-primary-foreground">
+          <p className="whitespace-pre-wrap text-body leading-relaxed">
+            {bubble.content}
+          </p>
+        </div>
+        {isLastUser ? (
+          <button
+            type="button"
+            aria-label="Edit message"
+            onClick={onEdit}
+            className="flex size-11 items-center justify-center text-muted-foreground sm:size-auto opacity-100 transition-colors duration-(--dur-fast) hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
+          >
+            <Pencil className="size-3.5" strokeWidth={1.5} />
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  const stopped = bubble.status === "stopped";
+  const isStreaming = bubble.status === "streaming";
+
+  return (
+    <div className="group space-y-2">
+      {!bubble.generated && !stopped && !isStreaming ? (
+        <Pill tone="muted">Rule-based</Pill>
+      ) : null}
+      {bubble.reasoning ? <Thoughts text={bubble.reasoning} /> : null}
+      <Markdown
+        text={bubble.content}
+        className={cn(stopped && "italic text-muted-foreground")}
+      />
+      {bubble.daySummary ? <MacroTable summary={bubble.daySummary} /> : null}
+      {bubble.learned?.length ? <LearnedChip facts={bubble.learned} /> : null}
+      {!isStreaming ? <CopyButton text={bubble.content} /> : null}
+    </div>
+  );
+}
+
+export function CoachPanel({
+  initial,
+  effort,
+  diningMode,
+  pending,
+  weekDays,
+}: {
+  initial: CoachMessage[];
+  effort: ReasoningEffort | null;
+  diningMode: string | null;
+  pending: PendingApproval | null;
+  weekDays: number | null;
+}) {
+  const { setAnchor, ...chat } = useCoachChat(initial, effort, pending);
+  const weeklySummaryLabel =
+    weekDays != null
+      ? `Weekly summary (last ${weekDays} day${weekDays === 1 ? "" : "s"})`
+      : null;
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {diningMode ? null : <DiningModeAsk />}
+      <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto fade-r [scrollbar-width:none] sm:flex-wrap">
+        {weeklySummaryLabel ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={chat.loading}
+            onClick={() => void chat.askSummary()}
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+          >
+            {weeklySummaryLabel}
+          </Button>
+        ) : null}
+        {QUICK.map((q) => (
+          <Button
+            key={q}
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={chat.loading}
+            onClick={() => void chat.ask(q)}
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+          >
+            {q}
+          </Button>
+        ))}
+        </div>
+        {chat.bubbles.length ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Clear conversation"
+            disabled={chat.loading}
+            onClick={() => chat.setConfirmOpen(true)}
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+          >
+            <RotateCcw className="size-4" strokeWidth={1.5} />
+          </Button>
+        ) : null}
+      </div>
+
+      {chat.bubbles.length || chat.loading || chat.streaming || chat.pending ? (
+        <div className="scroll-slim min-h-0 flex-1 space-y-8 overflow-y-auto pt-block pr-1">
+          {chat.bubbles.map((bubble) => (
+            <Turn
+              key={bubble.id}
+              bubble={bubble}
+              isLastUser={!chat.loading && bubble.id === chat.lastUserId}
+              onEdit={chat.editLastUserMessage}
+            />
+          ))}
+          {chat.reasoning ? <Thoughts text={chat.reasoning} /> : null}
+          {chat.streaming ? <Markdown text={chat.streaming} /> : null}
+          {chat.status ? (
+            <p className="flex items-center gap-2 text-meta text-muted-foreground">
+              <Spinner className="size-4" />
+              {chat.status}...
+            </p>
+          ) : null}
+          {chat.pending ? (
+            <ApprovalCard
+              key={chat.pending.approvalId}
+              previews={chat.pending.previews}
+              busy={chat.loading}
+              onDecide={(approved, itemId) =>
+                void chat.decide(approved, itemId)
+              }
+            />
+          ) : null}
+          <div ref={setAnchor} />
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 items-center justify-center py-block">
+          <p className="max-w-[38ch] text-center text-body text-muted-foreground">
+            Ask anything about today, your week, or what to eat next. The coach
+            reads your logged data and remembers this conversation.
+          </p>
+        </div>
+      )}
+
+      <div className="shrink-0 bg-background pt-3">
+        <Surface
+          level="raised"
+          pad="inset"
+          className="focus-within:border-ring"
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void chat.ask();
+            }}
+            className="flex items-end gap-2"
+          >
+            <textarea
+              value={chat.question}
+              onChange={(e) => chat.setQuestion(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void chat.ask();
+                }
+              }}
+              rows={1}
+              placeholder="Write a message..."
+              aria-label="Write a message"
+              className="scroll-slim max-h-40 min-w-0 flex-1 resize-none self-center bg-transparent px-2.5 py-1.5 text-body outline-none field-sizing-content placeholder:text-faint"
+            />
+            {chat.effort ? (
+              <EffortMenu
+                effort={chat.effort}
+                disabled={chat.loading}
+                onChange={chat.setEffort}
+              />
+            ) : null}
+            {chat.loading ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={chat.stop}
+                className="shrink-0"
+              >
+                <Square className="size-4" strokeWidth={1.5} />
+                Stop
+              </Button>
+            ) : (
+              <Button type="submit" size="sm" className="shrink-0">
+                <Sparkles className="size-4" strokeWidth={1.5} />
+                Ask
+              </Button>
+            )}
+          </form>
+        </Surface>
+      </div>
+
+      <ConfirmDialog
+        open={chat.confirmOpen}
+        onOpenChange={chat.setConfirmOpen}
+        title="Clear this conversation?"
+        body="The messages are deleted. What the coach learned about you stays."
+        confirmLabel="Clear"
+        tone="destructive"
+        onConfirm={chat.clear}
+      />
+    </div>
+  );
+}

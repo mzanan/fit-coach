@@ -1,0 +1,186 @@
+import "server-only";
+
+import { and, eq, inArray } from "drizzle-orm";
+
+import { categoryLabel, fatigueTimeLabel, measurementUnit } from "@/lib/constants";
+import { dayConfig, daysSinceMonday, shiftDay, todayLogicalDay, type DayConfig } from "@/lib/dates";
+import { getLatestMeasurement } from "@/lib/data/bodyMeasurements";
+import { recentScans } from "@/lib/data/bodyScans";
+import { getWeekDays } from "@/lib/data/days";
+import { getDayFatigue } from "@/lib/data/fatigueLogs";
+import { weeklyStepsAverage } from "@/lib/dayClose";
+import { getDayData } from "@/lib/data/today";
+import { getUpcomingReminders } from "@/lib/reminders";
+import { db, schema } from "@/lib/db";
+import type { Profile } from "@/lib/db/schema";
+import { caloriesTarget, kcalOf } from "@/lib/macros";
+import { targetsOf } from "@/lib/targets";
+import { round } from "@/lib/utils";
+
+const { meals } = schema;
+
+export interface CoachContext {
+  profile: Profile;
+  today: string;
+  lines: string[];
+}
+
+export async function buildContext(
+  userId: string,
+  profile: Profile,
+  includeReminders = true,
+): Promise<CoachContext> {
+  const cfg = dayConfig(profile);
+  const today = todayLogicalDay(cfg);
+  const dayData = await getDayData(userId, profile, today);
+
+  const days = Array.from({ length: 7 }, (_, i) => shiftDay(today, -i));
+  const recent = await db
+    .select({
+      logical_day: meals.logical_day,
+      protein_g: meals.protein_g,
+    })
+    .from(meals)
+    .where(and(eq(meals.user_id, userId), inArray(meals.logical_day, days)));
+
+  const targets = targetsOf(profile);
+
+  const byDay = new Map<string, number>();
+  for (const r of recent) {
+    byDay.set(r.logical_day, (byDay.get(r.logical_day) ?? 0) + r.protein_g);
+  }
+  const loggedDays = byDay.size;
+  const proteinHit = targets
+    ? [...byDay.values()].filter((p) => p >= targets.protein_target * 0.9).length
+    : null;
+
+  const targetsLine = targets
+    ? (() => {
+        const carbsTarget = dayData.isGymDay ? targets.carbs_gym : targets.carbs_rest;
+        return `Targets: protein ${targets.protein_target}g, fat ${targets.fat_min}-${targets.fat_max}g (floor ${targets.fat_floor}g), carbs ${carbsTarget}g (${dayData.isGymDay ? "gym" : "rest"} day), calories ${caloriesTarget(targets, dayData.isGymDay)}.`;
+      })()
+    : "Targets: NOT SET. The user has not defined daily targets yet. Do not assume any numbers; help them set targets with set_targets (protein, fat floor/min/max, carbs gym/rest, calories gym/rest) before giving any adherence verdict.";
+
+  const t = dayData.totals;
+  const totalsLine = `Today (${today}, ${dayData.isGymDay ? "gym" : "rest"} day) totals: protein ${round(t.protein_g)}g, fat ${round(t.fat_g)}g, carbs ${round(t.carbs_g)}g, calories ${round(kcalOf(t))}.`;
+
+  const mealLines = dayData.meals.length
+    ? dayData.meals.map(
+        (m) =>
+          `- ${categoryLabel(m.category)}: ${m.name}, protein ${round(m.protein_g)}g, fat ${round(m.fat_g)}g, carbs ${round(m.carbs_g)}g, ${round(kcalOf(m))} kcal${m.fat_quality ? `, ${m.fat_quality}` : ""}`,
+      )
+    : ["- No meals logged yet today."];
+
+  const weekLine =
+    proteinHit != null
+      ? `Last 7 days: ${loggedDays} days logged, protein target hit on ${proteinHit}.`
+      : `Last 7 days: ${loggedDays} days logged.`;
+
+  const dayStatusLines = dayData.dayRow
+    ? [await buildDayStatusLine(userId, today, dayData.dayRow)]
+    : [];
+
+  const fatigueLines = await buildFatigueLines(userId, today);
+  const scanLines = await buildScanLines(userId);
+  const measurementLines = await buildMeasurementLines(userId);
+  const reminderLines = includeReminders
+    ? await buildReminderLines(userId, cfg, today)
+    : [];
+
+  return {
+    profile,
+    today,
+    lines: [
+      targetsLine,
+      totalsLine,
+      "Meals logged today:",
+      ...mealLines,
+      weekLine,
+      ...dayStatusLines,
+      ...fatigueLines,
+      ...scanLines,
+      ...measurementLines,
+      ...reminderLines,
+    ],
+  };
+}
+
+export async function buildReminderLines(
+  userId: string,
+  cfg: DayConfig,
+  today: string,
+): Promise<string[]> {
+  const reminders = await getUpcomingReminders(userId, cfg, today);
+  if (!reminders.length) return [];
+  return reminders.map((reminder) => {
+    const statusText =
+      reminder.status === "overdue"
+        ? "overdue"
+        : `due ${reminder.due_day}`;
+    const lastText = reminder.last_day ? `, last ${reminder.last_day}` : "";
+    return `Reminder (${statusText}): ${reminder.label}${lastText}.`;
+  });
+}
+
+export async function buildDayStatusLine(
+  userId: string,
+  today: string,
+  dayRow: { closed_at: Date | null; steps: number | null },
+): Promise<string> {
+  const monday = shiftDay(today, -daysSinceMonday(today));
+  const weekDays = await getWeekDays(userId, monday, today);
+  const avg = weeklyStepsAverage(weekDays);
+  const status = dayRow.closed_at ? "closed" : "open";
+  const steps = dayRow.steps ?? "not logged";
+  return `Day status: ${status}, steps ${steps}, weekly steps avg ${avg ?? "n/a"}.`;
+}
+
+export async function buildMeasurementLines(userId: string): Promise<string[]> {
+  const [waist, weight] = await Promise.all([
+    getLatestMeasurement(userId, "waist"),
+    getLatestMeasurement(userId, "weight"),
+  ]);
+  const parts = [
+    waist?.value != null
+      ? `waist ${waist.value}${measurementUnit("waist")} (${waist.logical_day})`
+      : null,
+    weight?.value != null
+      ? `weight ${weight.value}${measurementUnit("weight")} (${weight.logical_day})`
+      : null,
+  ].filter((part): part is string => Boolean(part));
+  if (!parts.length) return [];
+  return [`Latest logged measurements: ${parts.join(", ")}.`];
+}
+
+export async function buildFatigueLines(
+  userId: string,
+  today: string,
+): Promise<string[]> {
+  const rows = await getDayFatigue(userId, today);
+  if (!rows.length) return [];
+  const parts = rows.map((row) =>
+    row.score != null
+      ? `${fatigueTimeLabel(row.time_of_day)} ${row.score}/5`
+      : `${fatigueTimeLabel(row.time_of_day)} sleep logged, energy score pending`,
+  );
+  return [`Fatigue logged today: ${parts.join(", ")}.`];
+}
+
+export async function buildScanLines(userId: string): Promise<string[]> {
+  const [scan] = await recentScans(userId, 1);
+  if (!scan) return [];
+  const parts = [
+    scan.weight_kg != null ? `weight ${scan.weight_kg}kg` : null,
+    scan.skeletal_muscle_kg != null
+      ? `skeletal muscle ${scan.skeletal_muscle_kg}kg`
+      : null,
+    scan.body_fat_pct != null ? `body fat ${scan.body_fat_pct}%` : null,
+    scan.visceral_fat_level != null
+      ? `visceral fat ${scan.visceral_fat_level}`
+      : null,
+  ].filter(Boolean);
+  if (!parts.length) return [];
+  const day = scan.taken_at.toISOString().slice(0, 10);
+  return [`Latest InBody scan (${day}): ${parts.join(", ")}.`];
+}
+
