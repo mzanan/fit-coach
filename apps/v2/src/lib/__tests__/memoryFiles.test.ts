@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { MEMORY_FILE_MAX_CHARS } from "@/lib/constants";
-import { filesForLocation, memoryCities, memoryIndexLines, memoryIndexText } from "@/lib/memory/memoryIndex";
+import { filesForLocation, keyEntries, memoryCities, memoryIndexLines, memoryIndexText } from "@/lib/memory/memoryIndex";
 import { cityFolder, normalizeMemoryPath } from "@/lib/memory/memoryPath";
 import { addedLines, entryText, folderListing, insertAtLine, replaceOnce, sizeError, viewFileText } from "@/lib/memory/memoryText";
 
@@ -71,6 +71,29 @@ describe("memory index", () => {
     ]);
   });
 
+  it("adds key entries to the index line and nothing else", () => {
+    const restaurants = {
+      path: "/memories/da_nang/restaurants.md",
+      content: "# Restaurants\n- 2026-10-12 !: Lunch by Grab only.\n- 2026-10-12: ND rice is black sticky.\n- 2026-10-19 !: Little Hanoi dine-in only.",
+    };
+    expect(keyEntries(restaurants.content)).toEqual(["Lunch by Grab only.", "Little Hanoi dine-in only."]);
+    expect(memoryIndexLines([restaurants])).toEqual([
+      "- /memories/da_nang/restaurants.md: Restaurants · Lunch by Grab only. · Little Hanoi dine-in only.",
+    ]);
+  });
+
+  it("matches only well-formed key entries, also with CRLF", () => {
+    const content = "# Diet\r\n- 2026-10-12 !: Lunch by Grab only.\r\n- ! not a key\r\n- 2026-10-12 ! no colon\r\n- 2026-10-12 !:\r\n- 2026-10-12: plain";
+    expect(keyEntries(content)).toEqual(["Lunch by Grab only."]);
+  });
+
+  it("never drops key entries silently when the line is full", () => {
+    const keys = Array.from({ length: 12 }, (_, n) => `- 2026-10-12 !: Constraint number ${n} that must always apply.`);
+    const [line] = memoryIndexLines([{ path: "/memories/diet.md", content: [`# ${"T".repeat(380)}`, ...keys].join("\n") }]);
+    expect(line.length).toBeLessThan(600);
+    expect(line).toMatch(/\+\d+ more key entries: view the file$/);
+  });
+
   it("says so when there is no file", () => {
     expect(memoryIndexText([])).toContain("(no memory files yet)");
   });
@@ -122,5 +145,6 @@ describe("file edits", () => {
   it("strips dates and titles from what the coach learned", () => {
     expect(entryText("# Diet\n- 2026-11-11: Black coffee, no sugar.")).toBe("Black coffee, no sugar.");
     expect(entryText("# Diet")).toBeUndefined();
+    expect(entryText("- 2026-11-11 !: Lunch by Grab only.")).toBe("Lunch by Grab only.");
   });
 });

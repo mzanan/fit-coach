@@ -33,6 +33,7 @@ export interface ExchangeDetail extends UsageTotals {
   promptHash: string;
   promptChars: number;
   prompt?: string;
+  tools?: string[];
 }
 
 export interface AiEvent {
@@ -74,6 +75,7 @@ export async function logExchange(
   messageId: string,
   prompt: string,
   usage: UsageTotals,
+  tools: string[] = [],
 ): Promise<void> {
   const detail: ExchangeDetail = {
     messageId,
@@ -82,6 +84,7 @@ export async function logExchange(
     inputTokens: usage.inputTokens,
     outputTokens: usage.outputTokens,
     totalTokens: usage.totalTokens,
+    tools,
     ...(process.env.NODE_ENV === "production" ? {} : { prompt }),
   };
   await logAiEvent(userId, "exchange", {

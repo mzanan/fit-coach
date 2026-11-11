@@ -204,7 +204,7 @@ export async function resolvePendingWrite(
         ? mealPreview.variants.find((variant) => variant.id === itemId)
         : undefined;
 
-    const { text, writeOutputs, approvals, messages, usage } =
+    const { text, writeOutputs, approvals, messages, usage, toolLog } =
       await chatToolsStream(toolPin ? { ...ref, routeOnly: toolPin } : ref, {
         userId,
         instructions: setup.instructions,
@@ -337,7 +337,7 @@ export async function resolvePendingWrite(
       learned,
     });
     after(() =>
-      logExchange(userId, ref, exchange.assistantId, setup.instructions, usage),
+      logExchange(userId, ref, exchange.assistantId, setup.instructions, usage, toolLog),
     );
     return {
       status: "answered",
