@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { addPendingItem, listPendingItems, markPendingItemDone } from "@/lib/data/pendingItems";
 import { logHealthEvent } from "@/lib/data/healthEvents";
-import { deleteFact, saveFact } from "@/lib/data/userFacts";
+import { deleteMemoryPath, insertMemoryFile } from "@/lib/data/memoryFiles";
 import { LedgerKeyError, runLedgered } from "@/lib/ledger/runLedgered";
 import { saveMeasurement } from "@/lib/data/bodyMeasurements";
 import { db, schema } from "@/lib/db";
@@ -43,7 +43,7 @@ async function seed(userId: string) {
   await asUser(userId, async () => {
     await addPendingItem(userId, { kind: "todo", text: `seed ${userId}`, due_on: null });
     await logHealthEvent(userId, { kind: "problem", title: "seed", details: null, started_on: "2026-10-01", resolved_on: null });
-    await saveFact(userId, { domain: "diet", subject: "seed", content: "seed", source: "test" });
+    await insertMemoryFile(userId, "/memories/diet.md", "# Diet\n- 2026-10-01: seed");
     await saveMeasurement(userId, { type: "waist", value: 80, logical_day: "2026-10-01" });
   });
 }
@@ -130,7 +130,7 @@ describe("cross-user leakage", () => {
     await expect(asUser(userA, () => addPendingItem(userB, { kind: "todo", text: "x", due_on: null }))).rejects.toThrow();
     const [foreign] = await asUser(userB, () => listPendingItems(userB, true, 1));
     expect(await asUser(userA, () => markPendingItemDone(userA, foreign.id, "2026-10-12"))).toBeNull();
-    expect(await asUser(userA, () => deleteFact(userA, foreign.id))).toBe(false);
+    expect(await asUser(userA, () => deleteMemoryPath(userB, "/memories/diet.md"))).toBe(0);
     const [still] = await asUser(userB, () => listPendingItems(userB, true, 1));
     expect(still.done_on).toBeNull();
   });

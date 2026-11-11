@@ -4,7 +4,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 import { LedgerKeyError, ledgerValue, runLedgered } from "@/lib/ledger/runLedgered";
-import { isWriteTool } from "@/lib/toolKinds";
+import { isReadOnlyCall, isWriteTool } from "@/lib/toolKinds";
 import { isFailedToolResult, toolError, toolTextContent, type ToolResult } from "@/lib/mcp/toolResult";
 
 type ToolHandler = (input: unknown, extra: unknown) => Promise<ToolResult>;
@@ -29,10 +29,6 @@ function splitKey(input: unknown): { key?: string; rest: unknown } {
   return { key: typeof key === "string" ? key : undefined, rest };
 }
 
-function isListAction(input: unknown): boolean {
-  return Boolean(input && typeof input === "object" && (input as { action?: unknown }).action === "list");
-}
-
 export function withWriteLedger(server: McpServer, userId: string): McpServer {
   const register = server.registerTool.bind(server) as (name: string, config: ToolConfig, handler: ToolHandler) => unknown;
 
@@ -40,7 +36,7 @@ export function withWriteLedger(server: McpServer, userId: string): McpServer {
     if (!isWriteTool(name)) return register(name, config, handler);
     return register(name, { ...config, inputSchema: withKey(config.inputSchema) }, async (input, extra) => {
       const { key, rest } = splitKey(input);
-      if (isListAction(rest)) return handler(rest, extra);
+      if (isReadOnlyCall(rest)) return handler(rest, extra);
       try {
         const outcome = await runLedgered(
           { userId, source: "mcp", tool: name, input: rest, idempotencyKey: key },

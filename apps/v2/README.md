@@ -67,7 +67,7 @@ The answer is server-owned, not tied to the request that started it: a refresh o
 
 ### Claude connector (MCP)
 
-The same database is exposed to Claude as a remote MCP server at `/api/mcp`: Better Auth is the OAuth 2.1 authorization server (`@better-auth/mcp`, client metadata documents, Google login), the user comes from the token, and an email allowlist (`MCP_ALLOWED_EMAILS`) gates access. Claude reads and corrects every record (days, meals, workouts, measurements, scans, plans, routine versions, catalog, rules), keeps facts about the user (`remember_fact`, current truth only, optionally scoped to a context such as a city), health events and pending items, and reads all of it at the start of a conversation with `get_coach_memory`.
+The same database is exposed to Claude as a remote MCP server at `/api/mcp`: Better Auth is the OAuth 2.1 authorization server (`@better-auth/mcp`, client metadata documents, Google login), the user comes from the token, and an email allowlist (`MCP_ALLOWED_EMAILS`) gates access. Claude reads and corrects every record (days, meals, workouts, measurements, scans, plans, routine versions, catalog, rules), keeps memory files about the user (the `memory` tool, one Markdown file per topic under `/memories`, city folders for city-only facts), health events and pending items, and reads the memory index plus the rest at the start of a conversation with `get_coach_memory`.
 
 ### Memory
 
@@ -76,7 +76,7 @@ Two stores, each solving a different problem:
 | Store            | Shape                                                     | Purpose                                                                                      |
 | ---------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `coach_messages` | Full turns; a row mid-generation carries its partial text | Conversation continuity. The last N turns go into every call.                                |
-| `user_facts`     | Current facts per domain and subject, optional scope      | What is true now, saved through `remember_fact` by the coach and by Claude, injected whole.  |
+| `memory_files`   | One row per file: path, full text, version                | What is true now, one file per topic, written through the `memory` tool. Only the index (path and title) is injected; the coach opens files on demand. |
 
 The app moved from Turso (libSQL) to Postgres in October 2026; `scripts/migrateTursoToPostgres.ts` copied every table in one transaction and compared every row column by column before committing. The SQLite migration history lives in git.
 
@@ -102,4 +102,3 @@ Every change that touches logic goes through two review agents in parallel befor
 - **Unit coverage is thin.** Vitest covers the pure logic in `src/lib` (`dates`, `macros`, `inbodyChecks`, `exercises`, `search`), and `pnpm test:db` covers user isolation and idempotency against a real database; the rest of the stateful code relies on typecheck, lint, build, the review gates and manual checks.
 - **Truncated replies on the streaming path.** A cut reply is continued server-side and a continuation that restarts the answer is discarded, but already-streamed text cannot be reset, so the reply stays cut at the truncation point.
 - **`/api/coach/approve` is still request-bound.** Unlike `/api/coach`, a dropped connection cancels the write-confirmation flow.
-- Facts written before supersession shipped carry no `subject` and are never superseded; they age out only by the semantic dedup path.

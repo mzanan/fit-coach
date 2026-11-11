@@ -140,14 +140,14 @@ export function writeReceipts(outputs: WriteOutput[]): string {
 }
 
 export type MemoryWrite =
-  | { kind: "fact"; content: string }
+  | { kind: "memory"; receipt: string; learned?: string }
   | { kind: "location"; location: string | null };
 
 export function memoryReceipts(writes: MemoryWrite[]): string {
   return writes
     .map((write) =>
-      write.kind === "fact"
-        ? `Remembered: ${write.content}`
+      write.kind === "memory"
+        ? write.receipt
         : write.location
           ? `Current city set to ${write.location}.`
           : "Current city cleared.",
@@ -156,5 +156,5 @@ export function memoryReceipts(writes: MemoryWrite[]): string {
 }
 
 export function learnedFacts(writes: MemoryWrite[]): string[] {
-  return writes.flatMap((write) => (write.kind === "fact" ? [write.content] : []));
+  return writes.flatMap((write) => (write.kind === "memory" && write.learned ? [write.learned] : []));
 }

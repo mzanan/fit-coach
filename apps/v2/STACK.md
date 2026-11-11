@@ -35,7 +35,7 @@ Baseline for comparing coach variants. Verified against the code on 2026-11-10.
 | Coach model | Per-user BYOK: Groq, OpenRouter, Google or the Experiential Labs gateway (Matias uses claude-haiku-5.5) |
 | Tool gate | Jev judge model (`typesafe/jev-1.13` via OpenRouter) checks additive writes before they run |
 | Confirmations | `close_day` and `set_targets` pause for a confirmation card |
-| Memory | `user_facts` table, one row per fact, up to 150 facts injected into the system prompt every turn |
+| Memory | `memory_files` table, one row per Markdown file under `/memories` (topic files, city folders), custom `memory` tool with the six commands of Anthropic's memory tool (view, create, str_replace, insert, delete, rename), guards in code (no overwrite on create, 16,000-char cap, paths only under `/memories`, read-only `MEMORY.md`), optimistic concurrency by `version`, history in `write_changes`; only the code-built `MEMORY.md` index is injected every turn |
 | Catalog search | No vectors; the model translates and searches the English catalog itself |
 | Vision | Gemini (`gemini-3.6-flash`) on a system key, InBody scans only; no meal photo logging |
 | Durable jobs | Workflow DevKit (`workflow` 5.4) for the markdown history import |

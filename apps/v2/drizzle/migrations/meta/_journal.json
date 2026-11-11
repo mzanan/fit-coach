@@ -85,6 +85,13 @@
       "when": 1794226172713,
       "tag": "0011_drop-old-coach-memory",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794386508853,
+      "tag": "0012_add-memory-files",
+      "breakpoints": true
     }
   ]
 }

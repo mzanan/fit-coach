@@ -22,7 +22,7 @@ export async function buildFitCoachServer(userId: string): Promise<McpServer> {
   const profile = await ensureProfile(userId);
   const today = todayLogicalDay(dayConfig(profile));
   await applyDuePlansFor(userId, today);
-  const tools = buildCoachTools(userId, profile, today, true, { factSource: "mcp" });
+  const tools = buildCoachTools(userId, profile, today, true);
   const server = withWriteLedger(
     new McpServer({ name: "fit-coach", version: "1.0.0" }, { instructions: MCP_INSTRUCTIONS }),
     userId,
