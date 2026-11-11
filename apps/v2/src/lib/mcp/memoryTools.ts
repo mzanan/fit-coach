@@ -6,12 +6,13 @@ import { z } from "zod";
 import { listActiveRules } from "@/lib/data/coachRules";
 import { deleteHealthEvent, getHealthEvent, listHealthEvents, logHealthEvent, updateHealthEvent } from "@/lib/data/healthEvents";
 import { addPendingItem, deletePendingItem, listPendingItems, markPendingItemDone, updatePendingItem } from "@/lib/data/pendingItems";
-import { listFacts } from "@/lib/data/userFacts";
+import { listMemoryFiles } from "@/lib/data/memoryFiles";
 import type { Profile } from "@/lib/db/schema";
 import { MEMORY_DETAILS_MAX, MEMORY_HEALTH_EVENTS_MAX, MEMORY_PENDING_ITEMS_MAX } from "@/lib/constants";
 import { manageHealthEventInput, managePendingItemInput } from "@/lib/history/memorySchemas";
 import { futureDayError, toolError, toolTextContent } from "@/lib/mcp/toolResult";
-import { clipText, endsBeforeStart, factsForLocation, groupFactsByDomain, hasAnyField, knownCities } from "@/lib/userMemory";
+import { filesForLocation, memoryCities, memoryIndexLines } from "@/lib/memory/memoryIndex";
+import { clipText, endsBeforeStart, hasAnyField } from "@/lib/userMemory";
 
 const RANGE_ERROR = "resolved_on cannot be before started_on.";
 
@@ -20,12 +21,12 @@ export function registerMemoryTools(server: McpServer, userId: string, profile: 
     "get_coach_memory",
     {
       description:
-        "Read everything the coach must know before answering: the coaching method the user wrote, the city the user lives in now, every current fact about the user grouped by domain (facts scoped to another city are left out), standing rules, open pending items (shopping, to-dos, appointments) and open health events. Call it at the start of every conversation.",
+        "Read everything the coach must know before answering: the coaching method the user wrote, the city the user lives in now, the index of the memory files about the user (path and title; folders of another city are left out; open a file with the memory tool, command view), standing rules, open pending items (shopping, to-dos, appointments) and open health events. Call it at the start of every conversation.",
       inputSchema: z.object({}),
     },
     async () => {
-      const [facts, rules, pendingItems, openHealth] = await Promise.all([
-        listFacts(userId),
+      const [files, rules, pendingItems, openHealth] = await Promise.all([
+        listMemoryFiles(userId),
         listActiveRules(userId),
         listPendingItems(userId, false, MEMORY_PENDING_ITEMS_MAX),
         listHealthEvents(userId, false, MEMORY_HEALTH_EVENTS_MAX),
@@ -34,8 +35,8 @@ export function registerMemoryTools(server: McpServer, userId: string, profile: 
         today,
         method: profile.coach_rules ?? null,
         current_location: profile.current_location,
-        known_cities: knownCities(facts),
-        facts: groupFactsByDomain(factsForLocation(facts, profile.current_location)),
+        known_cities: memoryCities(files),
+        memory_index: memoryIndexLines(filesForLocation(files, profile.current_location)),
         standing_rules: rules,
         pending_items: pendingItems,
         open_health_events: openHealth.map((event) => ({ ...event, details: clipText(event.details, MEMORY_DETAILS_MAX) })),

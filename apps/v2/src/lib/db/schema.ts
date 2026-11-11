@@ -783,23 +783,20 @@ export const import_chunks = pgTable(
   ],
 );
 
-export const user_facts = pgTable(
-  "user_facts",
+export const memory_files = pgTable(
+  "memory_files",
   {
     id: text("id").primaryKey(),
     user_id: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    domain: text("domain").notNull(),
-    subject: text("subject").notNull(),
+    path: text("path").notNull(),
     content: text("content").notNull(),
-    scope: text("scope"),
-    review_on: text("review_on"),
-    source: text("source").notNull(),
+    version: integer("version").notNull().default(1),
     created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
   },
-  (t) => [uniqueIndex("user_facts_user_domain_subject_idx").on(t.user_id, t.domain, t.subject)],
+  (t) => [uniqueIndex("memory_files_user_path_idx").on(t.user_id, t.path)],
 );
 
 export const health_events = pgTable(
@@ -877,6 +874,7 @@ export const write_changes = pgTable(
   (t) => [
     index("write_changes_ledger_idx").on(t.ledger_id),
     index("write_changes_user_created_idx").on(t.user_id, t.created_at),
+    index("write_changes_table_row_idx").on(t.table_name, t.row_id, t.created_at),
   ],
 );
 
@@ -901,6 +899,6 @@ export type ImportFile = typeof import_files.$inferSelect;
 
 export type Plan = typeof plans.$inferSelect;
 export type RoutineVersion = typeof routine_versions.$inferSelect;
-export type UserFact = typeof user_facts.$inferSelect;
+export type MemoryFile = typeof memory_files.$inferSelect;
 export type HealthEvent = typeof health_events.$inferSelect;
 export type PendingItem = typeof pending_items.$inferSelect;

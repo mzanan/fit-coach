@@ -1,47 +1,38 @@
 import { z } from "zod";
 
 import {
-  FACT_CONTENT_MAX,
-  FACT_DOMAINS,
-  FACT_SCOPE_MAX,
-  FACT_SUBJECT_MAX,
   HEALTH_DETAILS_MAX,
   HEALTH_EVENT_KINDS,
   HEALTH_TITLE_MAX,
   PENDING_ITEM_KINDS,
+  MEMORY_COMMANDS,
+  MEMORY_PATH_MAX,
   PENDING_ITEM_TEXT_MAX,
 } from "@/lib/constants";
 import { calendarDay } from "@/lib/validation";
 
 const id = z.string().min(1);
 
-export const rememberFactInput = z.object({
-  domain: z.enum(FACT_DOMAINS),
-  subject: z
-    .string()
-    .trim()
-    .min(1)
-    .max(FACT_SUBJECT_MAX)
-    .describe("short stable key of what the fact is about, e.g. lunch_protein_floor; saving the same domain and subject replaces it"),
-  content: z.string().trim().min(1).max(FACT_CONTENT_MAX).describe("the fact, one or two sentences, true now"),
-  scope: z
-    .string()
-    .trim()
-    .max(FACT_SCOPE_MAX)
-    .nullable()
+const memoryPath = z.string().min(1).max(MEMORY_PATH_MAX);
+
+export const memoryCommandInput = z.object({
+  command: z.enum(MEMORY_COMMANDS),
+  path: memoryPath.optional().describe("every command except rename: a path under /memories, e.g. /memories/diet.md"),
+  view_range: z
+    .array(z.number().int())
+    .length(2)
     .optional()
-    .describe("set when the fact only holds in one city, e.g. location:da_nang; such facts are used only while that city is the current location; omit to keep the current one, null clears it"),
-  review_on: calendarDay.nullable().optional().describe("day to re-check the fact; omit to keep, null clears"),
-  replaces_id: id.optional().describe("id of an older fact this one supersedes; it is deleted"),
+    .describe("view of a file only: [first_line, last_line], 1-based; -1 as last_line means the end"),
+  file_text: z.string().optional().describe("create: the whole content of the new file"),
+  old_str: z.string().optional().describe("str_replace: text that appears exactly once in the file"),
+  new_str: z.string().optional().describe("str_replace: replacement text; empty removes old_str"),
+  insert_line: z.number().int().min(0).optional().describe("insert: line number to insert after; 0 is the top"),
+  insert_text: z.string().optional().describe("insert: text to insert"),
+  old_path: memoryPath.optional().describe("rename: current path"),
+  new_path: memoryPath.optional().describe("rename: new path; it must not exist"),
 });
 
-export const forgetFactInput = z.object({
-  id: id.describe("id of the fact, from get_facts or get_coach_memory"),
-});
-
-export const getFactsInput = z.object({
-  domain: z.enum(FACT_DOMAINS).optional().describe("only this domain; omit for all"),
-});
+export type MemoryCommandInput = z.infer<typeof memoryCommandInput>;
 
 export const manageHealthEventInput = z.object({
   action: z.enum(["list", "log", "update", "delete"]),

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { WRITE_TOOLS } from "@/lib/constants";
-import { isWriteTool } from "@/lib/toolKinds";
+import { isReadOnlyCall, isWriteTool } from "@/lib/toolKinds";
 
 const READ_TOOLS = [
   "get_current_time",
@@ -36,7 +36,7 @@ const MCP_WRITE_TOOLS = [
   "manage_rule",
   "manage_fatigue",
   "update_profile",
-  "remember_fact",
+  "memory",
   "manage_health_event",
   "manage_pending_item",
 ];
@@ -52,5 +52,13 @@ describe("isWriteTool", () => {
 
   it("never ledgers a read tool", () => {
     expect(READ_TOOLS.filter(isWriteTool)).toEqual([]);
+  });
+
+  it("skips the ledger for list actions and memory views only", () => {
+    expect(isReadOnlyCall({ action: "list" })).toBe(true);
+    expect(isReadOnlyCall({ command: "view", path: "/memories" })).toBe(true);
+    expect(isReadOnlyCall({ command: "create", path: "/memories/diet.md" })).toBe(false);
+    expect(isReadOnlyCall({ action: "delete" })).toBe(false);
+    expect(isReadOnlyCall(null)).toBe(false);
   });
 });
